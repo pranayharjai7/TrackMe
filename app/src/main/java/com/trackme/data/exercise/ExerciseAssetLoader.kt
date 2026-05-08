@@ -9,6 +9,9 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val EXERCISE_IMAGE_BASE_URL =
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/"
+
 @Serializable
 private data class RawExercise(
     val id: String,
@@ -35,7 +38,7 @@ class ExerciseAssetLoader @Inject constructor(
 
     private fun RawExercise.toEntity(): ExerciseEntity {
         val gifUrl = images.firstOrNull()?.let {
-            "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/$it"
+            "$EXERCISE_IMAGE_BASE_URL$it"
         } ?: ""
         return ExerciseEntity(
             id = id,

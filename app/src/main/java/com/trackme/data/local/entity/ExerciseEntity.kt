@@ -3,6 +3,9 @@ package com.trackme.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.Exercise
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 @Entity(tableName = "exercises")
 data class ExerciseEntity(
@@ -27,11 +30,10 @@ data class ExerciseEntity(
     )
 }
 
+private val entityJson = Json
+
 fun String.parseJsonStringList(): List<String> =
-    trimStart('[').trimEnd(']')
-        .split(",")
-        .map { it.trim().trim('"') }
-        .filter { it.isNotEmpty() }
+    entityJson.decodeFromString(ListSerializer(String.serializer()), this)
 
 fun Exercise.toEntity(): ExerciseEntity = ExerciseEntity(
     id = id, name = name, category = category,
@@ -43,4 +45,5 @@ fun Exercise.toEntity(): ExerciseEntity = ExerciseEntity(
     youtubeQuery = youtubeQuery,
 )
 
-fun List<String>.toJsonString(): String = "[${joinToString(",") { "\"$it\"" }}]"
+fun List<String>.toJsonString(): String =
+    entityJson.encodeToString(ListSerializer(String.serializer()), this)

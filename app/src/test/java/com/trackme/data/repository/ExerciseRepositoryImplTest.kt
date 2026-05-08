@@ -62,4 +62,27 @@ class ExerciseRepositoryImplTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun `getByMuscle returns mapped domain models`() = runTest {
+        every { dao.getByMuscle("chest") } returns flowOf(
+            listOf(fakeEntity("bench-press", "Bench Press"))
+        )
+
+        repo.getByMuscle("chest").test {
+            val result = awaitItem()
+            assertEquals(1, result.size)
+            assertEquals("Bench Press", result[0].name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `getById returns mapped domain model`() = runTest {
+        coEvery { dao.getById("bench-press") } returns fakeEntity("bench-press", "Bench Press")
+
+        val result = repo.getById("bench-press")
+
+        assertEquals("Bench Press", result?.name)
+    }
 }
