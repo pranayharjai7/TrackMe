@@ -1,6 +1,9 @@
 package com.trackme.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.trackme.data.local.AppDatabase
 import com.trackme.data.local.dao.*
@@ -10,6 +13,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "trackme_prefs")
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -30,4 +35,8 @@ object DatabaseModule {
     @Provides fun provideSessionSetDao(db: AppDatabase): SessionSetDao = db.sessionSetDao()
     @Provides fun providePersonalRecordDao(db: AppDatabase): PersonalRecordDao = db.personalRecordDao()
     @Provides fun provideHealthSnapshotDao(db: AppDatabase): HealthSnapshotDao = db.healthSnapshotDao()
+
+    @Provides
+    @Singleton
+    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.dataStore
 }
