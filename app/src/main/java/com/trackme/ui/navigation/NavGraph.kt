@@ -1,0 +1,133 @@
+package com.trackme.ui.navigation
+
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.trackme.ui.auth.AuthScreen
+import com.trackme.ui.components.TrackMeBottomBar
+import com.trackme.ui.home.HomeScreen
+import com.trackme.ui.onboarding.OnboardingScreen
+import com.trackme.ui.profile.ProfileScreen
+import com.trackme.ui.progress.ProgressScreen
+import com.trackme.ui.workout.exercise.ExerciseDetailScreen
+import com.trackme.ui.workout.exercise.ExerciseSearchScreen
+import com.trackme.ui.workout.planner.DayEditorScreen
+import com.trackme.ui.workout.planner.WeeklyPlannerScreen
+import com.trackme.ui.workout.session.ActiveSessionScreen
+
+@Composable
+fun TrackMeNavGraph() {
+    val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+
+    val showBottomBar = currentRoute in listOf(
+        Routes.Home.route, Routes.WeeklyPlanner.route,
+        Routes.Progress.route, Routes.Profile.route,
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                TrackMeBottomBar(navController = navController, currentRoute = currentRoute)
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Routes.Auth.route,
+            modifier = Modifier.padding(innerPadding),
+        ) {
+            composable(Routes.Auth.route) {
+                AuthScreen(
+                    onAuthSuccess = { isNewUser ->
+                        if (isNewUser) navController.navigate(Routes.Onboarding.route) {
+                            popUpTo(Routes.Auth.route) { inclusive = true }
+                        } else navController.navigate(Routes.Home.route) {
+                            popUpTo(Routes.Auth.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(Routes.Onboarding.route) {
+                OnboardingScreen(
+                    onComplete = {
+                        navController.navigate(Routes.Home.route) {
+                            popUpTo(Routes.Onboarding.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(Routes.Home.route) {
+                HomeScreen(
+                    onStartSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) }
+                )
+            }
+            composable(Routes.WeeklyPlanner.route) {
+                WeeklyPlannerScreen(
+                    onEditDay = { dayId -> navController.navigate(Routes.DayEditor.createRoute(dayId)) }
+                )
+            }
+            composable(
+                route = Routes.DayEditor.route,
+                arguments = listOf(navArgument("dayId") { type = NavType.StringType }),
+            ) { backStack ->
+                val dayId = backStack.arguments?.getString("dayId") ?: return@composable
+                DayEditorScreen(
+                    dayId = dayId,
+                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = Routes.ExerciseSearch.route,
+                arguments = listOf(navArgument("dayId") { type = NavType.StringType; defaultValue = "" }),
+            ) { backStack ->
+                val dayId = backStack.arguments?.getString("dayId") ?: ""
+                ExerciseSearchScreen(
+                    dayId = dayId,
+                    onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = Routes.ExerciseDetail.route,
+                arguments = listOf(navArgument("exerciseId") { type = NavType.StringType }),
+            ) { backStack ->
+                val exerciseId = backStack.arguments?.getString("exerciseId") ?: return@composable
+                ExerciseDetailScreen(
+                    exerciseId = exerciseId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = Routes.ActiveSession.route,
+                arguments = listOf(navArgument("dayId") { type = NavType.StringType }),
+            ) { backStack ->
+                val dayId = backStack.arguments?.getString("dayId") ?: return@composable
+                ActiveSessionScreen(
+                    dayId = dayId,
+                    onSessionFinished = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.Progress.route) { ProgressScreen() }
+            composable(Routes.Profile.route) {
+                ProfileScreen(
+                    onSignOut = {
+                        navController.navigate(Routes.Auth.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
