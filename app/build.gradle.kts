@@ -86,7 +86,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Health Connect
-    implementation("androidx.health.connect:connect-client:1.0.0-alpha11")
+    implementation("androidx.health.connect:connect-client:1.1.0-rc01")
 
     // Coil (images + GIFs)
     implementation("io.coil-kt:coil-compose:2.7.0")
