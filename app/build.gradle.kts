@@ -93,7 +93,7 @@ dependencies {
     implementation("io.coil-kt:coil-gif:2.7.0")
 
     // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
