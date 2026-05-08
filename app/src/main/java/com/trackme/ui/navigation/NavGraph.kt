@@ -83,7 +83,7 @@ fun TrackMeNavGraph() {
                 val dayId = backStack.arguments?.getString("dayId") ?: return@composable
                 DayEditorScreen(
                     dayId = dayId,
-                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) },
+                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) }, // dayId captured from navArgument above
                     onBack = { navController.popBackStack() },
                 )
             }
