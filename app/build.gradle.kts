@@ -78,7 +78,7 @@ dependencies {
     // Supabase
     implementation(platform("io.github.jan-tennert.supabase:bom:2.6.1"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.ktor:ktor-client-android:2.3.12")
     implementation("io.ktor:ktor-client-core:2.3.12")
 
@@ -86,7 +86,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Health Connect
-    implementation("androidx.health.connect:connect-client:1.1.0-rc01")
+    implementation("androidx.health.connect:connect-client:1.0.0-alpha11")
 
     // Coil (images + GIFs)
     implementation("io.coil-kt:coil-compose:2.7.0")
