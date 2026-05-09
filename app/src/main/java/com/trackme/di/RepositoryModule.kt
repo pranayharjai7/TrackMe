@@ -1,8 +1,10 @@
 package com.trackme.di
 
 import com.trackme.data.repository.ExerciseRepositoryImpl
+import com.trackme.data.repository.HealthRepositoryImpl
 import com.trackme.data.repository.WorkoutRepositoryImpl
 import com.trackme.domain.repository.ExerciseRepository
+import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.repository.WorkoutRepository
 import dagger.Binds
 import dagger.Module
@@ -21,4 +23,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWorkoutRepository(impl: WorkoutRepositoryImpl): WorkoutRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthRepository(impl: HealthRepositoryImpl): HealthRepository
 }
