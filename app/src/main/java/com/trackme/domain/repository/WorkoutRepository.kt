@@ -27,4 +27,7 @@ interface WorkoutRepository {
 
     suspend fun updatePersonalRecord(userId: String, exerciseId: String, weightKg: Float, reps: Int, date: Long)
     fun getPersonalRecords(userId: String): Flow<List<PersonalRecord>>
+
+    fun getHistoryForExercise(userId: String, exerciseId: String): Flow<List<SessionSet>>
+    fun getSessionsSince(userId: String, fromDate: Long): Flow<List<WorkoutSession>>
 }

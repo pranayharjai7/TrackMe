@@ -108,4 +108,10 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override fun getPersonalRecords(userId: String): Flow<List<PersonalRecord>> =
         personalRecordDao.getAllForUser(userId).map { it.map { e -> e.toDomain() } }
+
+    override fun getHistoryForExercise(userId: String, exerciseId: String): Flow<List<SessionSet>> =
+        sessionSetDao.getHistoryForExercise(userId, exerciseId).map { it.map { e -> e.toDomain() } }
+
+    override fun getSessionsSince(userId: String, fromDate: Long): Flow<List<WorkoutSession>> =
+        workoutSessionDao.getForUserSince(userId, fromDate).map { it.map { e -> e.toDomain() } }
 }
