@@ -9,8 +9,9 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import com.trackme.data.local.entity.HealthSnapshotEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,18 +46,18 @@ class HealthConnectManager @Inject constructor(
         val timeRange = TimeRangeFilter.between(start, end)
 
         val weights = c.readRecords(ReadRecordsRequest(WeightRecord::class, timeRange))
-            .records.groupBy { it.time.truncatedTo(ChronoUnit.DAYS) }
+            .records.groupBy { it.time.atZone(ZoneId.systemDefault()).toLocalDate() }
             .mapValues { (_, records) -> records.maxByOrNull { it.time }?.weight?.inKilograms?.toFloat() }
 
         val latestHeight = c.readRecords(ReadRecordsRequest(HeightRecord::class, timeRange))
             .records.maxByOrNull { it.time }?.height?.inMeters?.times(100)?.toFloat()
 
         val stepsByDay = c.readRecords(ReadRecordsRequest(StepsRecord::class, timeRange))
-            .records.groupBy { it.startTime.truncatedTo(ChronoUnit.DAYS) }
+            .records.groupBy { it.startTime.atZone(ZoneId.systemDefault()).toLocalDate() }
             .mapValues { (_, records) -> records.sumOf { it.count } }
 
         val caloriesByDay = c.readRecords(ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, timeRange))
-            .records.groupBy { it.startTime.truncatedTo(ChronoUnit.DAYS) }
+            .records.groupBy { it.startTime.atZone(ZoneId.systemDefault()).toLocalDate() }
             .mapValues { (_, records) -> records.sumOf { it.energy.inKilocalories }.toFloat() }
 
         val allDays = (weights.keys + stepsByDay.keys + caloriesByDay.keys).toSet()
@@ -68,9 +69,9 @@ class HealthConnectManager @Inject constructor(
             } else null
 
             HealthSnapshotEntity(
-                id = UUID.randomUUID().toString(),
+                id = "${userId}_${day}",
                 userId = userId,
-                date = day.toEpochMilli(),
+                date = day.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
                 weightKg = weightKg,
                 heightCm = latestHeight,
                 bmi = bmi,
