@@ -23,6 +23,7 @@ android {
         buildConfigField("String", "SUPABASE_URL",          "\"${props["SUPABASE_URL"]}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY",     "\"${props["SUPABASE_ANON_KEY"]}\"")
         buildConfigField("String", "EXERCISE_DB_API_KEY",   "\"${props["EXERCISE_DB_API_KEY"]}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID",  "\"${props["GOOGLE_WEB_CLIENT_ID"]}\"")
     }
 
     buildTypes {
@@ -103,6 +104,11 @@ dependencies {
 
     // Security
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Credential Manager (Google Sign-In)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

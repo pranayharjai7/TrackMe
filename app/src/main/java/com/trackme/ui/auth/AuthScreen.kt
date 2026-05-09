@@ -12,12 +12,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.trackme.BuildConfig
 import com.trackme.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(
@@ -28,6 +37,8 @@ fun AuthScreen(
     var isSignUp by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
@@ -127,7 +138,35 @@ fun AuthScreen(
                     Spacer(Modifier.height(16.dp))
 
                     OutlinedButton(
-                        onClick = { viewModel.signInWithGoogle(onAuthSuccess) },
+                        onClick = {
+                            scope.launch {
+                                val credentialManager = CredentialManager.create(context)
+                                val googleIdOption = GetGoogleIdOption.Builder()
+                                    .setFilterByAuthorizedAccounts(false)
+                                    .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                                    .setAutoSelectEnabled(false)
+                                    .build()
+                                val request = GetCredentialRequest.Builder()
+                                    .addCredentialOption(googleIdOption)
+                                    .build()
+                                try {
+                                    val result = credentialManager.getCredential(context, request)
+                                    val cred = result.credential
+                                    if (cred is androidx.credentials.CustomCredential &&
+                                        cred.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                                    ) {
+                                        val idToken = GoogleIdTokenCredential.createFrom(cred.data).idToken
+                                        viewModel.signInWithGoogle(idToken, onAuthSuccess)
+                                    } else {
+                                        viewModel.setError("Unexpected credential type")
+                                    }
+                                } catch (e: GetCredentialCancellationException) {
+                                    // user dismissed — do nothing
+                                } catch (e: GetCredentialException) {
+                                    viewModel.setError(e.message ?: "Google sign in failed")
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(16.dp),
                         enabled = !uiState.isLoading,

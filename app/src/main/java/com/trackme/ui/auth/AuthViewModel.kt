@@ -65,11 +65,11 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signInWithGoogle(onSuccess: (isNewUser: Boolean) -> Unit = {}) {
+    fun signInWithGoogle(idToken: String, onSuccess: (isNewUser: Boolean) -> Unit = {}) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             runCatching {
-                signInWithGoogleImpl(supabase)
+                signInWithGoogleIdTokenImpl(supabase, idToken)
             }.onSuccess {
                 _uiState.update { it.copy(isLoading = false) }
                 onSuccess(false)
@@ -80,4 +80,5 @@ class AuthViewModel @Inject constructor(
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
+    fun setError(msg: String) = _uiState.update { it.copy(isLoading = false, error = msg) }
 }
