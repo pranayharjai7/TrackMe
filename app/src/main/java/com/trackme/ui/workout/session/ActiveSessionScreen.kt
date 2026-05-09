@@ -1,5 +1,6 @@
 package com.trackme.ui.workout.session
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,12 +8,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -29,6 +33,7 @@ import com.trackme.ui.theme.*
 fun ActiveSessionScreen(
     dayId: String,
     onSessionFinished: () -> Unit,
+    onBack: () -> Unit,
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -37,6 +42,11 @@ fun ActiveSessionScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Active Session") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 actions = {
                     TextButton(
                         onClick = { viewModel.finishSession(onSessionFinished) },
@@ -155,14 +165,14 @@ private fun ExerciseSessionCard(
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
-    val targetSets = plannedExercise.targetSets
+    var targetSets by rememberSaveable(plannedExercise.id) { mutableIntStateOf(plannedExercise.targetSets) }
+    val currentSetNumber = loggedSets.size + 1
+    val allSetsLogged = loggedSets.size >= targetSets
 
     var weightInput by remember {
         mutableStateOf(plannedExercise.targetWeightKg?.let { if (it > 0f) it.toString() else "" } ?: "")
     }
-    var repsInput by remember {
-        mutableStateOf(plannedExercise.targetReps?.toString() ?: "")
-    }
+    var repsInput by remember { mutableStateOf(plannedExercise.targetReps?.toString() ?: "") }
     var durationInput by remember {
         mutableStateOf(
             when (loggingType) {
@@ -176,15 +186,15 @@ private fun ExerciseSessionCard(
     var speedInput by remember { mutableStateOf(plannedExercise.targetSpeedKmh?.toString() ?: "") }
     var inclineInput by remember { mutableStateOf(plannedExercise.targetIncline?.toString() ?: "") }
 
-    val currentSetNumber = loggedSets.size + 1
-
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(4.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+            // Header
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -197,79 +207,197 @@ private fun ExerciseSessionCard(
                         Text(it.primaryMuscles.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = Violet)
                     }
                 }
-                Text(
-                    "Set $currentSetNumber of $targetSets",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Teal,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            loggedSets.forEachIndexed { i, set ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Set ${i + 1}", style = MaterialTheme.typography.bodySmall, color = OnSurfaceMuted)
+                if (allSetsLogged) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Teal.copy(alpha = 0.15f),
+                    ) {
+                        Text(
+                            "Done",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Teal,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                } else {
                     Text(
-                        setChipLabel(set, loggingType),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Teal,
-                        fontWeight = FontWeight.SemiBold,
+                        "Set $currentSetNumber of $targetSets",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = OnSurfaceMuted,
                     )
                 }
             }
 
-            if (loggedSets.isNotEmpty()) Spacer(Modifier.height(8.dp))
+            // Set progress chips with +/- controls
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                IconButton(
+                    onClick = { if (targetSets > maxOf(loggedSets.size, 1)) targetSets-- },
+                    modifier = Modifier.size(28.dp),
+                    enabled = targetSets > maxOf(loggedSets.size, 1),
+                ) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Remove set",
+                        tint = if (targetSets > maxOf(loggedSets.size, 1)) OnSurface else OnSurfaceMuted.copy(alpha = 0.3f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (i in 1..targetSets) {
+                        val isCompleted = i <= loggedSets.size
+                        val isCurrent = i == currentSetNumber && !allSetsLogged
+                        SetChip(index = i, isCompleted = isCompleted, isCurrent = isCurrent)
+                    }
+                }
+                IconButton(
+                    onClick = { targetSets++ },
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add set",
+                        tint = OnSurface,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
 
-            when (loggingType) {
-                LoggingType.WEIGHTED_REPS -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SessionField("kg", weightInput, Modifier.weight(1f), KeyboardType.Decimal) { weightInput = it }
-                        SessionField("reps", repsInput, Modifier.weight(1f), KeyboardType.Number) { repsInput = it }
-                        LogButton {
-                            val w = weightInput.toFloatOrNull() ?: return@LogButton
-                            val r = repsInput.toIntOrNull() ?: return@LogButton
-                            onLogSet(w, r, null, null, null, null)
+            // Logged set values
+            if (loggedSets.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    loggedSets.forEachIndexed { i, set ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                "Set ${i + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = OnSurfaceMuted,
+                            )
+                            Text(
+                                setChipLabel(set, loggingType),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Teal,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                 }
-                LoggingType.BODYWEIGHT_REPS -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SessionField("reps", repsInput, Modifier.weight(1f), KeyboardType.Number) { repsInput = it }
-                        LogButton {
-                            val r = repsInput.toIntOrNull() ?: return@LogButton
-                            onLogSet(0f, r, null, null, null, null)
-                        }
-                    }
-                }
-                LoggingType.TIMED -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SessionField("duration (s)", durationInput, Modifier.weight(1f), KeyboardType.Number) { durationInput = it }
-                        LogButton {
-                            val d = durationInput.toIntOrNull() ?: return@LogButton
-                            onLogSet(0f, 0, d, null, null, null)
-                        }
-                    }
-                }
-                LoggingType.CARDIO -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            }
+
+            // Input fields (only when sets remain)
+            if (!allSetsLogged) {
+                HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.15f))
+                when (loggingType) {
+                    LoggingType.WEIGHTED_REPS -> {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SessionField("min", durationInput, Modifier.weight(1f), KeyboardType.Number) { durationInput = it }
-                            SessionField("km/h", speedInput, Modifier.weight(1f), KeyboardType.Decimal) { speedInput = it }
+                            SessionField("Weight (kg)", weightInput, Modifier.weight(1f), KeyboardType.Decimal) { weightInput = it }
+                            SessionField("Reps", repsInput, Modifier.weight(1f), KeyboardType.Number) { repsInput = it }
+                        }
+                        Button(
+                            onClick = {
+                                val w = weightInput.toFloatOrNull() ?: return@Button
+                                val r = repsInput.toIntOrNull() ?: return@Button
+                                onLogSet(w, r, null, null, null, null)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    LoggingType.BODYWEIGHT_REPS -> {
+                        SessionField("Reps", repsInput, Modifier.fillMaxWidth(), KeyboardType.Number) { repsInput = it }
+                        Button(
+                            onClick = {
+                                val r = repsInput.toIntOrNull() ?: return@Button
+                                onLogSet(0f, r, null, null, null, null)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    LoggingType.TIMED -> {
+                        SessionField("Duration (seconds)", durationInput, Modifier.fillMaxWidth(), KeyboardType.Number) { durationInput = it }
+                        Button(
+                            onClick = {
+                                val d = durationInput.toIntOrNull() ?: return@Button
+                                onLogSet(0f, 0, d, null, null, null)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    LoggingType.CARDIO -> {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SessionField("Duration (min)", durationInput, Modifier.weight(1f), KeyboardType.Number) { durationInput = it }
+                            SessionField("Speed (km/h)", speedInput, Modifier.weight(1f), KeyboardType.Decimal) { speedInput = it }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SessionField("km", distanceInput, Modifier.weight(1f), KeyboardType.Decimal) { distanceInput = it }
-                            SessionField("incline%", inclineInput, Modifier.weight(1f), KeyboardType.Decimal) { inclineInput = it }
-                            LogButton {
-                                val d = durationInput.toIntOrNull()?.times(60) ?: return@LogButton
+                            SessionField("Distance (km)", distanceInput, Modifier.weight(1f), KeyboardType.Decimal) { distanceInput = it }
+                            SessionField("Incline (%)", inclineInput, Modifier.weight(1f), KeyboardType.Decimal) { inclineInput = it }
+                        }
+                        Button(
+                            onClick = {
+                                val d = durationInput.toIntOrNull()?.times(60) ?: return@Button
                                 onLogSet(0f, 0, d, distanceInput.toFloatOrNull(), speedInput.toFloatOrNull(), inclineInput.toFloatOrNull())
-                            }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text("Log Cardio", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetChip(index: Int, isCompleted: Boolean, isCurrent: Boolean) {
+    val bgColor = when {
+        isCompleted -> Teal
+        isCurrent -> Violet
+        else -> OnSurfaceMuted.copy(alpha = 0.12f)
+    }
+    val border = if (isCurrent) BorderStroke(1.5.dp, Violet) else null
+    val contentColor = when {
+        isCompleted || isCurrent -> Color.White
+        else -> OnSurfaceMuted
+    }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = bgColor,
+        border = border,
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isCompleted) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Set $index done",
+                    tint = contentColor,
+                    modifier = Modifier.size(13.dp),
+                )
+            } else {
+                Text(
+                    index.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -303,15 +431,4 @@ private fun SessionField(
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(12.dp),
     )
-}
-
-@Composable
-private fun LogButton(onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Icon(Icons.Default.Check, contentDescription = "Log", modifier = Modifier.size(18.dp))
-    }
 }

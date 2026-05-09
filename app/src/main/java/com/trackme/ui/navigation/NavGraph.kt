@@ -128,6 +128,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                 ActiveSessionScreen(
                     dayId = dayId,
                     onSessionFinished = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Routes.Progress.route) { ProgressScreen() }
