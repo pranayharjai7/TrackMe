@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackme.data.health.HcSdkStatus
 import com.trackme.domain.repository.HealthRepository
+import com.trackme.domain.usecase.ClearLocalUserDataUseCase
 import com.trackme.ui.onboarding.PREF_GOAL
 import com.trackme.ui.onboarding.PREF_USE_KG
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,6 +33,7 @@ class ProfileViewModel @Inject constructor(
     private val healthRepository: HealthRepository,
     private val supabase: SupabaseClient,
     private val dataStore: DataStore<Preferences>,
+    private val clearLocalUserData: ClearLocalUserDataUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -115,6 +117,7 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut(onDone: () -> Unit) {
         viewModelScope.launch {
+            clearLocalUserData()
             supabase.auth.signOut()
             onDone()
         }

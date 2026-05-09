@@ -38,4 +38,7 @@ interface SessionSetDao {
 
     @Query("UPDATE session_sets SET deletedAt = :ts, updatedAt = :ts, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
+
+    @Query("DELETE FROM session_sets")
+    suspend fun deleteAll()
 }

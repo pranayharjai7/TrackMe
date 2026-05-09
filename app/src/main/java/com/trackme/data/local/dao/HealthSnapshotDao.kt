@@ -26,4 +26,7 @@ interface HealthSnapshotDao {
 
     @Query("UPDATE health_snapshots SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM health_snapshots")
+    suspend fun deleteAll()
 }

@@ -41,4 +41,7 @@ interface WorkoutSessionDao {
 
     @Query("UPDATE workout_sessions SET deletedAt = :ts, updatedAt = :ts, isSynced = 0 WHERE id = :id")
     suspend fun softDelete(id: String, ts: Long)
+
+    @Query("DELETE FROM workout_sessions")
+    suspend fun deleteAll()
 }

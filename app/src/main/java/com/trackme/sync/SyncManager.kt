@@ -26,4 +26,9 @@ class SyncManager @Inject constructor(
             "sync_periodic", ExistingPeriodicWorkPolicy.KEEP, request
         )
     }
+
+    fun cancelAllSync() {
+        WorkManager.getInstance(context).cancelUniqueWork("sync_immediate")
+        WorkManager.getInstance(context).cancelUniqueWork("sync_periodic")
+    }
 }

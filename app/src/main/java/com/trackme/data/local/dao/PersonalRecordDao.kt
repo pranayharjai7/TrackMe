@@ -17,4 +17,7 @@ interface PersonalRecordDao {
 
     @Delete
     suspend fun delete(pr: PersonalRecordEntity)
+
+    @Query("DELETE FROM personal_records")
+    suspend fun deleteAll()
 }

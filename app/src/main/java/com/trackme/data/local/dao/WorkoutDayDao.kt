@@ -32,4 +32,7 @@ interface WorkoutDayDao {
 
     @Query("UPDATE workout_days SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM workout_days")
+    suspend fun deleteAll()
 }

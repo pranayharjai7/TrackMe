@@ -29,4 +29,7 @@ interface PlannedExerciseDao {
 
     @Query("UPDATE planned_exercises SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM planned_exercises")
+    suspend fun deleteAll()
 }
