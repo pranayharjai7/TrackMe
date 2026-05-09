@@ -45,11 +45,17 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun syncHealthConnect(userId: String) {
+    fun syncHealthConnect() {
         viewModelScope.launch {
+            val userId = supabase.auth.currentSessionOrNull()?.user?.id ?: return@launch
             _uiState.update { it.copy(isSyncing = true) }
-            runCatching { healthRepository.syncFromHealthConnect(userId) }
-            _uiState.update { it.copy(isSyncing = false, lastSyncTime = System.currentTimeMillis()) }
+            val result = runCatching { healthRepository.syncFromHealthConnect(userId) }
+            _uiState.update {
+                it.copy(
+                    isSyncing = false,
+                    lastSyncTime = if (result.isSuccess) System.currentTimeMillis() else it.lastSyncTime,
+                )
+            }
         }
     }
 

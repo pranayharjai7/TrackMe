@@ -111,9 +111,8 @@ fun ProfileScreen(
                                 Text("Connect", color = Violet)
                             }
                         } else if (state.healthConnectConnected) {
-                            val userId = viewModel.uiState.value.email
                             IconButton(
-                                onClick = { viewModel.syncHealthConnect(userId) },
+                                onClick = { viewModel.syncHealthConnect() },
                                 enabled = !state.isSyncing,
                             ) {
                                 if (state.isSyncing) {
