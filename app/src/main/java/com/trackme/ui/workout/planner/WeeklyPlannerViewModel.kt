@@ -12,6 +12,7 @@ import com.trackme.domain.usecase.SaveWorkoutPlanUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,6 +25,7 @@ data class WeeklyPlannerUiState(
     val newPlanName: String = "",
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class WeeklyPlannerViewModel @Inject constructor(
     private val getActivePlan: GetActivePlanUseCase,
@@ -40,14 +42,13 @@ class WeeklyPlannerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            getActivePlan(userId).collect { plan ->
-                _uiState.update { it.copy(activePlan = plan) }
-                if (plan != null) {
-                    workoutRepository.getDaysForPlan(plan.id).collect { days ->
-                        _uiState.update { it.copy(days = days) }
-                    }
+            getActivePlan(userId)
+                .onEach { plan -> _uiState.update { it.copy(activePlan = plan) } }
+                .flatMapLatest { plan ->
+                    if (plan != null) workoutRepository.getDaysForPlan(plan.id)
+                    else flowOf(emptyList())
                 }
-            }
+                .collect { days -> _uiState.update { it.copy(days = days) } }
         }
     }
 

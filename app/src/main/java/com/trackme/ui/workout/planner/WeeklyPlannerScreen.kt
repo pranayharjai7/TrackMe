@@ -48,7 +48,7 @@ fun WeeklyPlannerScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 16.dp),
             ) {
-                items(DayOfWeek.entries) { dow ->
+                items(DayOfWeek.entries, key = { it.name }) { dow ->
                     val day = state.days.firstOrNull { it.dayOfWeek == dow }
                     DayCard(dayOfWeek = dow, workoutDay = day, onClick = { day?.let { onEditDay(it.id) } })
                 }
