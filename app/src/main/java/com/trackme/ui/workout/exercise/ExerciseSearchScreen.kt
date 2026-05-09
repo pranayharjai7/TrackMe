@@ -21,7 +21,7 @@ import com.trackme.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExerciseSearchScreen(
-    dayId: String,
+    dayId: String, // used in Plan 2 when adding selected exercise to this day
     onExerciseClick: (exerciseId: String) -> Unit,
     onBack: () -> Unit,
     viewModel: ExerciseSearchViewModel = hiltViewModel(),

@@ -13,7 +13,6 @@ import javax.inject.Inject
 data class ExerciseSearchUiState(
     val query: String = "",
     val results: List<Exercise> = emptyList(),
-    val isLoading: Boolean = false,
 )
 
 @HiltViewModel
