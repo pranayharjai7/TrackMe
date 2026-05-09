@@ -81,7 +81,16 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
-    fun logSet(exerciseId: String, setNumber: Int, weightKg: Float, reps: Int) {
+    fun logSet(
+        exerciseId: String,
+        setNumber: Int,
+        weightKg: Float,
+        reps: Int,
+        durationSeconds: Int? = null,
+        distanceKm: Float? = null,
+        speedKmh: Float? = null,
+        inclinePercent: Float? = null,
+    ) {
         viewModelScope.launch {
             logSetUseCase(
                 sessionId = _uiState.value.sessionId,
@@ -90,6 +99,10 @@ class ActiveSessionViewModel @Inject constructor(
                 setNumber = setNumber,
                 weightKg = weightKg,
                 reps = reps,
+                durationSeconds = durationSeconds,
+                distanceKm = distanceKm,
+                speedKmh = speedKmh,
+                inclinePercent = inclinePercent,
             )
             startRestTimer()
         }
@@ -125,4 +138,7 @@ class ActiveSessionViewModel @Inject constructor(
 
     fun setsForExercise(exerciseId: String): List<SessionSet> =
         _uiState.value.loggedSets.filter { it.exerciseId == exerciseId }
+
+    fun plannedFor(exerciseId: String): PlannedExercise? =
+        _uiState.value.exercises.find { it.first.exerciseId == exerciseId }?.first
 }

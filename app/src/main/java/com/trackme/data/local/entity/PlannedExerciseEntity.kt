@@ -14,9 +14,24 @@ data class PlannedExerciseEntity(
     val updatedAt: Long,
     val isSynced: Boolean = false,
     val deletedAt: Long? = null,
+    val targetSets: Int = 3,
+    val targetReps: Int? = null,
+    val targetWeightKg: Float? = null,
+    val targetDurationSeconds: Int? = null,
+    val targetDistanceKm: Float? = null,
+    val targetSpeedKmh: Float? = null,
+    val targetIncline: Float? = null,
 ) {
-    fun toDomain() = PlannedExercise(id, dayId, userId, exerciseId, orderIndex, updatedAt)
+    fun toDomain() = PlannedExercise(
+        id, dayId, userId, exerciseId, orderIndex, updatedAt,
+        targetSets, targetReps, targetWeightKg,
+        targetDurationSeconds, targetDistanceKm, targetSpeedKmh, targetIncline,
+    )
 }
 
-fun PlannedExercise.toEntity(isSynced: Boolean = false) =
-    PlannedExerciseEntity(id, dayId, userId, exerciseId, orderIndex, updatedAt, isSynced)
+fun PlannedExercise.toEntity(isSynced: Boolean = false) = PlannedExerciseEntity(
+    id, dayId, userId, exerciseId, orderIndex, updatedAt, isSynced,
+    deletedAt = null,
+    targetSets, targetReps, targetWeightKg,
+    targetDurationSeconds, targetDistanceKm, targetSpeedKmh, targetIncline,
+)

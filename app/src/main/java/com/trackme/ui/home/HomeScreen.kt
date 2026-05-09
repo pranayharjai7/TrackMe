@@ -28,6 +28,22 @@ import com.trackme.domain.model.WorkoutDay
 import com.trackme.ui.theme.*
 import java.util.Calendar
 
+private fun greetingTimeOfDay(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 5 -> "Good night,"
+        hour < 12 -> "Good morning,"
+        hour < 17 -> "Good afternoon,"
+        hour < 21 -> "Good evening,"
+        else -> "Good night,"
+    }
+}
+
+private fun greetingName(name: String): String {
+    val firstName = name.trim().substringBefore(" ")
+    return if (firstName.isEmpty()) "Let's crush it!" else "$firstName!"
+}
+
 private val DAY_LABELS = listOf("M", "T", "W", "T", "F", "S", "S")
 
 @Composable
@@ -52,15 +68,24 @@ fun HomeScreen(
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Text(
-                        "Today",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = OnBackground,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            greetingTimeOfDay(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = OnSurfaceMuted,
+                            fontWeight = FontWeight.Normal,
+                        )
+                        Text(
+                            greetingName(state.displayName),
+                            style = MaterialTheme.typography.displaySmall,
+                            color = OnBackground,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
                     if (state.streakDays > 0) {
+                        Spacer(Modifier.width(8.dp))
                         StreakBadge(state.streakDays)
                     }
                 }

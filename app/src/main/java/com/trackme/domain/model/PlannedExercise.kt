@@ -7,4 +7,11 @@ data class PlannedExercise(
     val exerciseId: String,
     val orderIndex: Int,
     val updatedAt: Long,
+    val targetSets: Int = 3,
+    val targetReps: Int? = null,
+    val targetWeightKg: Float? = null,
+    val targetDurationSeconds: Int? = null,
+    val targetDistanceKm: Float? = null,
+    val targetSpeedKmh: Float? = null,
+    val targetIncline: Float? = null,
 )

@@ -17,9 +17,19 @@ data class SessionSetEntity(
     val updatedAt: Long,
     val isSynced: Boolean = false,
     val deletedAt: Long? = null,
+    val durationSeconds: Int? = null,
+    val distanceKm: Float? = null,
+    val speedKmh: Float? = null,
+    val inclinePercent: Float? = null,
 ) {
-    fun toDomain() = SessionSet(id, sessionId, userId, exerciseId, setNumber, weightKg, reps, completed, updatedAt)
+    fun toDomain() = SessionSet(
+        id, sessionId, userId, exerciseId, setNumber, weightKg, reps, completed, updatedAt,
+        durationSeconds, distanceKm, speedKmh, inclinePercent,
+    )
 }
 
-fun SessionSet.toEntity(isSynced: Boolean = false) =
-    SessionSetEntity(id, sessionId, userId, exerciseId, setNumber, weightKg, reps, completed, updatedAt, isSynced)
+fun SessionSet.toEntity(isSynced: Boolean = false) = SessionSetEntity(
+    id, sessionId, userId, exerciseId, setNumber, weightKg, reps, completed, updatedAt, isSynced,
+    deletedAt = null,
+    durationSeconds, distanceKm, speedKmh, inclinePercent,
+)

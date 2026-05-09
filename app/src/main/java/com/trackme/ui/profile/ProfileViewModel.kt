@@ -20,6 +20,7 @@ import javax.inject.Inject
 data class ProfileUiState(
     val displayName: String = "",
     val email: String = "",
+    val avatarUrl: String? = null,
     val hcStatus: HcSdkStatus = HcSdkStatus.NEEDS_INSTALL,
     val healthConnectConnected: Boolean = false,
     val lastSyncTime: Long? = null,
@@ -44,10 +45,13 @@ class ProfileViewModel @Inject constructor(
             val user = supabase.auth.currentSessionOrNull()?.user
             val hcStatus = healthRepository.getHealthConnectStatus()
             val hcConnected = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.hasHealthConnectPermissions() else false
+            val avatarUrl = user?.userMetadata?.get("avatar_url")?.toString()?.trim('"')
+                ?: user?.userMetadata?.get("picture")?.toString()?.trim('"')
             _uiState.update {
                 it.copy(
                     displayName = user?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: "",
                     email = user?.email ?: "",
+                    avatarUrl = avatarUrl,
                     hcStatus = hcStatus,
                     healthConnectConnected = hcConnected,
                 )

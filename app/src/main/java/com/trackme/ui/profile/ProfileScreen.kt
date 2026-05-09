@@ -25,11 +25,13 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.trackme.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import com.trackme.data.health.HcSdkStatus
 import android.content.Intent
 import android.net.Uri
@@ -81,12 +83,21 @@ fun ProfileScreen(
                     .background(Violet.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    state.displayName.take(1).uppercase().ifEmpty { "?" },
-                    style = MaterialTheme.typography.displaySmall,
-                    color = Violet,
-                    fontWeight = FontWeight.ExtraBold,
-                )
+                if (state.avatarUrl != null) {
+                    AsyncImage(
+                        model = state.avatarUrl,
+                        contentDescription = "Profile picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Text(
+                        state.displayName.take(1).uppercase().ifEmpty { "?" },
+                        style = MaterialTheme.typography.displaySmall,
+                        color = Violet,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))

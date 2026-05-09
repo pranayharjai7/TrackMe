@@ -19,7 +19,7 @@ import com.trackme.data.local.entity.*
         HealthSnapshotEntity::class,
         PendingDeletionEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,6 +53,21 @@ abstract class AppDatabase : RoomDatabase() {
                     "tableName TEXT NOT NULL, " +
                     "deletedAt INTEGER NOT NULL)"
                 )
+            }
+        }
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetSets INTEGER NOT NULL DEFAULT 3")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetReps INTEGER")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetWeightKg REAL")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetDurationSeconds INTEGER")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetDistanceKm REAL")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetSpeedKmh REAL")
+                db.execSQL("ALTER TABLE planned_exercises ADD COLUMN targetIncline REAL")
+                db.execSQL("ALTER TABLE session_sets ADD COLUMN durationSeconds INTEGER")
+                db.execSQL("ALTER TABLE session_sets ADD COLUMN distanceKm REAL")
+                db.execSQL("ALTER TABLE session_sets ADD COLUMN speedKmh REAL")
+                db.execSQL("ALTER TABLE session_sets ADD COLUMN inclinePercent REAL")
             }
         }
     }

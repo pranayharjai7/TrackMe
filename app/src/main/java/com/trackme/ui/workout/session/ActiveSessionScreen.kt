@@ -18,8 +18,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.Exercise
+import com.trackme.domain.model.LoggingType
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.domain.model.SessionSet
+import com.trackme.domain.model.loggingType
 import com.trackme.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,8 +102,11 @@ fun ActiveSessionScreen(
                         plannedExercise = pe,
                         exercise = exercise,
                         loggedSets = exerciseSets,
-                        onLogSet = { weight, reps ->
-                            viewModel.logSet(pe.exerciseId, exerciseSets.size + 1, weight, reps)
+                        onLogSet = { weight, reps, duration, distance, speed, incline ->
+                            viewModel.logSet(
+                                pe.exerciseId, exerciseSets.size + 1,
+                                weight, reps, duration, distance, speed, incline,
+                            )
                         },
                     )
                 }
@@ -147,10 +152,31 @@ private fun ExerciseSessionCard(
     plannedExercise: PlannedExercise,
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
-    onLogSet: (weightKg: Float, reps: Int) -> Unit,
+    onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
-    var weightInput by remember { mutableStateOf("") }
-    var repsInput by remember { mutableStateOf("") }
+    val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
+    val targetSets = plannedExercise.targetSets
+
+    var weightInput by remember {
+        mutableStateOf(plannedExercise.targetWeightKg?.let { if (it > 0f) it.toString() else "" } ?: "")
+    }
+    var repsInput by remember {
+        mutableStateOf(plannedExercise.targetReps?.toString() ?: "")
+    }
+    var durationInput by remember {
+        mutableStateOf(
+            when (loggingType) {
+                LoggingType.CARDIO -> plannedExercise.targetDurationSeconds?.let { (it / 60).toString() } ?: ""
+                LoggingType.TIMED -> plannedExercise.targetDurationSeconds?.toString() ?: ""
+                else -> ""
+            }
+        )
+    }
+    var distanceInput by remember { mutableStateOf(plannedExercise.targetDistanceKm?.toString() ?: "") }
+    var speedInput by remember { mutableStateOf(plannedExercise.targetSpeedKmh?.toString() ?: "") }
+    var inclineInput by remember { mutableStateOf(plannedExercise.targetIncline?.toString() ?: "") }
+
+    val currentSetNumber = loggedSets.size + 1
 
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -159,14 +185,24 @@ private fun ExerciseSessionCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                exercise?.name ?: plannedExercise.exerciseId,
-                style = MaterialTheme.typography.titleMedium,
-                color = OnSurface,
-                fontWeight = FontWeight.SemiBold,
-            )
-            exercise?.let {
-                Text(it.primaryMuscles.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = Violet)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        exercise?.name ?: plannedExercise.exerciseId,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OnSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    exercise?.let {
+                        Text(it.primaryMuscles.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = Violet)
+                    }
+                }
+                Text(
+                    "Set $currentSetNumber of $targetSets",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Teal,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -178,7 +214,7 @@ private fun ExerciseSessionCard(
                 ) {
                     Text("Set ${i + 1}", style = MaterialTheme.typography.bodySmall, color = OnSurfaceMuted)
                     Text(
-                        "${set.weightKg}kg × ${set.reps}",
+                        setChipLabel(set, loggingType),
                         style = MaterialTheme.typography.bodySmall,
                         color = Teal,
                         fontWeight = FontWeight.SemiBold,
@@ -188,39 +224,94 @@ private fun ExerciseSessionCard(
 
             if (loggedSets.isNotEmpty()) Spacer(Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = weightInput,
-                    onValueChange = { weightInput = it },
-                    label = { Text("kg") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                OutlinedTextField(
-                    value = repsInput,
-                    onValueChange = { repsInput = it },
-                    label = { Text("reps") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
-                )
-                Button(
-                    onClick = {
-                        val weight = weightInput.toFloatOrNull() ?: return@Button
-                        val reps = repsInput.toIntOrNull() ?: return@Button
-                        onLogSet(weight, reps)
-                        weightInput = ""
-                        repsInput = ""
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = "Log", modifier = Modifier.size(18.dp))
+            when (loggingType) {
+                LoggingType.WEIGHTED_REPS -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SessionField("kg", weightInput, Modifier.weight(1f), KeyboardType.Decimal) { weightInput = it }
+                        SessionField("reps", repsInput, Modifier.weight(1f), KeyboardType.Number) { repsInput = it }
+                        LogButton {
+                            val w = weightInput.toFloatOrNull() ?: return@LogButton
+                            val r = repsInput.toIntOrNull() ?: return@LogButton
+                            onLogSet(w, r, null, null, null, null)
+                        }
+                    }
+                }
+                LoggingType.BODYWEIGHT_REPS -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SessionField("reps", repsInput, Modifier.weight(1f), KeyboardType.Number) { repsInput = it }
+                        LogButton {
+                            val r = repsInput.toIntOrNull() ?: return@LogButton
+                            onLogSet(0f, r, null, null, null, null)
+                        }
+                    }
+                }
+                LoggingType.TIMED -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SessionField("duration (s)", durationInput, Modifier.weight(1f), KeyboardType.Number) { durationInput = it }
+                        LogButton {
+                            val d = durationInput.toIntOrNull() ?: return@LogButton
+                            onLogSet(0f, 0, d, null, null, null)
+                        }
+                    }
+                }
+                LoggingType.CARDIO -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SessionField("min", durationInput, Modifier.weight(1f), KeyboardType.Number) { durationInput = it }
+                            SessionField("km/h", speedInput, Modifier.weight(1f), KeyboardType.Decimal) { speedInput = it }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SessionField("km", distanceInput, Modifier.weight(1f), KeyboardType.Decimal) { distanceInput = it }
+                            SessionField("incline%", inclineInput, Modifier.weight(1f), KeyboardType.Decimal) { inclineInput = it }
+                            LogButton {
+                                val d = durationInput.toIntOrNull()?.times(60) ?: return@LogButton
+                                onLogSet(0f, 0, d, distanceInput.toFloatOrNull(), speedInput.toFloatOrNull(), inclineInput.toFloatOrNull())
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+private fun setChipLabel(set: SessionSet, loggingType: LoggingType): String = when (loggingType) {
+    LoggingType.WEIGHTED_REPS -> "${set.weightKg}kg × ${set.reps}"
+    LoggingType.BODYWEIGHT_REPS -> "${set.reps} reps"
+    LoggingType.TIMED -> set.durationSeconds?.let { "${it}s" } ?: "${set.reps}s"
+    LoggingType.CARDIO -> buildString {
+        set.durationSeconds?.let { append("${it / 60}min") }
+        set.speedKmh?.let { if (isNotEmpty()) append(" · "); append("${it}km/h") }
+        set.distanceKm?.let { if (isNotEmpty()) append(" · "); append("${it}km") }
+    }.ifEmpty { "done" }
+}
+
+@Composable
+private fun SessionField(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Number,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = modifier,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        shape = RoundedCornerShape(12.dp),
+    )
+}
+
+@Composable
+private fun LogButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Icon(Icons.Default.Check, contentDescription = "Log", modifier = Modifier.size(18.dp))
     }
 }

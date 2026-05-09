@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Foreground: classic barbell silhouette, white on transparent.
+
+  Safe-zone geometry (all corners within radius 32dp from centre 54,54):
+    Left  plate  (27,38)→(43,70)  16×32dp  r=5
+    Right plate  (65,38)→(81,70)  16×32dp  r=5
+    Bar          (43,50)→(65,58)  22×8dp   straight ends (hidden by plates)
+
+  Farthest corner: (27,38) → sqrt(27²+16²) ≈ 31.4dp  ✓  won't be clipped.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Left weight plate -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,38 H38 A5,5 0 0 1 43,43 V65 A5,5 0 0 1 38,70 H32 A5,5 0 0 1 27,65 V43 A5,5 0 0 1 32,38 Z" />
+
+    <!-- Right weight plate -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,38 H76 A5,5 0 0 1 81,43 V65 A5,5 0 0 1 76,70 H70 A5,5 0 0 1 65,65 V43 A5,5 0 0 1 70,38 Z" />
+
+    <!-- Connecting bar — straight ends sit flush against the inner plate faces -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,50 H65 V58 H43 Z" />
+
+</vector>

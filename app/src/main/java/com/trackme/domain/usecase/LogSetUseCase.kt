@@ -13,6 +13,10 @@ class LogSetUseCase @Inject constructor(private val repo: WorkoutRepository) {
         setNumber: Int,
         weightKg: Float,
         reps: Int,
+        durationSeconds: Int? = null,
+        distanceKm: Float? = null,
+        speedKmh: Float? = null,
+        inclinePercent: Float? = null,
     ): SessionSet {
         val set = SessionSet(
             id = UUID.randomUUID().toString(),
@@ -24,9 +28,15 @@ class LogSetUseCase @Inject constructor(private val repo: WorkoutRepository) {
             reps = reps,
             completed = true,
             updatedAt = System.currentTimeMillis(),
+            durationSeconds = durationSeconds,
+            distanceKm = distanceKm,
+            speedKmh = speedKmh,
+            inclinePercent = inclinePercent,
         )
         repo.logSet(set)
-        repo.updatePersonalRecord(userId, exerciseId, weightKg, reps, set.updatedAt)
+        if (weightKg > 0f && reps > 0) {
+            repo.updatePersonalRecord(userId, exerciseId, weightKg, reps, set.updatedAt)
+        }
         return set
     }
 }

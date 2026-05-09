@@ -33,7 +33,13 @@ class WorkoutRemoteSource @Inject constructor(
 
     suspend fun upsertPlannedExercise(entity: PlannedExerciseEntity) {
         supabase.postgrest["planned_exercises"].upsert(
-            PlannedExerciseDto(entity.id, entity.dayId, entity.userId, entity.exerciseId, entity.orderIndex, entity.updatedAt, entity.deletedAt)
+            PlannedExerciseDto(
+                entity.id, entity.dayId, entity.userId, entity.exerciseId,
+                entity.orderIndex, entity.updatedAt, entity.deletedAt,
+                entity.targetSets, entity.targetReps, entity.targetWeightKg,
+                entity.targetDurationSeconds, entity.targetDistanceKm,
+                entity.targetSpeedKmh, entity.targetIncline,
+            )
         )
     }
 
@@ -45,7 +51,7 @@ class WorkoutRemoteSource @Inject constructor(
 
     suspend fun upsertSet(entity: SessionSetEntity) {
         supabase.postgrest["session_sets"].upsert(
-            SessionSetDto(entity.id, entity.sessionId, entity.userId, entity.exerciseId, entity.setNumber, entity.weightKg, entity.reps, entity.completed, entity.updatedAt, entity.deletedAt)
+            SessionSetDto(entity.id, entity.sessionId, entity.userId, entity.exerciseId, entity.setNumber, entity.weightKg, entity.reps, entity.completed, entity.updatedAt, entity.deletedAt, entity.durationSeconds, entity.distanceKm, entity.speedKmh, entity.inclinePercent)
         )
     }
 
@@ -65,7 +71,7 @@ class WorkoutRemoteSource @Inject constructor(
         supabase.postgrest["planned_exercises"]
             .select { filter { eq("user_id", userId) } }
             .decodeList<PlannedExerciseDto>()
-            .map { PlannedExerciseEntity(it.id, it.dayId, it.userId, it.exerciseId, it.orderIndex, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
+            .map { PlannedExerciseEntity(it.id, it.dayId, it.userId, it.exerciseId, it.orderIndex, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, targetSets = it.targetSets, targetReps = it.targetReps, targetWeightKg = it.targetWeightKg, targetDurationSeconds = it.targetDurationSeconds, targetDistanceKm = it.targetDistanceKm, targetSpeedKmh = it.targetSpeedKmh, targetIncline = it.targetIncline) }
 
     suspend fun fetchSessions(userId: String): List<WorkoutSessionEntity> =
         supabase.postgrest["workout_sessions"]
@@ -77,7 +83,7 @@ class WorkoutRemoteSource @Inject constructor(
         supabase.postgrest["session_sets"]
             .select { filter { eq("user_id", userId) } }
             .decodeList<SessionSetDto>()
-            .map { SessionSetEntity(it.id, it.sessionId, it.userId, it.exerciseId, it.setNumber, it.weightKg, it.reps, it.completed, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
+            .map { SessionSetEntity(it.id, it.sessionId, it.userId, it.exerciseId, it.setNumber, it.weightKg, it.reps, it.completed, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, durationSeconds = it.durationSeconds, distanceKm = it.distanceKm, speedKmh = it.speedKmh, inclinePercent = it.inclinePercent) }
 
     suspend fun markDeleted(table: String, entityId: String, userId: String, deletedAt: Long) {
         supabase.postgrest[table].update(DeletionPatch(deletedAt, deletedAt)) {

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.Exercise
 import com.trackme.ui.theme.*
+import com.trackme.ui.workout.planner.TargetParamSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +33,16 @@ fun ExerciseSearchScreen(
 
     LaunchedEffect(Unit) {
         viewModel.addedEvent.collect { onBack() }
+    }
+
+    state.pendingExercise?.let { exercise ->
+        TargetParamSheet(
+            exercise = exercise,
+            onConfirm = { sets, reps, weight, duration, distance, speed, incline ->
+                viewModel.confirmAdd(sets, reps, weight, duration, distance, speed, incline)
+            },
+            onDismiss = viewModel::dismissPending,
+        )
     }
 
     Scaffold(
@@ -74,7 +85,7 @@ fun ExerciseSearchScreen(
                     ExerciseListItem(
                         exercise = exercise,
                         addingForDay = addingForDay,
-                        onAdd = { viewModel.addExercise(exercise.id) },
+                        onAdd = { viewModel.onExerciseSelectedForAdd(exercise) },
                         onInfo = { onExerciseClick(exercise.id) },
                     )
                 }

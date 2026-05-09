@@ -15,4 +15,8 @@ data class SessionSetDto(
     val completed: Boolean,
     @SerialName("updated_at") val updatedAt: Long,
     @SerialName("deleted_at") val deletedAt: Long? = null,
+    @SerialName("duration_seconds") val durationSeconds: Int? = null,
+    @SerialName("distance_km") val distanceKm: Float? = null,
+    @SerialName("speed_kmh") val speedKmh: Float? = null,
+    @SerialName("incline_percent") val inclinePercent: Float? = null,
 )

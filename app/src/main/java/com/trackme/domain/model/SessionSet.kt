@@ -10,4 +10,8 @@ data class SessionSet(
     val reps: Int,
     val completed: Boolean,
     val updatedAt: Long,
+    val durationSeconds: Int? = null,
+    val distanceKm: Float? = null,
+    val speedKmh: Float? = null,
+    val inclinePercent: Float? = null,
 )

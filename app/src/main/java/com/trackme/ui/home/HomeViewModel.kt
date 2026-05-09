@@ -24,6 +24,7 @@ data class HomeUiState(
     val latestSnapshot: HealthSnapshot? = null,
     val activeSessionDayId: String? = null,
     val isTodaySessionFinished: Boolean = false,
+    val displayName: String = "",
 )
 
 @HiltViewModel
@@ -44,6 +45,8 @@ class HomeViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { uid ->
             val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+            val displayName = supabase.auth.currentSessionOrNull()?.user
+                ?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: ""
 
             val weekStripFlow: Flow<List<WorkoutDay?>> = workoutRepository.getActivePlan(uid)
                 .flatMapLatest { plan ->
@@ -87,6 +90,7 @@ class HomeViewModel @Inject constructor(
                     latestSnapshot = snapshots.maxByOrNull { it.date },
                     activeSessionDayId = activeSession?.dayId,
                     isTodaySessionFinished = isTodaySessionFinished,
+                    displayName = displayName,
                 )
             }
         }

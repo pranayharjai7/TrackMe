@@ -22,6 +22,7 @@ import javax.inject.Inject
 data class DayEditorUiState(
     val plannedExercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
     val isLoading: Boolean = true,
+    val editingExercise: Pair<PlannedExercise, Exercise?>? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -81,6 +82,42 @@ class DayEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val nextIndex = _uiState.value.plannedExercises.size
             addExerciseToDay(dayId, userId, exerciseId, nextIndex)
+        }
+    }
+
+    fun startEditExercise(pe: PlannedExercise) {
+        val pair = _uiState.value.plannedExercises.find { it.first.id == pe.id }
+        _uiState.update { it.copy(editingExercise = pair) }
+    }
+
+    fun dismissEdit() {
+        _uiState.update { it.copy(editingExercise = null) }
+    }
+
+    fun saveEditedParams(
+        pe: PlannedExercise,
+        targetSets: Int,
+        targetReps: Int?,
+        targetWeightKg: Float?,
+        targetDurationSeconds: Int?,
+        targetDistanceKm: Float?,
+        targetSpeedKmh: Float?,
+        targetIncline: Float?,
+    ) {
+        dismissEdit()
+        viewModelScope.launch {
+            workoutRepository.addPlannedExercise(
+                pe.copy(
+                    targetSets = targetSets,
+                    targetReps = targetReps,
+                    targetWeightKg = targetWeightKg,
+                    targetDurationSeconds = targetDurationSeconds,
+                    targetDistanceKm = targetDistanceKm,
+                    targetSpeedKmh = targetSpeedKmh,
+                    targetIncline = targetIncline,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
         }
     }
 }

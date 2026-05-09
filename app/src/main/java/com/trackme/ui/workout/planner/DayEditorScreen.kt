@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +38,19 @@ fun DayEditorScreen(
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
         viewModel.reorderExercises(from.index, to.index)
+    }
+
+    state.editingExercise?.let { (pe, exercise) ->
+        exercise?.let {
+            TargetParamSheet(
+                exercise = it,
+                initial = pe,
+                onConfirm = { sets, reps, weight, duration, distance, speed, incline ->
+                    viewModel.saveEditedParams(pe, sets, reps, weight, duration, distance, speed, incline)
+                },
+                onDismiss = viewModel::dismissEdit,
+            )
+        }
     }
 
     Scaffold(
@@ -94,6 +108,7 @@ fun DayEditorScreen(
                             PlannedExerciseItem(
                                 pe = pe,
                                 exercise = exercise,
+                                onEdit = { viewModel.startEditExercise(pe) },
                                 onRemove = { viewModel.removeExercise(pe) },
                                 dragModifier = Modifier.draggableHandle(),
                                 modifier = Modifier.shadow(elevation, RoundedCornerShape(20.dp)),
@@ -110,6 +125,7 @@ fun DayEditorScreen(
 private fun PlannedExerciseItem(
     pe: PlannedExercise,
     exercise: Exercise?,
+    onEdit: () -> Unit,
     onRemove: () -> Unit,
     dragModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
@@ -142,6 +158,9 @@ private fun PlannedExerciseItem(
                         color = Violet,
                     )
                 }
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit params", tint = Violet)
             }
             IconButton(onClick = onRemove) {
                 Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Coral)
