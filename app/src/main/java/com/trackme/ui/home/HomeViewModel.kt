@@ -15,7 +15,6 @@ import javax.inject.Inject
 data class HomeUiState(
     val todayWorkoutDay: WorkoutDay? = null,
     val recentPRs: List<PersonalRecord> = emptyList(),
-    val isLoading: Boolean = true,
 )
 
 @HiltViewModel
@@ -29,6 +28,10 @@ class HomeViewModel @Inject constructor(
         supabase.auth.currentSessionOrNull()?.user?.id
     }.getOrNull() ?: ""
 
+    init {
+        check(userId.isNotEmpty()) { "HomeViewModel requires an authenticated user" }
+    }
+
     val uiState: StateFlow<HomeUiState> = combine(
         getTodayWorkout(userId),
         workoutRepository.getPersonalRecords(userId),
@@ -36,7 +39,6 @@ class HomeViewModel @Inject constructor(
         HomeUiState(
             todayWorkoutDay = today,
             recentPRs = prs.take(3),
-            isLoading = false,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 }

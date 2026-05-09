@@ -3,6 +3,7 @@ package com.trackme.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -47,9 +48,10 @@ fun HomeScreen(
             }
 
             item {
+                val todayDay = state.todayWorkoutDay
                 TodayWorkoutCard(
-                    day = state.todayWorkoutDay,
-                    onStart = { state.todayWorkoutDay?.let { onStartSession(it.id) } },
+                    day = todayDay,
+                    onStart = { todayDay?.let { onStartSession(it.id) } },
                 )
             }
 
@@ -61,36 +63,34 @@ fun HomeScreen(
                         color = OnSurface,
                     )
                 }
-                state.recentPRs.forEach { pr ->
-                    item(key = pr.id) {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Surface),
+                items(state.recentPRs, key = { it.id }) { pr ->
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Surface),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Default.FitnessCenter,
-                                    contentDescription = null,
-                                    tint = Teal,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    pr.exerciseId,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = OnSurface,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    "${pr.maxWeightKg}kg",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = Teal,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
+                            Icon(
+                                Icons.Default.FitnessCenter,
+                                contentDescription = null,
+                                tint = Teal,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                pr.exerciseId,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = OnSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "${pr.maxWeightKg}kg",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Teal,
+                                fontWeight = FontWeight.Bold,
+                            )
                         }
                     }
                 }
