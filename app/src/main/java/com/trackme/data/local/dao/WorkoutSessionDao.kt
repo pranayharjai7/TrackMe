@@ -20,4 +20,7 @@ interface WorkoutSessionDao {
 
     @Query("UPDATE workout_sessions SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
+
+    @Query("UPDATE workout_sessions SET durationMinutes = :durationMinutes, isSynced = 0 WHERE id = :sessionId")
+    suspend fun updateDuration(sessionId: String, durationMinutes: Int)
 }

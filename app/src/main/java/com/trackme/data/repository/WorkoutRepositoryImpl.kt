@@ -70,9 +70,11 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override suspend fun startSession(session: WorkoutSession) {
         workoutSessionDao.insert(session.toEntity(isSynced = false))
+        syncManager.enqueueImmediateSync()
     }
 
     override suspend fun finishSession(sessionId: String, durationMinutes: Int) {
+        workoutSessionDao.updateDuration(sessionId, durationMinutes)
         syncManager.enqueueImmediateSync()
     }
 
