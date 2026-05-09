@@ -45,6 +45,16 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun recheckHealthConnect() {
+        viewModelScope.launch {
+            val hcAvailable = healthRepository.isHealthConnectAvailable()
+            val hcConnected = if (hcAvailable) healthRepository.hasHealthConnectPermissions() else false
+            _uiState.update {
+                it.copy(healthConnectAvailable = hcAvailable, healthConnectConnected = hcConnected)
+            }
+        }
+    }
+
     fun syncHealthConnect() {
         viewModelScope.launch {
             val userId = supabase.auth.currentSessionOrNull()?.user?.id ?: return@launch

@@ -12,6 +12,9 @@ interface HealthSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(snapshots: List<HealthSnapshotEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(snapshots: List<HealthSnapshotEntity>)
+
     @Query("SELECT * FROM health_snapshots WHERE userId = :userId ORDER BY date DESC LIMIT 1")
     suspend fun getLatest(userId: String): HealthSnapshotEntity?
 

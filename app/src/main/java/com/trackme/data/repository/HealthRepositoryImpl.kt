@@ -17,7 +17,7 @@ class HealthRepositoryImpl @Inject constructor(
 
     override suspend fun syncFromHealthConnect(userId: String) {
         val snapshots = healthConnectManager.readLast30Days(userId)
-        healthSnapshotDao.insertAll(snapshots)
+        healthSnapshotDao.insertAllIfAbsent(snapshots)
         // No sync trigger here — HealthSyncWorker handles the upload pipeline
     }
 

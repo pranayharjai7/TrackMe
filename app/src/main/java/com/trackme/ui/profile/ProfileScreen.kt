@@ -46,7 +46,7 @@ fun ProfileScreen(
     )
     val permissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { /* permissions updated — ViewModel will re-check on next launch */ }
+    ) { viewModel.recheckHealthConnect() }
 
     Box(
         modifier = Modifier
