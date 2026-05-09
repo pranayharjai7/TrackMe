@@ -13,7 +13,9 @@ object SupabaseClientProvider {
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseKey = BuildConfig.SUPABASE_ANON_KEY,
         ) {
-            install(Auth)
+            install(Auth) {
+                defaultRedirectUrl = "com.trackme://auth-callback"
+            }
             install(Postgrest)
             httpEngine = Android.create()
         }
