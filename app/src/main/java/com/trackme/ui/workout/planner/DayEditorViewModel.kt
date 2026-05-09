@@ -11,6 +11,10 @@ import com.trackme.domain.usecase.AddExerciseToDayUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,6 +24,7 @@ data class DayEditorUiState(
     val isLoading: Boolean = true,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DayEditorViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
@@ -37,12 +42,20 @@ class DayEditorViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            workoutRepository.getPlannedExercisesForDay(dayId).collect { planned ->
-                val withDetails = planned.map { pe ->
-                    pe to exerciseRepository.getById(pe.exerciseId)
+            workoutRepository.getPlannedExercisesForDay(dayId)
+                .flatMapLatest { planned ->
+                    flow {
+                        val withDetails = coroutineScope {
+                            planned.map { pe ->
+                                async { pe to exerciseRepository.getById(pe.exerciseId) }
+                            }.awaitAll()
+                        }
+                        emit(withDetails)
+                    }
                 }
-                _uiState.update { it.copy(plannedExercises = withDetails, isLoading = false) }
-            }
+                .collect { withDetails ->
+                    _uiState.update { it.copy(plannedExercises = withDetails, isLoading = false) }
+                }
         }
     }
 
@@ -51,7 +64,9 @@ class DayEditorViewModel @Inject constructor(
     }
 
     fun addExercise(exerciseId: String) {
-        val nextIndex = _uiState.value.plannedExercises.size
-        viewModelScope.launch { addExerciseToDay(dayId, userId, exerciseId, nextIndex) }
+        viewModelScope.launch {
+            val nextIndex = _uiState.value.plannedExercises.size
+            addExerciseToDay(dayId, userId, exerciseId, nextIndex)
+        }
     }
 }

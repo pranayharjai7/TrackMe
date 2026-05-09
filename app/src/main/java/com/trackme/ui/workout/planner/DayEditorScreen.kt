@@ -50,28 +50,36 @@ fun DayEditorScreen(
         },
         containerColor = Background,
     ) { padding ->
-        if (state.plannedExercises.isEmpty() && !state.isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No exercises yet", color = OnSurfaceMuted)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = onAddExercise, shape = RoundedCornerShape(16.dp)) {
-                        Text("Add Exercise")
+        when {
+            state.isLoading -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Violet)
+                }
+            }
+            state.plannedExercises.isEmpty() -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No exercises yet", color = OnSurfaceMuted)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = onAddExercise, shape = RoundedCornerShape(16.dp)) {
+                            Text("Add Exercise")
+                        }
                     }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-            ) {
-                items(state.plannedExercises, key = { it.first.id }) { (pe, exercise) ->
-                    PlannedExerciseItem(
-                        pe = pe,
-                        exercise = exercise,
-                        onRemove = { viewModel.removeExercise(pe) },
-                    )
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                ) {
+                    items(state.plannedExercises, key = { it.first.id }) { (pe, exercise) ->
+                        PlannedExerciseItem(
+                            pe = pe,
+                            exercise = exercise,
+                            onRemove = { viewModel.removeExercise(pe) },
+                        )
+                    }
                 }
             }
         }
