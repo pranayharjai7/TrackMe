@@ -97,6 +97,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                 DayEditorScreen(
                     dayId = dayId,
                     onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) },
+                    onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -129,6 +130,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                     dayId = dayId,
                     onSessionFinished = { navController.popBackStack() },
                     onBack = { navController.popBackStack() },
+                    onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
                 )
             }
             composable(Routes.Progress.route) { ProgressScreen() }

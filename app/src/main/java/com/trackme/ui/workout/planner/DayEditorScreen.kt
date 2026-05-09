@@ -1,6 +1,7 @@
 package com.trackme.ui.workout.planner
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun DayEditorScreen(
     dayId: String,
     onAddExercise: () -> Unit,
+    onExerciseClick: (exerciseId: String) -> Unit,
     onBack: () -> Unit,
     viewModel: DayEditorViewModel = hiltViewModel(),
 ) {
@@ -108,6 +110,7 @@ fun DayEditorScreen(
                             PlannedExerciseItem(
                                 pe = pe,
                                 exercise = exercise,
+                                onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
                                 onEdit = { viewModel.startEditExercise(pe) },
                                 onRemove = { viewModel.removeExercise(pe) },
                                 dragModifier = Modifier.draggableHandle(),
@@ -125,6 +128,7 @@ fun DayEditorScreen(
 private fun PlannedExerciseItem(
     pe: PlannedExercise,
     exercise: Exercise?,
+    onExerciseClick: () -> Unit,
     onEdit: () -> Unit,
     onRemove: () -> Unit,
     dragModifier: Modifier = Modifier,
@@ -144,7 +148,12 @@ private fun PlannedExerciseItem(
                 modifier = dragModifier.size(20.dp),
             )
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(enabled = exercise != null, onClick = onExerciseClick)
+                    .padding(vertical = 4.dp),
+            ) {
                 Text(
                     exercise?.name ?: pe.exerciseId,
                     style = MaterialTheme.typography.titleMedium,

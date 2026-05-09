@@ -9,8 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.*import androidx.compose.material3.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -34,6 +33,7 @@ fun ActiveSessionScreen(
     dayId: String,
     onSessionFinished: () -> Unit,
     onBack: () -> Unit,
+    onExerciseClick: (exerciseId: String) -> Unit,
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -112,6 +112,7 @@ fun ActiveSessionScreen(
                         plannedExercise = pe,
                         exercise = exercise,
                         loggedSets = exerciseSets,
+                        onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
                         onLogSet = { weight, reps, duration, distance, speed, incline ->
                             viewModel.logSet(
                                 pe.exerciseId, exerciseSets.size + 1,
@@ -162,6 +163,7 @@ private fun ExerciseSessionCard(
     plannedExercise: PlannedExercise,
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
+    onExerciseClick: () -> Unit,
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
@@ -207,30 +209,23 @@ private fun ExerciseSessionCard(
                         Text(it.primaryMuscles.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = Violet)
                     }
                 }
-                if (allSetsLogged) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Teal.copy(alpha = 0.15f),
-                    ) {
-                        Text(
-                            "Done",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Teal,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                } else {
-                    Text(
-                        "Set $currentSetNumber of $targetSets",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = OnSurfaceMuted,
+                IconButton(
+                    onClick = onExerciseClick,
+                    enabled = exercise != null,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Exercise info",
+                        tint = OnSurfaceMuted,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
 
             // Set progress chips with +/- controls
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -262,6 +257,24 @@ private fun ExerciseSessionCard(
                         contentDescription = "Add set",
                         tint = OnSurface,
                         modifier = Modifier.size(16.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                if (allSetsLogged) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = Teal.copy(alpha = 0.15f)) {
+                        Text(
+                            "Done",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Teal,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                } else {
+                    Text(
+                        "Set $currentSetNumber of $targetSets",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = OnSurfaceMuted,
                     )
                 }
             }
