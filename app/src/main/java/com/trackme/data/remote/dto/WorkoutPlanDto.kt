@@ -11,4 +11,5 @@ data class WorkoutPlanDto(
     @SerialName("is_active") val isActive: Boolean,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("deleted_at") val deletedAt: Long? = null,
 )

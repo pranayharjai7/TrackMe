@@ -11,4 +11,5 @@ data class WorkoutDayDto(
     @SerialName("day_of_week") val dayOfWeek: String,
     val name: String,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("deleted_at") val deletedAt: Long? = null,
 )

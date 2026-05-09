@@ -13,6 +13,7 @@ data class WorkoutPlanEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val isSynced: Boolean = false,
+    val deletedAt: Long? = null,
 ) {
     fun toDomain() = WorkoutPlan(id, userId, name, isActive, createdAt, updatedAt)
 }

@@ -13,6 +13,7 @@ data class PlannedExerciseEntity(
     val orderIndex: Int,
     val updatedAt: Long,
     val isSynced: Boolean = false,
+    val deletedAt: Long? = null,
 ) {
     fun toDomain() = PlannedExercise(id, dayId, userId, exerciseId, orderIndex, updatedAt)
 }

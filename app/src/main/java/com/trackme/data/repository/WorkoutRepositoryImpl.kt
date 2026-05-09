@@ -48,7 +48,9 @@ class WorkoutRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteDay(day: WorkoutDay) {
-        workoutDayDao.delete(day.toEntity())
+        val ts = System.currentTimeMillis()
+        workoutDayDao.softDelete(day.id, ts)
+        syncManager.enqueueImmediateSync()
     }
 
     override fun getPlannedExercisesForDay(dayId: String): Flow<List<PlannedExercise>> =
@@ -60,7 +62,9 @@ class WorkoutRepositoryImpl @Inject constructor(
     }
 
     override suspend fun removePlannedExercise(pe: PlannedExercise) {
-        plannedExerciseDao.delete(pe.toEntity())
+        val ts = System.currentTimeMillis()
+        plannedExerciseDao.softDelete(pe.id, ts)
+        syncManager.enqueueImmediateSync()
     }
 
     override suspend fun reorderExercises(exercises: List<PlannedExercise>) {
@@ -87,7 +91,9 @@ class WorkoutRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteSet(set: SessionSet) {
-        sessionSetDao.delete(set.toEntity())
+        val ts = System.currentTimeMillis()
+        sessionSetDao.softDelete(set.id, ts)
+        syncManager.enqueueImmediateSync()
     }
 
     override suspend fun updatePersonalRecord(userId: String, exerciseId: String, weightKg: Float, reps: Int, date: Long) {
@@ -120,4 +126,7 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override suspend fun getInProgressSession(userId: String, todayStart: Long): WorkoutSession? =
         workoutSessionDao.getInProgressSession(userId, todayStart)?.toDomain()
+
+    override suspend fun getInProgressSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSession? =
+        workoutSessionDao.getInProgressSessionForDay(userId, dayId, todayStart)?.toDomain()
 }

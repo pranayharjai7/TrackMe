@@ -14,6 +14,7 @@ data class WorkoutSessionEntity(
     val notes: String,
     val updatedAt: Long,
     val isSynced: Boolean = false,
+    val deletedAt: Long? = null,
 ) {
     fun toDomain() = WorkoutSession(id, userId, dayId, date, durationMinutes, notes, updatedAt)
 }

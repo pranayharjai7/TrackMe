@@ -50,11 +50,21 @@ class ActiveSessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val todayStart = run {
+                val cal = java.util.Calendar.getInstance()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                cal.set(java.util.Calendar.MINUTE, 0)
+                cal.set(java.util.Calendar.SECOND, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                cal.timeInMillis
+            }
             val session = try {
-                startSession(userId, dayId)
+                workoutRepository.getInProgressSessionForDay(userId, dayId, todayStart)
+                    ?: startSession(userId, dayId)
             } catch (e: Exception) {
                 return@launch
             }
+            sessionStartTime = session.date
             _uiState.update { it.copy(sessionId = session.id) }
 
             launch {

@@ -81,4 +81,8 @@ class WeeklyPlannerViewModel @Inject constructor(
         val planId = _uiState.value.activePlan?.id ?: return
         viewModelScope.launch { saveDay(planId, userId, dayOfWeek, name) }
     }
+
+    fun deleteDay(day: WorkoutDay) {
+        viewModelScope.launch { workoutRepository.deleteDay(day) }
+    }
 }

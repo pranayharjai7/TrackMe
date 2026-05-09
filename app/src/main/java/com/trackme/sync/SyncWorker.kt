@@ -35,7 +35,7 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun mergePlans(userId: String) {
         val remoteMap = remoteSource.fetchPlans(userId).associateBy { it.id }
-        val localMap = workoutPlanDao.getAllForUserOnce(userId).associateBy { it.id }
+        val localMap = workoutPlanDao.getAllForSync(userId).associateBy { it.id }
         (remoteMap.keys + localMap.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]
@@ -50,7 +50,7 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun mergeDays(userId: String) {
         val remoteMap = remoteSource.fetchDays(userId).associateBy { it.id }
-        val localMap = workoutDayDao.getAllForUser(userId).associateBy { it.id }
+        val localMap = workoutDayDao.getAllForSync(userId).associateBy { it.id }
         (remoteMap.keys + localMap.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]
@@ -65,7 +65,7 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun mergePlannedExercises(userId: String) {
         val remoteMap = remoteSource.fetchPlannedExercises(userId).associateBy { it.id }
-        val localMap = plannedExerciseDao.getAllForUser(userId).associateBy { it.id }
+        val localMap = plannedExerciseDao.getAllForSync(userId).associateBy { it.id }
         (remoteMap.keys + localMap.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]
@@ -80,7 +80,7 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun mergeSessions(userId: String) {
         val remoteMap = remoteSource.fetchSessions(userId).associateBy { it.id }
-        val localMap = workoutSessionDao.getAllForUserOnce(userId).associateBy { it.id }
+        val localMap = workoutSessionDao.getAllForSync(userId).associateBy { it.id }
         (remoteMap.keys + localMap.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]
@@ -95,7 +95,7 @@ class SyncWorker @AssistedInject constructor(
 
     private suspend fun mergeSets(userId: String) {
         val remoteMap = remoteSource.fetchSets(userId).associateBy { it.id }
-        val localMap = sessionSetDao.getAllForUser(userId).associateBy { it.id }
+        val localMap = sessionSetDao.getAllForSync(userId).associateBy { it.id }
         (remoteMap.keys + localMap.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]

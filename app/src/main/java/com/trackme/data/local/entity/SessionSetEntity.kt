@@ -16,6 +16,7 @@ data class SessionSetEntity(
     val completed: Boolean,
     val updatedAt: Long,
     val isSynced: Boolean = false,
+    val deletedAt: Long? = null,
 ) {
     fun toDomain() = SessionSet(id, sessionId, userId, exerciseId, setNumber, weightKg, reps, completed, updatedAt)
 }

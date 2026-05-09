@@ -12,16 +12,19 @@ interface WorkoutPlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(plans: List<WorkoutPlanEntity>)
 
-    @Query("SELECT COUNT(*) FROM workout_plans WHERE userId = :userId")
+    @Query("SELECT COUNT(*) FROM workout_plans WHERE userId = :userId AND deletedAt IS NULL")
     suspend fun countForUser(userId: String): Int
 
-    @Query("SELECT * FROM workout_plans WHERE userId = :userId")
+    @Query("SELECT * FROM workout_plans WHERE userId = :userId AND deletedAt IS NULL")
     suspend fun getAllForUserOnce(userId: String): List<WorkoutPlanEntity>
 
     @Query("SELECT * FROM workout_plans WHERE userId = :userId")
+    suspend fun getAllForSync(userId: String): List<WorkoutPlanEntity>
+
+    @Query("SELECT * FROM workout_plans WHERE userId = :userId AND deletedAt IS NULL")
     fun getAllForUser(userId: String): Flow<List<WorkoutPlanEntity>>
 
-    @Query("SELECT * FROM workout_plans WHERE userId = :userId AND isActive = 1 LIMIT 1")
+    @Query("SELECT * FROM workout_plans WHERE userId = :userId AND isActive = 1 AND deletedAt IS NULL LIMIT 1")
     fun getActivePlan(userId: String): Flow<WorkoutPlanEntity?>
 
     @Query("UPDATE workout_plans SET isActive = 0 WHERE userId = :userId")
@@ -30,8 +33,8 @@ interface WorkoutPlanDao {
     @Query("UPDATE workout_plans SET isActive = 1, isSynced = 0 WHERE id = :planId")
     suspend fun setActivePlan(planId: String)
 
-    @Delete
-    suspend fun delete(plan: WorkoutPlanEntity)
+    @Query("UPDATE workout_plans SET deletedAt = :ts, updatedAt = :ts, isSynced = 0 WHERE id = :id")
+    suspend fun softDelete(id: String, ts: Long)
 
     @Query("SELECT * FROM workout_plans WHERE isSynced = 0")
     suspend fun getUnsynced(): List<WorkoutPlanEntity>

@@ -11,4 +11,5 @@ data class PlannedExerciseDto(
     @SerialName("exercise_id") val exerciseId: String,
     @SerialName("order_index") val orderIndex: Int,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("deleted_at") val deletedAt: Long? = null,
 )

@@ -14,6 +14,7 @@ data class WorkoutDayEntity(
     val name: String,
     val updatedAt: Long,
     val isSynced: Boolean = false,
+    val deletedAt: Long? = null,
 ) {
     fun toDomain() = WorkoutDay(id, planId, userId, DayOfWeek.valueOf(dayOfWeek), name, updatedAt)
 }

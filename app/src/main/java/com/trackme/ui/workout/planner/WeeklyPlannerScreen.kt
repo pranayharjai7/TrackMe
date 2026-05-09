@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,9 @@ fun WeeklyPlannerScreen(
     var showAddDayDialog by remember { mutableStateOf(false) }
     var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
     var newDayName by remember { mutableStateOf("") }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var pendingDeleteDay by remember { mutableStateOf<WorkoutDay?>(null) }
 
     Scaffold(
         topBar = {
@@ -68,10 +72,38 @@ fun WeeklyPlannerScreen(
                                 showAddDayDialog = true
                             }
                         },
+                        onDelete = if (day != null) ({
+                            pendingDeleteDay = day
+                            showDeleteDialog = true
+                        }) else null,
                     )
                 }
             }
         }
+    }
+
+    if (showDeleteDialog && pendingDeleteDay != null) {
+        val day = pendingDeleteDay!!
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false; pendingDeleteDay = null },
+            title = { Text("Delete ${day.name}?") },
+            text = { Text("This will remove the workout day and all its exercises. This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteDay(day)
+                        showDeleteDialog = false
+                        pendingDeleteDay = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false; pendingDeleteDay = null }) { Text("Cancel") }
+            },
+            containerColor = Surface,
+            shape = RoundedCornerShape(24.dp),
+        )
     }
 
     if (showAddDayDialog && pendingDayOfWeek != null) {
@@ -132,7 +164,13 @@ fun WeeklyPlannerScreen(
 }
 
 @Composable
-private fun DayCard(dayOfWeek: DayOfWeek, workoutDay: WorkoutDay?, exerciseCount: Int, onClick: () -> Unit) {
+private fun DayCard(
+    dayOfWeek: DayOfWeek,
+    workoutDay: WorkoutDay?,
+    exerciseCount: Int,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)?,
+) {
     val dayLabel = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
     Card(
         onClick = onClick,
@@ -160,6 +198,17 @@ private fun DayCard(dayOfWeek: DayOfWeek, workoutDay: WorkoutDay?, exerciseCount
                 }
             }
             if (workoutDay != null) {
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete day",
+                            tint = OnSurfaceMuted.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
                 Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Violet)
             }
         }

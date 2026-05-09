@@ -12,4 +12,5 @@ data class WorkoutSessionDto(
     @SerialName("duration_minutes") val durationMinutes: Int,
     val notes: String,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("deleted_at") val deletedAt: Long? = null,
 )

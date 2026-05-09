@@ -23,6 +23,7 @@ data class HomeUiState(
     val streakDays: Int = 0,
     val latestSnapshot: HealthSnapshot? = null,
     val activeSessionDayId: String? = null,
+    val isTodaySessionFinished: Boolean = false,
 )
 
 @HiltViewModel
@@ -62,19 +63,30 @@ class HomeViewModel @Inject constructor(
                 weekStripFlow,
             ) { today, prs, sessions, snapshots, weekStrip ->
                 val todayMidnight = normalizeToMidnight(System.currentTimeMillis())
+                val completedDayIdsToday = sessions
+                    .filter { normalizeToMidnight(it.date) == todayMidnight && it.durationMinutes > 0 }
+                    .map { it.dayId }
+                    .toSet()
                 val activeSession = sessions.firstOrNull {
-                    normalizeToMidnight(it.date) == todayMidnight && it.durationMinutes == 0
+                    normalizeToMidnight(it.date) == todayMidnight
+                        && it.durationMinutes == 0
+                        && it.dayId !in completedDayIdsToday
+                }
+                val isTodaySessionFinished = today != null && sessions.any {
+                    normalizeToMidnight(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
                 }
                 HomeUiState(
                     todayWorkoutDay = today,
                     recentPRs = prs.take(3),
                     weekStrip = weekStrip,
                     streakDays = calculateStreak(
-                        sessions.map { normalizeToMidnight(it.date) }.distinct(),
+                        sessions.filter { it.durationMinutes > 0 }
+                            .map { normalizeToMidnight(it.date) }.distinct(),
                         System.currentTimeMillis(),
                     ),
                     latestSnapshot = snapshots.maxByOrNull { it.date },
                     activeSessionDayId = activeSession?.dayId,
+                    isTodaySessionFinished = isTodaySessionFinished,
                 )
             }
         }

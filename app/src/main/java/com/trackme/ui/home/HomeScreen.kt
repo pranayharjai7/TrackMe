@@ -6,9 +6,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -97,8 +99,12 @@ fun HomeScreen(
 
             item {
                 val todayDay = state.todayWorkoutDay
+                val isActiveForToday = state.activeSessionDayId != null &&
+                        state.activeSessionDayId == todayDay?.id
                 TodayWorkoutCard(
                     day = todayDay,
+                    isInProgress = isActiveForToday,
+                    isFinished = state.isTodaySessionFinished,
                     onStart = { todayDay?.let { onStartSession(it.id) } },
                 )
             }
@@ -235,7 +241,7 @@ private fun HealthConnectCard(snapshot: HealthSnapshot) {
 }
 
 @Composable
-private fun TodayWorkoutCard(day: WorkoutDay?, onStart: () -> Unit) {
+private fun TodayWorkoutCard(day: WorkoutDay?, isInProgress: Boolean, isFinished: Boolean, onStart: () -> Unit) {
     Card(
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
@@ -263,16 +269,55 @@ private fun TodayWorkoutCard(day: WorkoutDay?, onStart: () -> Unit) {
                     color = Violet,
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = onStart,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Start Workout", fontWeight = FontWeight.SemiBold)
+                when {
+                    isFinished -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Teal, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Workout complete",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Teal,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(
+                                onClick = onStart,
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Restart")
+                            }
+                        }
+                    }
+                    isInProgress -> {
+                        Button(
+                            onClick = onStart,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Teal),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Continue Workout", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    else -> {
+                        Button(
+                            onClick = onStart,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Start Workout", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }
