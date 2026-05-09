@@ -1,8 +1,14 @@
 package com.trackme.ui.profile
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackme.data.health.HcSdkStatus
 import com.trackme.domain.repository.HealthRepository
+import com.trackme.ui.onboarding.PREF_GOAL
+import com.trackme.ui.onboarding.PREF_USE_KG
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
@@ -13,16 +19,19 @@ import javax.inject.Inject
 data class ProfileUiState(
     val displayName: String = "",
     val email: String = "",
-    val healthConnectAvailable: Boolean = false,
+    val hcStatus: HcSdkStatus = HcSdkStatus.NEEDS_INSTALL,
     val healthConnectConnected: Boolean = false,
     val lastSyncTime: Long? = null,
     val isSyncing: Boolean = false,
+    val useKg: Boolean = true,
+    val fitnessGoal: String = "BUILD_MUSCLE",
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val healthRepository: HealthRepository,
     private val supabase: SupabaseClient,
+    private val dataStore: DataStore<Preferences>,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -31,26 +40,52 @@ class ProfileViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val user = supabase.auth.currentSessionOrNull()?.user
-            val hcAvailable = healthRepository.isHealthConnectAvailable()
-            val hcConnected = if (hcAvailable) healthRepository.hasHealthConnectPermissions() else false
-
+            val hcStatus = healthRepository.getHealthConnectStatus()
+            val hcConnected = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.hasHealthConnectPermissions() else false
             _uiState.update {
                 it.copy(
                     displayName = user?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: "",
                     email = user?.email ?: "",
-                    healthConnectAvailable = hcAvailable,
+                    hcStatus = hcStatus,
                     healthConnectConnected = hcConnected,
                 )
+            }
+        }
+
+        viewModelScope.launch {
+            dataStore.data.collect { prefs ->
+                _uiState.update {
+                    it.copy(
+                        useKg = prefs[PREF_USE_KG] ?: true,
+                        fitnessGoal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE",
+                    )
+                }
+            }
+        }
+    }
+
+    fun onPermissionResult(grantedPermissions: Set<String>) {
+        viewModelScope.launch {
+            val required = healthRepository.getRequiredPermissions()
+            val allGranted = required.all { it in grantedPermissions }
+            if (allGranted) {
+                _uiState.update { it.copy(healthConnectConnected = true) }
+                syncHealthConnect()
+            } else {
+                // Some permissions denied — recheck actual state
+                recheckHealthConnect()
             }
         }
     }
 
     fun recheckHealthConnect() {
         viewModelScope.launch {
-            val hcAvailable = healthRepository.isHealthConnectAvailable()
-            val hcConnected = if (hcAvailable) healthRepository.hasHealthConnectPermissions() else false
-            _uiState.update {
-                it.copy(healthConnectAvailable = hcAvailable, healthConnectConnected = hcConnected)
+            val hcStatus = healthRepository.getHealthConnectStatus()
+            val hcConnected = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.hasHealthConnectPermissions() else false
+            val wasConnected = _uiState.value.healthConnectConnected
+            _uiState.update { it.copy(hcStatus = hcStatus, healthConnectConnected = hcConnected) }
+            if (!wasConnected && hcConnected) {
+                syncHealthConnect()
             }
         }
     }
@@ -65,6 +100,15 @@ class ProfileViewModel @Inject constructor(
                     isSyncing = false,
                     lastSyncTime = if (result.isSuccess) System.currentTimeMillis() else it.lastSyncTime,
                 )
+            }
+        }
+    }
+
+    fun savePreferences(useKg: Boolean, fitnessGoal: String) {
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[PREF_USE_KG] = useKg
+                prefs[PREF_GOAL] = fitnessGoal
             }
         }
     }

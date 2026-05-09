@@ -15,6 +15,8 @@ import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+enum class HcSdkStatus { AVAILABLE, NEEDS_UPDATE, NEEDS_INSTALL }
+
 @Singleton
 class HealthConnectManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -32,7 +34,13 @@ class HealthConnectManager @Inject constructor(
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
     )
 
-    fun isAvailable(): Boolean = HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+    fun getSdkStatus(): HcSdkStatus = when (HealthConnectClient.getSdkStatus(context)) {
+        HealthConnectClient.SDK_AVAILABLE -> HcSdkStatus.AVAILABLE
+        HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcSdkStatus.NEEDS_UPDATE
+        else -> HcSdkStatus.NEEDS_INSTALL
+    }
+
+    fun isAvailable(): Boolean = getSdkStatus() == HcSdkStatus.AVAILABLE
 
     suspend fun hasPermissions(): Boolean {
         val c = client ?: return false
@@ -83,3 +91,4 @@ class HealthConnectManager @Inject constructor(
         }
     }
 }
+

@@ -26,6 +26,10 @@ fun WeeklyPlannerScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    var showAddDayDialog by remember { mutableStateOf(false) }
+    var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
+    var newDayName by remember { mutableStateOf("") }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -50,10 +54,56 @@ fun WeeklyPlannerScreen(
             ) {
                 items(DayOfWeek.entries, key = { it.name }) { dow ->
                     val day = state.days.firstOrNull { it.dayOfWeek == dow }
-                    DayCard(dayOfWeek = dow, workoutDay = day, onClick = { day?.let { onEditDay(it.id) } })
+                    val count = day?.let { state.exerciseCounts[it.id] } ?: 0
+                    DayCard(
+                        dayOfWeek = dow,
+                        workoutDay = day,
+                        exerciseCount = count,
+                        onClick = {
+                            if (day != null) {
+                                onEditDay(day.id)
+                            } else {
+                                pendingDayOfWeek = dow
+                                newDayName = dow.name.lowercase().replaceFirstChar { it.uppercase() } + " Workout"
+                                showAddDayDialog = true
+                            }
+                        },
+                    )
                 }
             }
         }
+    }
+
+    if (showAddDayDialog && pendingDayOfWeek != null) {
+        val dowLabel = pendingDayOfWeek!!.name.lowercase().replaceFirstChar { it.uppercase() }
+        AlertDialog(
+            onDismissRequest = { showAddDayDialog = false; newDayName = "" },
+            title = { Text("Add $dowLabel Workout") },
+            text = {
+                OutlinedTextField(
+                    value = newDayName,
+                    onValueChange = { newDayName = it },
+                    label = { Text("Day name (e.g. Push Day)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.addDay(
+                        pendingDayOfWeek!!,
+                        newDayName.trim().ifEmpty { "$dowLabel Workout" },
+                    )
+                    showAddDayDialog = false
+                    newDayName = ""
+                }) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDayDialog = false; newDayName = "" }) { Text("Cancel") }
+            },
+            containerColor = Surface,
+            shape = RoundedCornerShape(24.dp),
+        )
     }
 
     if (state.showNewPlanDialog) {
@@ -82,13 +132,13 @@ fun WeeklyPlannerScreen(
 }
 
 @Composable
-private fun DayCard(dayOfWeek: DayOfWeek, workoutDay: WorkoutDay?, onClick: () -> Unit) {
+private fun DayCard(dayOfWeek: DayOfWeek, workoutDay: WorkoutDay?, exerciseCount: Int, onClick: () -> Unit) {
     val dayLabel = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (workoutDay != null) Surface else SurfaceVariant.copy(alpha = 0.5f)
+            containerColor = if (workoutDay != null) Surface else Surface.copy(alpha = 0.5f)
         ),
         elevation = CardDefaults.cardElevation(if (workoutDay != null) 4.dp else 0.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -101,6 +151,13 @@ private fun DayCard(dayOfWeek: DayOfWeek, workoutDay: WorkoutDay?, onClick: () -
                     style = MaterialTheme.typography.titleMedium,
                     color = if (workoutDay != null) OnSurface else OnSurfaceMuted,
                 )
+                if (workoutDay != null && exerciseCount > 0) {
+                    Text(
+                        "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = OnSurfaceMuted,
+                    )
+                }
             }
             if (workoutDay != null) {
                 Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Violet)

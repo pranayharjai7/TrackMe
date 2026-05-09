@@ -114,4 +114,10 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override fun getSessionsSince(userId: String, fromDate: Long): Flow<List<WorkoutSession>> =
         workoutSessionDao.getForUserSince(userId, fromDate).map { it.map { e -> e.toDomain() } }
+
+    override fun getSetsSince(userId: String, fromDate: Long): Flow<List<SessionSet>> =
+        sessionSetDao.getSetsSince(userId, fromDate).map { it.map { e -> e.toDomain() } }
+
+    override suspend fun getInProgressSession(userId: String, todayStart: Long): WorkoutSession? =
+        workoutSessionDao.getInProgressSession(userId, todayStart)?.toDomain()
 }

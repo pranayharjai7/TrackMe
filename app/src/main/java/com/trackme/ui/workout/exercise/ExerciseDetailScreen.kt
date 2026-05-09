@@ -24,6 +24,12 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.request.ImageRequest
 import com.trackme.ui.theme.*
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.line.lineChart
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.core.entry.FloatEntry
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +129,10 @@ fun ExerciseDetailScreen(
                 }
             }
 
+            if (state.history.isNotEmpty()) {
+                HistoryChartCard(state.history)
+            }
+
             OutlinedButton(
                 onClick = {
                     val query = Uri.encode(exercise.youtubeQuery)
@@ -140,6 +150,52 @@ fun ExerciseDetailScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun HistoryChartCard(history: List<com.trackme.domain.model.SessionSet>) {
+    val completedSets = history.filter { it.completed && it.weightKg > 0f }
+        .sortedBy { it.updatedAt }
+    if (completedSets.size < 2) return
+
+    val producer = remember { ChartEntryModelProducer() }
+
+    LaunchedEffect(completedSets) {
+        producer.setEntries(
+            completedSets.mapIndexed { index, set ->
+                FloatEntry(x = index.toFloat(), y = set.weightKg)
+            }
+        )
+    }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = com.trackme.ui.theme.Surface),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "Your History",
+                style = MaterialTheme.typography.titleMedium,
+                color = com.trackme.ui.theme.OnSurface,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Weight per set (kg)",
+                style = MaterialTheme.typography.labelSmall,
+                color = com.trackme.ui.theme.OnSurfaceMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+            Chart(
+                chart = lineChart(),
+                chartModelProducer = producer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp),
+            )
         }
     }
 }

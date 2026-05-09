@@ -30,4 +30,6 @@ interface WorkoutRepository {
 
     fun getHistoryForExercise(userId: String, exerciseId: String): Flow<List<SessionSet>>
     fun getSessionsSince(userId: String, fromDate: Long): Flow<List<WorkoutSession>>
+    fun getSetsSince(userId: String, fromDate: Long): Flow<List<SessionSet>>
+    suspend fun getInProgressSession(userId: String, todayStart: Long): WorkoutSession?
 }

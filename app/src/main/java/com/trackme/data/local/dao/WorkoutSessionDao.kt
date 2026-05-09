@@ -9,6 +9,12 @@ interface WorkoutSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(session: WorkoutSessionEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(sessions: List<WorkoutSessionEntity>)
+
+    @Query("SELECT * FROM workout_sessions WHERE userId = :userId")
+    suspend fun getAllForUserOnce(userId: String): List<WorkoutSessionEntity>
+
     @Query("SELECT * FROM workout_sessions WHERE userId = :userId ORDER BY date DESC")
     fun getAllForUser(userId: String): Flow<List<WorkoutSessionEntity>>
 
@@ -23,4 +29,7 @@ interface WorkoutSessionDao {
 
     @Query("UPDATE workout_sessions SET durationMinutes = :durationMinutes, isSynced = 0 WHERE id = :sessionId")
     suspend fun updateDuration(sessionId: String, durationMinutes: Int)
+
+    @Query("SELECT * FROM workout_sessions WHERE userId = :userId AND date >= :todayStart AND durationMinutes = 0 LIMIT 1")
+    suspend fun getInProgressSession(userId: String, todayStart: Long): WorkoutSessionEntity?
 }

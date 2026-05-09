@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,6 +16,8 @@ data class OnboardingUiState(
     val useKg: Boolean = true,
     val goal: String = "BUILD_MUSCLE",
     val isSaving: Boolean = false,
+    val isAlreadyDone: Boolean = false,
+    val currentStep: Int = 1,
 )
 
 val PREF_USE_KG = booleanPreferencesKey("use_kg")
@@ -29,8 +32,24 @@ class OnboardingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            val prefs = dataStore.data.first()
+            if (prefs[PREF_ONBOARDING_DONE] == true) {
+                _uiState.update {
+                    it.copy(
+                        isAlreadyDone = true,
+                        useKg = prefs[PREF_USE_KG] ?: true,
+                        goal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE",
+                    )
+                }
+            }
+        }
+    }
+
     fun setUnit(useKg: Boolean) = _uiState.update { it.copy(useKg = useKg) }
     fun setGoal(goal: String) = _uiState.update { it.copy(goal = goal) }
+    fun nextStep() = _uiState.update { it.copy(currentStep = it.currentStep + 1) }
 
     fun complete(onDone: () -> Unit) {
         viewModelScope.launch {

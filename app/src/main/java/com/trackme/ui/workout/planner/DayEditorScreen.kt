@@ -1,25 +1,29 @@
 package com.trackme.ui.workout.planner
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.ui.theme.*
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +34,10 @@ fun DayEditorScreen(
     viewModel: DayEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val lazyListState = rememberLazyListState()
+    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        viewModel.reorderExercises(from.index, to.index)
+    }
 
     Scaffold(
         topBar = {
@@ -69,16 +77,28 @@ fun DayEditorScreen(
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                    state = lazyListState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(vertical = 16.dp),
                 ) {
-                    items(state.plannedExercises, key = { it.first.id }) { (pe, exercise) ->
-                        PlannedExerciseItem(
-                            pe = pe,
-                            exercise = exercise,
-                            onRemove = { viewModel.removeExercise(pe) },
-                        )
+                    items(
+                        items = state.plannedExercises,
+                        key = { it.first.id },
+                    ) { (pe, exercise) ->
+                        ReorderableItem(reorderState, key = pe.id) { isDragging ->
+                            val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "dragElevation")
+                            PlannedExerciseItem(
+                                pe = pe,
+                                exercise = exercise,
+                                onRemove = { viewModel.removeExercise(pe) },
+                                dragModifier = Modifier.draggableHandle(),
+                                modifier = Modifier.shadow(elevation, RoundedCornerShape(20.dp)),
+                            )
+                        }
                     }
                 }
             }
@@ -87,14 +107,27 @@ fun DayEditorScreen(
 }
 
 @Composable
-private fun PlannedExerciseItem(pe: PlannedExercise, exercise: Exercise?, onRemove: () -> Unit) {
+private fun PlannedExerciseItem(
+    pe: PlannedExercise,
+    exercise: Exercise?,
+    onRemove: () -> Unit,
+    dragModifier: Modifier = Modifier,
+    modifier: Modifier = Modifier,
+) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(4.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.DragHandle,
+                contentDescription = "Drag to reorder",
+                tint = OnSurfaceMuted,
+                modifier = dragModifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     exercise?.name ?: pe.exerciseId,

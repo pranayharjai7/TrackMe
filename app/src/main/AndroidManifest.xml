@@ -11,6 +11,14 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
 
+    <!-- Required on Android 11+ to detect the Health Connect provider app -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".TrackMeApp"
         android:allowBackup="true"
@@ -34,8 +42,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.trackme" android:host="auth-callback" />
             </intent-filter>
+            <!-- Required by Health Connect on Android 9-13 to show the permissions rationale -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
         </activity>
 
+        <!-- Required so Health Connect can show this app in the permissions management UI -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"
@@ -46,11 +59,6 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
-
-        <!-- Health Connect provider declaration (API 26-33) -->
-        <activity
-            android:name="androidx.health.connect.client.PermissionController"
-            android:exported="false" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

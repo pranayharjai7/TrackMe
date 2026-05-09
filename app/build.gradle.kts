@@ -110,6 +110,9 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
+    // Drag-to-reorder
+    implementation("sh.calvin.reorderable:reorderable:2.4.3")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.13")

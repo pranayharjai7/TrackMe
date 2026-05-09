@@ -29,7 +29,17 @@ import com.trackme.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
+import com.trackme.data.health.HcSdkStatus
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Switch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     onSignOut: () -> Unit,
@@ -37,6 +47,7 @@ fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showSignOutDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val healthPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
@@ -46,7 +57,7 @@ fun ProfileScreen(
     )
     val permissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { viewModel.recheckHealthConnect() }
+    ) { granted -> viewModel.onPermissionResult(granted) }
 
     Box(
         modifier = Modifier
@@ -56,7 +67,9 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(32.dp))
@@ -97,36 +110,54 @@ fun ProfileScreen(
                         Column(Modifier.weight(1f)) {
                             Text("Health Connect", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
                             Text(
-                                when {
-                                    !state.healthConnectAvailable -> "Not available on this device"
-                                    state.healthConnectConnected -> "Connected"
-                                    else -> "Not connected"
+                                when (state.hcStatus) {
+                                    HcSdkStatus.AVAILABLE -> if (state.healthConnectConnected) "Connected" else "Not connected"
+                                    HcSdkStatus.NEEDS_UPDATE -> "App update required"
+                                    HcSdkStatus.NEEDS_INSTALL -> "Not installed"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (state.healthConnectConnected) Teal else OnSurfaceMuted,
+                                color = when {
+                                    state.healthConnectConnected -> Teal
+                                    state.hcStatus == HcSdkStatus.AVAILABLE -> OnSurfaceMuted
+                                    else -> Coral
+                                },
                             )
                         }
-                        if (state.healthConnectAvailable && !state.healthConnectConnected) {
-                            TextButton(onClick = { permissionLauncher.launch(healthPermissions) }) {
-                                Text("Connect", color = Violet)
+                        when {
+                            state.hcStatus == HcSdkStatus.NEEDS_INSTALL || state.hcStatus == HcSdkStatus.NEEDS_UPDATE -> {
+                                TextButton(onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW,
+                                        Uri.parse("market://details?id=com.google.android.apps.healthdata"))
+                                    runCatching { context.startActivity(intent) }
+                                }) {
+                                    Text(
+                                        if (state.hcStatus == HcSdkStatus.NEEDS_INSTALL) "Install" else "Update",
+                                        color = Violet,
+                                    )
+                                }
                             }
-                        } else if (state.healthConnectConnected) {
-                            IconButton(
-                                onClick = { viewModel.syncHealthConnect() },
-                                enabled = !state.isSyncing,
-                            ) {
-                                if (state.isSyncing) {
-                                    CircularProgressIndicator(Modifier.size(20.dp), color = Violet, strokeWidth = 2.dp)
-                                } else {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = Violet)
+                            state.hcStatus == HcSdkStatus.AVAILABLE && !state.healthConnectConnected -> {
+                                TextButton(onClick = { permissionLauncher.launch(healthPermissions) }) {
+                                    Text("Connect", color = Violet)
+                                }
+                            }
+                            state.healthConnectConnected -> {
+                                IconButton(
+                                    onClick = { viewModel.syncHealthConnect() },
+                                    enabled = !state.isSyncing,
+                                ) {
+                                    if (state.isSyncing) {
+                                        CircularProgressIndicator(Modifier.size(20.dp), color = Violet, strokeWidth = 2.dp)
+                                    } else {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = Violet)
+                                    }
                                 }
                             }
                         }
                     }
 
-                    HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.1f))
-
                     state.lastSyncTime?.let { syncTime ->
+                        HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.1f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CloudDone, contentDescription = null, tint = Teal, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
@@ -135,6 +166,71 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = OnSurfaceMuted,
                             )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface),
+                elevation = CardDefaults.cardElevation(4.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        "Preferences",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OnSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Weight Unit", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+                            Text(
+                                if (state.useKg) "Kilograms (kg)" else "Pounds (lbs)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = OnSurfaceMuted,
+                            )
+                        }
+                        Switch(
+                            checked = state.useKg,
+                            onCheckedChange = { viewModel.savePreferences(it, state.fitnessGoal) },
+                        )
+                    }
+
+                    HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.1f))
+
+                    Column {
+                        Text("Fitness Goal", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+                        Spacer(Modifier.height(8.dp))
+                        val goals = listOf(
+                            "BUILD_MUSCLE" to "Build Muscle",
+                            "LOSE_WEIGHT" to "Lose Weight",
+                            "IMPROVE_ENDURANCE" to "Improve Endurance",
+                        )
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            goals.forEach { (key, label) ->
+                                FilterChip(
+                                    selected = state.fitnessGoal == key,
+                                    onClick = { viewModel.savePreferences(state.useKg, key) },
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Violet.copy(alpha = 0.2f),
+                                        selectedLabelColor = Violet,
+                                    ),
+                                )
+                            }
                         }
                     }
                 }

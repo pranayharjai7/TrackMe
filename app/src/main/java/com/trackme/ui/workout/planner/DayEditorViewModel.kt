@@ -63,6 +63,20 @@ class DayEditorViewModel @Inject constructor(
         viewModelScope.launch { workoutRepository.removePlannedExercise(pe) }
     }
 
+    fun reorderExercises(from: Int, to: Int) {
+        val current = _uiState.value.plannedExercises.toMutableList()
+        if (from < 0 || to < 0 || from >= current.size || to >= current.size) return
+        val moved = current.removeAt(from)
+        current.add(to, moved)
+        val reordered = current.mapIndexed { index, (pe, exercise) ->
+            pe.copy(orderIndex = index) to exercise
+        }
+        _uiState.update { it.copy(plannedExercises = reordered) }
+        viewModelScope.launch {
+            workoutRepository.reorderExercises(reordered.map { it.first })
+        }
+    }
+
     fun addExercise(exerciseId: String) {
         viewModelScope.launch {
             val nextIndex = _uiState.value.plannedExercises.size

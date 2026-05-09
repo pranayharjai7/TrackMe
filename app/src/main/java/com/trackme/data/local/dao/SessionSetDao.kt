@@ -9,11 +9,20 @@ interface SessionSetDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(set: SessionSetEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(sets: List<SessionSetEntity>)
+
+    @Query("SELECT * FROM session_sets WHERE userId = :userId")
+    suspend fun getAllForUser(userId: String): List<SessionSetEntity>
+
     @Query("SELECT * FROM session_sets WHERE sessionId = :sessionId ORDER BY exerciseId, setNumber")
     fun getSetsForSession(sessionId: String): Flow<List<SessionSetEntity>>
 
     @Query("SELECT * FROM session_sets WHERE userId = :userId AND exerciseId = :exerciseId ORDER BY updatedAt DESC LIMIT 50")
     fun getHistoryForExercise(userId: String, exerciseId: String): Flow<List<SessionSetEntity>>
+
+    @Query("SELECT * FROM session_sets WHERE userId = :userId AND updatedAt >= :fromDate AND completed = 1")
+    fun getSetsSince(userId: String, fromDate: Long): Flow<List<SessionSetEntity>>
 
     @Query("SELECT MAX(weightKg) FROM session_sets WHERE userId = :userId AND exerciseId = :exerciseId AND completed = 1")
     suspend fun getMaxWeightForExercise(userId: String, exerciseId: String): Float?

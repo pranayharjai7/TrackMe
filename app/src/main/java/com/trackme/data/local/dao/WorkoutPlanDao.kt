@@ -9,6 +9,15 @@ interface WorkoutPlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(plan: WorkoutPlanEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(plans: List<WorkoutPlanEntity>)
+
+    @Query("SELECT COUNT(*) FROM workout_plans WHERE userId = :userId")
+    suspend fun countForUser(userId: String): Int
+
+    @Query("SELECT * FROM workout_plans WHERE userId = :userId")
+    suspend fun getAllForUserOnce(userId: String): List<WorkoutPlanEntity>
+
     @Query("SELECT * FROM workout_plans WHERE userId = :userId")
     fun getAllForUser(userId: String): Flow<List<WorkoutPlanEntity>>
 

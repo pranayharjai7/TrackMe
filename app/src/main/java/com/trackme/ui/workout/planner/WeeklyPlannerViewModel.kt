@@ -20,6 +20,7 @@ import javax.inject.Inject
 data class WeeklyPlannerUiState(
     val activePlan: WorkoutPlan? = null,
     val days: List<WorkoutDay> = emptyList(),
+    val exerciseCounts: Map<String, Int> = emptyMap(),
     val isCreatingPlan: Boolean = false,
     val showNewPlanDialog: Boolean = false,
     val newPlanName: String = "",
@@ -48,7 +49,18 @@ class WeeklyPlannerViewModel @Inject constructor(
                     if (plan != null) workoutRepository.getDaysForPlan(plan.id)
                     else flowOf(emptyList())
                 }
-                .collect { days -> _uiState.update { it.copy(days = days) } }
+                .flatMapLatest { days ->
+                    _uiState.update { it.copy(days = days) }
+                    if (days.isEmpty()) {
+                        flowOf(emptyMap())
+                    } else {
+                        combine(days.map { day ->
+                            workoutRepository.getPlannedExercisesForDay(day.id)
+                                .map { exercises -> day.id to exercises.size }
+                        }) { pairs -> pairs.toMap() }
+                    }
+                }
+                .collect { counts -> _uiState.update { it.copy(exerciseCounts = counts) } }
         }
     }
 

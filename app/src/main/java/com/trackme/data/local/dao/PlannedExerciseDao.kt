@@ -12,6 +12,9 @@ interface PlannedExerciseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<PlannedExerciseEntity>)
 
+    @Query("SELECT * FROM planned_exercises WHERE userId = :userId")
+    suspend fun getAllForUser(userId: String): List<PlannedExerciseEntity>
+
     @Query("SELECT * FROM planned_exercises WHERE dayId = :dayId ORDER BY orderIndex")
     fun getForDay(dayId: String): Flow<List<PlannedExerciseEntity>>
 

@@ -1,10 +1,14 @@
 package com.trackme.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +21,7 @@ import com.trackme.ui.home.HomeScreen
 import com.trackme.ui.onboarding.OnboardingScreen
 import com.trackme.ui.profile.ProfileScreen
 import com.trackme.ui.progress.ProgressScreen
+import com.trackme.ui.theme.Violet
 import com.trackme.ui.workout.exercise.ExerciseDetailScreen
 import com.trackme.ui.workout.exercise.ExerciseSearchScreen
 import com.trackme.ui.workout.planner.DayEditorScreen
@@ -24,7 +29,16 @@ import com.trackme.ui.workout.planner.WeeklyPlannerScreen
 import com.trackme.ui.workout.session.ActiveSessionScreen
 
 @Composable
-fun TrackMeNavGraph() {
+fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
+    val startDestination by navViewModel.startDestination.collectAsState()
+
+    if (startDestination == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Violet)
+        }
+        return
+    }
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -43,15 +57,13 @@ fun TrackMeNavGraph() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.Auth.route,
+            startDestination = startDestination!!,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.Auth.route) {
                 AuthScreen(
-                    onAuthSuccess = { isNewUser ->
-                        if (isNewUser) navController.navigate(Routes.Onboarding.route) {
-                            popUpTo(Routes.Auth.route) { inclusive = true }
-                        } else navController.navigate(Routes.Home.route) {
+                    onAuthSuccess = { _ ->
+                        navController.navigate(Routes.Onboarding.route) {
                             popUpTo(Routes.Auth.route) { inclusive = true }
                         }
                     }
@@ -68,7 +80,8 @@ fun TrackMeNavGraph() {
             }
             composable(Routes.Home.route) {
                 HomeScreen(
-                    onStartSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) }
+                    onStartSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) },
+                    onResumeSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) },
                 )
             }
             composable(Routes.WeeklyPlanner.route) {
@@ -83,7 +96,7 @@ fun TrackMeNavGraph() {
                 val dayId = backStack.arguments?.getString("dayId") ?: return@composable
                 DayEditorScreen(
                     dayId = dayId,
-                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) }, // dayId captured from navArgument above
+                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) },
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -93,7 +106,6 @@ fun TrackMeNavGraph() {
             ) { backStack ->
                 val dayId = backStack.arguments?.getString("dayId") ?: ""
                 ExerciseSearchScreen(
-                    dayId = dayId,
                     onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
                     onBack = { navController.popBackStack() },
                 )

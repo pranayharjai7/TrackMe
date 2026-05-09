@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,38 @@ fun ActiveSessionScreen(
                     totalSeconds = state.restSeconds,
                     onSkip = viewModel::stopRestTimer,
                 )
+            }
+
+            val totalExercises = state.exercises.size
+            val completedExercises = state.exercises.count { (pe, _) ->
+                state.loggedSets.any { it.exerciseId == pe.exerciseId }
+            }
+            if (totalExercises > 0) {
+                val progress = completedExercises.toFloat() / totalExercises.toFloat()
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "$completedExercises / $totalExercises exercises",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OnSurfaceMuted,
+                        )
+                        Text(
+                            "${(progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Teal,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Teal,
+                        trackColor = OnSurfaceMuted.copy(alpha = 0.2f),
+                    )
+                }
             }
 
             LazyColumn(

@@ -13,7 +13,16 @@ class GetMuscleVolumeUseCase @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
 ) {
     operator fun invoke(userId: String, fromDate: Long): Flow<List<MuscleVolume>> =
-        workoutRepository.getSessionsSince(userId, fromDate).map {
-            emptyList()
+        workoutRepository.getSetsSince(userId, fromDate).map { sets ->
+            sets
+                .groupBy { it.exerciseId }
+                .flatMap { (exerciseId, exerciseSets) ->
+                    val exercise = exerciseRepository.getById(exerciseId) ?: return@flatMap emptyList()
+                    exercise.primaryMuscles.map { muscle -> muscle to exerciseSets.size }
+                }
+                .groupBy { it.first }
+                .map { (muscle, entries) -> MuscleVolume(muscle, entries.sumOf { it.second }) }
+                .sortedByDescending { it.totalSets }
+                .take(5)
         }
 }

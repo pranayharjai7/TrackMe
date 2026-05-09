@@ -9,6 +9,12 @@ interface WorkoutDayDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(day: WorkoutDayEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(days: List<WorkoutDayEntity>)
+
+    @Query("SELECT * FROM workout_days WHERE userId = :userId")
+    suspend fun getAllForUser(userId: String): List<WorkoutDayEntity>
+
     @Query("SELECT * FROM workout_days WHERE planId = :planId ORDER BY dayOfWeek")
     fun getDaysForPlan(planId: String): Flow<List<WorkoutDayEntity>>
 

@@ -2,6 +2,7 @@ package com.trackme.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackme.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import kotlinx.coroutines.flow.*
@@ -16,6 +17,7 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val supabase: SupabaseClient,
+    private val syncManager: SyncManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -35,6 +37,7 @@ class AuthViewModel @Inject constructor(
             runCatching {
                 signInWithEmailImpl(supabase, email.trim(), password)
             }.onSuccess {
+                syncManager.enqueueImmediateSync()
                 _uiState.update { it.copy(isLoading = false) }
                 onSuccess(false)
             }.onFailure { e ->
@@ -71,6 +74,7 @@ class AuthViewModel @Inject constructor(
             runCatching {
                 signInWithGoogleIdTokenImpl(supabase, idToken)
             }.onSuccess {
+                syncManager.enqueueImmediateSync()
                 _uiState.update { it.copy(isLoading = false) }
                 onSuccess(false)
             }.onFailure { e ->
@@ -82,3 +86,4 @@ class AuthViewModel @Inject constructor(
     fun clearError() = _uiState.update { it.copy(error = null) }
     fun setError(msg: String) = _uiState.update { it.copy(isLoading = false, error = msg) }
 }
+
