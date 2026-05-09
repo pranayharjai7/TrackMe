@@ -50,7 +50,11 @@ class ActiveSessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val session = startSession(userId, dayId)
+            val session = try {
+                startSession(userId, dayId)
+            } catch (e: Exception) {
+                return@launch
+            }
             _uiState.update { it.copy(sessionId = session.id) }
 
             launch {

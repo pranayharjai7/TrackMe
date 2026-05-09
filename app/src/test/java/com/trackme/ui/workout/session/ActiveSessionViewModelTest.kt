@@ -15,6 +15,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActiveSessionViewModelTest {
@@ -24,15 +25,27 @@ class ActiveSessionViewModelTest {
     @Before fun setUp() { Dispatchers.setMain(testDispatcher) }
     @After fun tearDown() { Dispatchers.resetMain() }
 
+    private fun fakeSession() = WorkoutSession(
+        id = UUID.randomUUID().toString(),
+        userId = "user1",
+        dayId = "day1",
+        date = 1000L,
+        durationMinutes = 0,
+        notes = "",
+        updatedAt = 1000L,
+    )
+
     @Test
     fun `rest timer initial state is 90 seconds and not running`() = runTest {
         val workoutRepository = mockk<WorkoutRepository>(relaxed = true)
         val exerciseRepository = mockk<ExerciseRepository>(relaxed = true)
-        val startSession = StartSessionUseCase(workoutRepository)
-        val logSet = LogSetUseCase(workoutRepository)
-        val finishSession = FinishSessionUseCase(workoutRepository)
+        val startSession = mockk<StartSessionUseCase>()
+        val logSet = mockk<LogSetUseCase>(relaxed = true)
+        val finishSession = mockk<FinishSessionUseCase>(relaxed = true)
         val supabase = mockk<SupabaseClient>(relaxed = true)
 
+        val session = fakeSession()
+        coEvery { startSession(any(), any()) } returns session
         every { workoutRepository.getPlannedExercisesForDay(any()) } returns flowOf(emptyList())
         every { workoutRepository.getSessionSets(any()) } returns flowOf(emptyList())
 

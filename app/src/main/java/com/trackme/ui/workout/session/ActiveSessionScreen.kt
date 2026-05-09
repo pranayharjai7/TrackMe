@@ -62,13 +62,13 @@ fun ActiveSessionScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
             ) {
                 items(state.exercises, key = { it.first.id }) { (pe, exercise) ->
+                    val exerciseSets = state.loggedSets.filter { it.exerciseId == pe.exerciseId }
                     ExerciseSessionCard(
                         plannedExercise = pe,
                         exercise = exercise,
-                        loggedSets = viewModel.setsForExercise(pe.exerciseId),
+                        loggedSets = exerciseSets,
                         onLogSet = { weight, reps ->
-                            val nextSetNumber = viewModel.setsForExercise(pe.exerciseId).size + 1
-                            viewModel.logSet(pe.exerciseId, nextSetNumber, weight, reps)
+                            viewModel.logSet(pe.exerciseId, exerciseSets.size + 1, weight, reps)
                         },
                     )
                 }
