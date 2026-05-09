@@ -2,6 +2,7 @@ package com.trackme.data.repository
 
 import com.trackme.data.local.dao.*
 import com.trackme.data.local.entity.*
+import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import com.trackme.domain.model.*
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.sync.SyncManager
@@ -19,6 +20,8 @@ class WorkoutRepositoryImpl @Inject constructor(
     private val workoutSessionDao: WorkoutSessionDao,
     private val sessionSetDao: SessionSetDao,
     private val personalRecordDao: PersonalRecordDao,
+    private val pendingDeletionDao: PendingDeletionDao,
+    private val remoteSource: WorkoutRemoteSource,
     private val syncManager: SyncManager,
 ) : WorkoutRepository {
 
@@ -50,7 +53,14 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun deleteDay(day: WorkoutDay) {
         val ts = System.currentTimeMillis()
         workoutDayDao.softDelete(day.id, ts)
-        syncManager.enqueueImmediateSync()
+        val entity = day.toEntity(isSynced = false).copy(deletedAt = ts, updatedAt = ts)
+        val pushed = runCatching { remoteSource.upsertDay(entity) }.isSuccess
+        if (pushed) {
+            workoutDayDao.markSynced(day.id)
+        } else {
+            pendingDeletionDao.insert(PendingDeletionEntity(day.id, day.userId, "workout_days", ts))
+            syncManager.enqueueImmediateSync()
+        }
     }
 
     override fun getPlannedExercisesForDay(dayId: String): Flow<List<PlannedExercise>> =
@@ -64,7 +74,14 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun removePlannedExercise(pe: PlannedExercise) {
         val ts = System.currentTimeMillis()
         plannedExerciseDao.softDelete(pe.id, ts)
-        syncManager.enqueueImmediateSync()
+        val entity = pe.toEntity(isSynced = false).copy(deletedAt = ts, updatedAt = ts)
+        val pushed = runCatching { remoteSource.upsertPlannedExercise(entity) }.isSuccess
+        if (pushed) {
+            plannedExerciseDao.markSynced(pe.id)
+        } else {
+            pendingDeletionDao.insert(PendingDeletionEntity(pe.id, pe.userId, "planned_exercises", ts))
+            syncManager.enqueueImmediateSync()
+        }
     }
 
     override suspend fun reorderExercises(exercises: List<PlannedExercise>) {
@@ -93,7 +110,14 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun deleteSet(set: SessionSet) {
         val ts = System.currentTimeMillis()
         sessionSetDao.softDelete(set.id, ts)
-        syncManager.enqueueImmediateSync()
+        val entity = set.toEntity(isSynced = false).copy(deletedAt = ts, updatedAt = ts)
+        val pushed = runCatching { remoteSource.upsertSet(entity) }.isSuccess
+        if (pushed) {
+            sessionSetDao.markSynced(set.id)
+        } else {
+            pendingDeletionDao.insert(PendingDeletionEntity(set.id, set.userId, "session_sets", ts))
+            syncManager.enqueueImmediateSync()
+        }
     }
 
     override suspend fun updatePersonalRecord(userId: String, exerciseId: String, weightKg: Float, reps: Int, date: Long) {

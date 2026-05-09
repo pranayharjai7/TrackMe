@@ -17,8 +17,9 @@ import com.trackme.data.local.entity.*
         SessionSetEntity::class,
         PersonalRecordEntity::class,
         HealthSnapshotEntity::class,
+        PendingDeletionEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionSetDao(): SessionSetDao
     abstract fun personalRecordDao(): PersonalRecordDao
     abstract fun healthSnapshotDao(): HealthSnapshotDao
+    abstract fun pendingDeletionDao(): PendingDeletionDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -39,6 +41,18 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE planned_exercises ADD COLUMN deletedAt INTEGER")
                 db.execSQL("ALTER TABLE workout_sessions ADD COLUMN deletedAt INTEGER")
                 db.execSQL("ALTER TABLE session_sets ADD COLUMN deletedAt INTEGER")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS pending_deletions (" +
+                    "entityId TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "tableName TEXT NOT NULL, " +
+                    "deletedAt INTEGER NOT NULL)"
+                )
             }
         }
     }

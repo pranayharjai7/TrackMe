@@ -24,7 +24,7 @@ object DatabaseModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "trackme.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -36,6 +36,7 @@ object DatabaseModule {
     @Provides fun provideSessionSetDao(db: AppDatabase): SessionSetDao = db.sessionSetDao()
     @Provides fun providePersonalRecordDao(db: AppDatabase): PersonalRecordDao = db.personalRecordDao()
     @Provides fun provideHealthSnapshotDao(db: AppDatabase): HealthSnapshotDao = db.healthSnapshotDao()
+    @Provides fun providePendingDeletionDao(db: AppDatabase): PendingDeletionDao = db.pendingDeletionDao()
 
     @Provides
     @Singleton

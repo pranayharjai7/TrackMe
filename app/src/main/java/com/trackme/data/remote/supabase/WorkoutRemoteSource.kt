@@ -4,8 +4,16 @@ import com.trackme.data.local.entity.*
 import com.trackme.data.remote.dto.*
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
+
+@Serializable
+private data class DeletionPatch(
+    @SerialName("deleted_at") val deletedAt: Long,
+    @SerialName("updated_at") val updatedAt: Long,
+)
 
 @Singleton
 class WorkoutRemoteSource @Inject constructor(
@@ -70,4 +78,13 @@ class WorkoutRemoteSource @Inject constructor(
             .select { filter { eq("user_id", userId) } }
             .decodeList<SessionSetDto>()
             .map { SessionSetEntity(it.id, it.sessionId, it.userId, it.exerciseId, it.setNumber, it.weightKg, it.reps, it.completed, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
+
+    suspend fun markDeleted(table: String, entityId: String, userId: String, deletedAt: Long) {
+        supabase.postgrest[table].update(DeletionPatch(deletedAt, deletedAt)) {
+            filter {
+                eq("id", entityId)
+                eq("user_id", userId)
+            }
+        }
+    }
 }
