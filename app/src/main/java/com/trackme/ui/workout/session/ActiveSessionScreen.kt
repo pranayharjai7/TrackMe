@@ -119,6 +119,9 @@ fun ActiveSessionScreen(
                                 weight, reps, duration, distance, speed, incline,
                             )
                         },
+                        onTargetSetsChanged = { newTarget ->
+                            viewModel.updateTargetSets(pe.exerciseId, newTarget)
+                        }
                     )
                 }
             }
@@ -165,9 +168,10 @@ private fun ExerciseSessionCard(
     loggedSets: List<SessionSet>,
     onExerciseClick: () -> Unit,
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
+    onTargetSetsChanged: (Int) -> Unit = {},
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
-    var targetSets by rememberSaveable(plannedExercise.id) { mutableIntStateOf(plannedExercise.targetSets) }
+    val targetSets = plannedExercise.targetSets
     val currentSetNumber = loggedSets.size + 1
     val allSetsLogged = loggedSets.size >= targetSets
 
@@ -230,7 +234,7 @@ private fun ExerciseSessionCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 IconButton(
-                    onClick = { if (targetSets > maxOf(loggedSets.size, 1)) targetSets-- },
+                    onClick = { if (targetSets > maxOf(loggedSets.size, 1)) onTargetSetsChanged(targetSets - 1) },
                     modifier = Modifier.size(28.dp),
                     enabled = targetSets > maxOf(loggedSets.size, 1),
                 ) {
@@ -249,7 +253,7 @@ private fun ExerciseSessionCard(
                     }
                 }
                 IconButton(
-                    onClick = { targetSets++ },
+                    onClick = { onTargetSetsChanged(targetSets + 1) },
                     modifier = Modifier.size(28.dp),
                 ) {
                     Icon(

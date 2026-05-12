@@ -136,6 +136,16 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
+    fun updateTargetSets(exerciseId: String, sets: Int) {
+        viewModelScope.launch {
+            val planned = _uiState.value.exercises.find { it.first.exerciseId == exerciseId }?.first
+            if (planned != null) {
+                val updated = planned.copy(targetSets = sets)
+                workoutRepository.updatePlannedExercise(updated)
+            }
+        }
+    }
+
     fun setsForExercise(exerciseId: String): List<SessionSet> =
         _uiState.value.loggedSets.filter { it.exerciseId == exerciseId }
 

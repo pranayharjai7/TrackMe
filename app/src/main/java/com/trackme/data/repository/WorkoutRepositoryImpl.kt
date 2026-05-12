@@ -71,6 +71,17 @@ class WorkoutRepositoryImpl @Inject constructor(
         syncManager.enqueueImmediateSync()
     }
 
+    override suspend fun updatePlannedExercise(pe: PlannedExercise) {
+        val entity = pe.toEntity(isSynced = false).copy(updatedAt = System.currentTimeMillis())
+        plannedExerciseDao.insert(entity)
+        val pushed = runCatching { remoteSource.upsertPlannedExercise(entity) }.isSuccess
+        if (pushed) {
+            plannedExerciseDao.markSynced(pe.id)
+        } else {
+            syncManager.enqueueImmediateSync()
+        }
+    }
+
     override suspend fun removePlannedExercise(pe: PlannedExercise) {
         val ts = System.currentTimeMillis()
         plannedExerciseDao.softDelete(pe.id, ts)

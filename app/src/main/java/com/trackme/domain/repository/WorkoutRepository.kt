@@ -15,6 +15,7 @@ interface WorkoutRepository {
 
     fun getPlannedExercisesForDay(dayId: String): Flow<List<PlannedExercise>>
     suspend fun addPlannedExercise(pe: PlannedExercise)
+    suspend fun updatePlannedExercise(pe: PlannedExercise)
     suspend fun removePlannedExercise(pe: PlannedExercise)
     suspend fun reorderExercises(exercises: List<PlannedExercise>)
 
