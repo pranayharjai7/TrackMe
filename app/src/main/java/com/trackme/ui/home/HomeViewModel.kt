@@ -10,6 +10,7 @@ import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
 import com.trackme.domain.usecase.GetTodayWorkoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -30,6 +31,7 @@ data class HealthInsight(
 )
 
 data class HomeUiState(
+    val isLoading: Boolean = true,
     val dashboardState: HomeDashboardState = HomeDashboardState.REST_RECOVERY,
     val healthInsight: HealthInsight? = null,
     val todayWorkoutDay: WorkoutDay? = null,
@@ -50,17 +52,22 @@ class HomeViewModel @Inject constructor(
     private val supabase: SupabaseClient,
 ) : ViewModel() {
 
-    private val _userId = MutableStateFlow(
-        supabase.auth.currentSessionOrNull()?.user?.id ?: ""
-    )
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<HomeUiState> = _userId
-        .filter { it.isNotEmpty() }
+    val uiState: StateFlow<HomeUiState> = supabase.auth.sessionStatus
+        .onStart {
+            supabase.auth.awaitInitialization()
+            emit(supabase.auth.sessionStatus.value)
+        }
         .distinctUntilChanged()
-        .flatMapLatest { uid ->
+        .flatMapLatest { status ->
+            val session = (status as? SessionStatus.Authenticated)?.session
+                ?: return@flatMapLatest flowOf(HomeUiState(isLoading = status is SessionStatus.LoadingFromStorage))
+
+            val uid = session.user?.id.orEmpty()
+            if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
+
             val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-            val displayName = supabase.auth.currentSessionOrNull()?.user
+            val displayName = session.user
                 ?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: ""
 
             val weekStripFlow: Flow<List<WorkoutDay?>> = workoutRepository.getActivePlan(uid)
@@ -125,6 +132,7 @@ class HomeViewModel @Inject constructor(
                 }
 
                 HomeUiState(
+                    isLoading = false,
                     dashboardState = dashboardState,
                     healthInsight = healthInsight,
                     todayWorkoutDay = today,

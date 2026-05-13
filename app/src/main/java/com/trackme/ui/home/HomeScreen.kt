@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.WorkoutDay
 import com.trackme.ui.components.GlassmorphicCard
@@ -35,7 +36,7 @@ fun HomeScreen(
     onResumeSession: (dayId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Dynamic Background
@@ -52,8 +53,15 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .zIndex(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp), // Consistent top padding + bottom nav space
+            contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp),
         ) {
+            if (state.isLoading) {
+                item {
+                    HomeLoadingCard()
+                }
+                return@LazyColumn
+            }
+
             item {
                 GreetingHeader(state)
             }
@@ -78,6 +86,37 @@ fun HomeScreen(
                 item {
                     HallOfFameCarousel(state.recentPRs)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeLoadingCard() {
+    GlassmorphicCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    ) {
+        Row(
+            Modifier.padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            CircularProgressIndicator(color = Teal, modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+            Column {
+                Text(
+                    "Loading your dashboard",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Restoring your session and workout plan.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.68f),
+                )
             }
         }
     }

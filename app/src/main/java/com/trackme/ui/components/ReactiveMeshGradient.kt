@@ -12,15 +12,19 @@ import androidx.compose.ui.graphics.Color
 import com.trackme.ui.home.HomeDashboardState
 import com.trackme.ui.theme.*
 
+data class MeshGradientPalette(
+    val primary: Color,
+    val secondary: Color,
+    val tertiary: Color,
+    val background: Color = Background,
+)
+
 @Composable
 fun ReactiveMeshGradient(
     state: HomeDashboardState,
     modifier: Modifier = Modifier
 ) {
-    val tiltState = rememberDeviceTilt()
-
-    // Determine colors based on state
-    val colors = when (state) {
+    val palette = when (state) {
         HomeDashboardState.REST_RECOVERY -> listOf(
             Teal.copy(alpha = 0.5f), Blue.copy(alpha = 0.6f),
             Violet.copy(alpha = 0.2f), Background
@@ -39,10 +43,28 @@ fun ReactiveMeshGradient(
         )
     }
 
-    val anim1Color by animateColorAsState(colors[0], tween(2000), label = "c1")
-    val anim2Color by animateColorAsState(colors[1], tween(2000), label = "c2")
-    val anim3Color by animateColorAsState(colors[2], tween(2000), label = "c3")
-    val bgColor by animateColorAsState(colors[3], tween(2000), label = "bg")
+    ReactiveMeshGradient(
+        palette = MeshGradientPalette(
+            primary = palette[0],
+            secondary = palette[1],
+            tertiary = palette[2],
+            background = palette[3],
+        ),
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun ReactiveMeshGradient(
+    palette: MeshGradientPalette,
+    modifier: Modifier = Modifier
+) {
+    val tiltState = rememberDeviceTilt()
+
+    val anim1Color by animateColorAsState(palette.primary, tween(2000), label = "c1")
+    val anim2Color by animateColorAsState(palette.secondary, tween(2000), label = "c2")
+    val anim3Color by animateColorAsState(palette.tertiary, tween(2000), label = "c3")
+    val bgColor by animateColorAsState(palette.background, tween(2000), label = "bg")
 
     val infiniteTransition = rememberInfiniteTransition(label = "mesh")
     val flowOffset by infiniteTransition.animateFloat(

@@ -62,7 +62,9 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
         NavHost(
             navController = navController,
             startDestination = startDestination!!,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
         ) {
             composable(Routes.Auth.route) {
                 AuthScreen(
