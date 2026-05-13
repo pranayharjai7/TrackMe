@@ -10,13 +10,14 @@ import com.trackme.domain.usecase.GetMuscleVolumeUseCase
 import com.trackme.domain.usecase.GetPersonalRecordsUseCase
 import com.trackme.domain.usecase.MuscleVolume
 import com.trackme.domain.repository.WorkoutRepository
+import com.trackme.utils.millisDaysAgo
+import com.trackme.utils.startOfLocalDayMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import java.util.Calendar
 import javax.inject.Inject
 
 enum class ProgressState {
@@ -38,6 +39,16 @@ data class ProgressUiState(
     val isLoading: Boolean = true,
 )
 
+/**
+ * ViewModel responsible for progress analytics.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Combine personal records, workout volume, muscle volume, and health snapshots.
+ * - Derive progress dashboard state before data reaches the Compose UI.
+ * - Expose selected-exercise strength history as a separate stream for charts.
+ */
 @HiltViewModel
 class ProgressViewModel @Inject constructor(
     private val getPersonalRecords: GetPersonalRecordsUseCase,
@@ -55,8 +66,8 @@ class ProgressViewModel @Inject constructor(
         .filter { it.isNotEmpty() }
         .distinctUntilChanged()
         .flatMapLatest { uid ->
-            val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-            val fourWeeksAgo = System.currentTimeMillis() - 28L * 24 * 60 * 60 * 1000
+            val thirtyDaysAgo = millisDaysAgo(30)
+            val fourWeeksAgo = millisDaysAgo(28)
             combine(
                 getPersonalRecords(uid),
                 getHealthSnapshots(uid, 30),
@@ -64,28 +75,15 @@ class ProgressViewModel @Inject constructor(
                 getMuscleVolume(uid, fourWeeksAgo),
                 _selectedExerciseId,
             ) { prs, snapshots, sets, muscleVol, selectedId ->
-                val volumeByDay = sets.groupBy { normalizeToDay(it.updatedAt) }
+                val volumeByDay = sets.groupBy { startOfLocalDayMillis(it.updatedAt) }
                     .mapValues { (_, daySets) -> daySets.size }
                 
-                // Calculate Progress State
                 val now = System.currentTimeMillis()
-                val fourteenDaysAgo = now - 14L * 24 * 60 * 60 * 1000
+                val fourteenDaysAgo = millisDaysAgo(14, now)
                 val recentSets = sets.filter { it.updatedAt >= fourteenDaysAgo }
                 val olderSets = sets.filter { it.updatedAt < fourteenDaysAgo }
-                
-                val state = when {
-                    sets.size < 10 -> ProgressState.UNCHARTED
-                    recentSets.size > olderSets.size * 1.15 -> ProgressState.MOMENTUM
-                    recentSets.size < olderSets.size * 0.75 -> ProgressState.RECOVERY
-                    else -> ProgressState.MAINTENANCE
-                }
-
-                val insight = when (state) {
-                    ProgressState.MOMENTUM -> ProgressInsight("Momentum Building", "Your training volume is up ${(recentSets.size * 100f / olderSets.size.coerceAtLeast(1).toFloat()).toInt() - 100}% compared to the previous two weeks. Keep riding this wave!")
-                    ProgressState.MAINTENANCE -> ProgressInsight("Steady Consistency", "You're maintaining a solid baseline. Consistent effort is the key to long-term gains.")
-                    ProgressState.RECOVERY -> ProgressInsight("Recovery Phase", "Your volume has decreased recently. If you're resting, enjoy it. If not, it's time to get back on track.")
-                    ProgressState.UNCHARTED -> ProgressInsight("Just Beginning", "Log more workouts to unlock deep insights into your progress trajectory.")
-                }
+                val state = deriveProgressState(sets.size, recentSets.size, olderSets.size)
+                val insight = state.toInsight(recentSets.size, olderSets.size)
 
                 val options = prs.map { it.exerciseId }.distinct().sorted()
                 val effectiveSelectedId = selectedId ?: prs.maxByOrNull { it.maxWeightKg }?.exerciseId
@@ -127,10 +125,40 @@ class ProgressViewModel @Inject constructor(
     }
 }
 
-private fun normalizeToDay(epochMs: Long): Long {
-    val cal = Calendar.getInstance()
-    cal.timeInMillis = epochMs
-    cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
-    cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-    return cal.timeInMillis
+/**
+ * Converts raw set counts into a UI dashboard state.
+ *
+ * Inputs:
+ * - totalSets: all completed sets in the 30-day analysis window.
+ * - recentSetCount: completed sets in the most recent 14 days.
+ * - olderSetCount: completed sets in the previous part of the window.
+ */
+private fun deriveProgressState(
+    totalSets: Int,
+    recentSetCount: Int,
+    olderSetCount: Int,
+): ProgressState = when {
+    totalSets < 10 -> ProgressState.UNCHARTED
+    recentSetCount > olderSetCount * 1.15 -> ProgressState.MOMENTUM
+    recentSetCount < olderSetCount * 0.75 -> ProgressState.RECOVERY
+    else -> ProgressState.MAINTENANCE
+}
+
+private fun ProgressState.toInsight(recentSetCount: Int, olderSetCount: Int): ProgressInsight = when (this) {
+    ProgressState.MOMENTUM -> ProgressInsight(
+        "Momentum Building",
+        "Your training volume is up ${(recentSetCount * 100f / olderSetCount.coerceAtLeast(1).toFloat()).toInt() - 100}% compared to the previous two weeks. Keep riding this wave!",
+    )
+    ProgressState.MAINTENANCE -> ProgressInsight(
+        "Steady Consistency",
+        "You're maintaining a solid baseline. Consistent effort is the key to long-term gains.",
+    )
+    ProgressState.RECOVERY -> ProgressInsight(
+        "Recovery Phase",
+        "Your volume has decreased recently. If you're resting, enjoy it. If not, it's time to get back on track.",
+    )
+    ProgressState.UNCHARTED -> ProgressInsight(
+        "Just Beginning",
+        "Log more workouts to unlock deep insights into your progress trajectory.",
+    )
 }

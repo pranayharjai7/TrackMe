@@ -7,6 +7,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.trackme.data.local.dao.*
 import com.trackme.data.local.entity.*
 
+/**
+ * Room database for all local TrackMe persistence.
+ *
+ * Architecture Layer: Data/local database
+ *
+ * Responsibilities:
+ * - Declare the Room schema and DAO access points.
+ * - Preserve migration history for existing installs.
+ * - Keep local table structure aligned with sync entities and Supabase DTOs.
+ */
 @Database(
     entities = [
         ExerciseEntity::class,

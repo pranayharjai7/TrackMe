@@ -8,6 +8,14 @@ import dagger.hilt.components.SingletonComponent
 import io.github.jan.supabase.SupabaseClient
 import javax.inject.Singleton
 
+/**
+ * Hilt network providers.
+ *
+ * Architecture Layer: Dependency injection
+ *
+ * Responsibilities:
+ * - Provide the singleton Supabase client used by auth, repositories, and workers.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {

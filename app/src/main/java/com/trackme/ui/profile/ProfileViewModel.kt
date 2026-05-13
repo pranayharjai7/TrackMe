@@ -5,9 +5,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.trackme.data.health.HcSdkStatus
+import com.trackme.domain.model.HcSdkStatus
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.ClearLocalUserDataUseCase
+import com.trackme.ui.onboarding.DEFAULT_FITNESS_GOAL
+import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_GOAL
 import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_USE_KG
@@ -32,11 +34,21 @@ data class ProfileUiState(
     val lastSyncTime: Long? = null,
     val isSyncing: Boolean = false,
     val useKg: Boolean = true,
-    val fitnessGoal: String = "BUILD_MUSCLE",
-    val inputStyle: String = "TAP_EXPAND",
+    val fitnessGoal: String = DEFAULT_FITNESS_GOAL,
+    val inputStyle: String = DEFAULT_INPUT_STYLE,
     val dashboardState: ProfileDashboardState = ProfileDashboardState.COSMOS,
 )
 
+/**
+ * ViewModel responsible for profile, preference, and Health Connect state.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Expose user profile metadata from the current Supabase session.
+ * - Coordinate Health Connect permission checks and manual sync requests.
+ * - Persist user-facing app preferences in DataStore.
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val healthRepository: HealthRepository,
@@ -70,7 +82,7 @@ class ProfileViewModel @Inject constructor(
 
         viewModelScope.launch {
             dataStore.data.collect { prefs ->
-                val goal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE"
+                val goal = prefs[PREF_GOAL] ?: DEFAULT_FITNESS_GOAL
                 val state = when (goal) {
                     "BUILD_MUSCLE" -> ProfileDashboardState.TITAN
                     "LOSE_WEIGHT" -> ProfileDashboardState.BREEZE
@@ -81,7 +93,7 @@ class ProfileViewModel @Inject constructor(
                     it.copy(
                         useKg = prefs[PREF_USE_KG] ?: true,
                         fitnessGoal = goal,
-                        inputStyle = prefs[PREF_INPUT_STYLE] ?: "TAP_EXPAND",
+                        inputStyle = prefs[PREF_INPUT_STYLE] ?: DEFAULT_INPUT_STYLE,
                         dashboardState = state,
                     )
                 }

@@ -6,6 +6,8 @@ import com.trackme.domain.model.HealthMetric
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthMetricsUseCase
+import com.trackme.utils.startOfTodayMillis
+import com.trackme.utils.todayBoundsMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
@@ -15,9 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Inject
 
 data class HealthMetricsUiState(
@@ -25,6 +24,16 @@ data class HealthMetricsUiState(
     val metrics: List<HealthMetric> = emptyList(),
 )
 
+/**
+ * ViewModel responsible for today's Health Connect metric list.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Trigger a best-effort Health Connect sync for the current user.
+ * - Merge detailed HealthMetric rows with daily HealthSnapshot totals.
+ * - Emit UI-ready health metrics without exposing Room entities to the UI.
+ */
 @HiltViewModel
 class HealthMetricsViewModel @Inject constructor(
     private val getHealthMetrics: GetHealthMetricsUseCase,
@@ -62,19 +71,17 @@ class HealthMetricsViewModel @Inject constructor(
     }
 
     private fun HealthMetric.overlapsToday(): Boolean {
-        val zone = ZoneId.systemDefault()
-        val startOfToday = LocalDate.now(zone).atStartOfDay(zone).toInstant()
-        val startOfTomorrow = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant()
-        val metricStart = Instant.ofEpochMilli(startTime)
-        val metricEnd = Instant.ofEpochMilli(endTime ?: startTime)
-        return metricStart < startOfTomorrow && metricEnd >= startOfToday
+        val todayBounds = todayBoundsMillis()
+        val metricEnd = endTime ?: startTime
+        return startTime < todayBounds.endExclusiveMillis && metricEnd >= todayBounds.startMillis
     }
 
-    private fun startOfTodayMillis(): Long {
-        val zone = ZoneId.systemDefault()
-        return LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-    }
-
+    /**
+     * Converts the daily snapshot row into individual display metrics.
+     *
+     * Side effects: none. The generated IDs are deterministic derivatives of the
+     * snapshot ID so Compose list diffing and duplicate filtering remain stable.
+     */
     private fun HealthSnapshot.toTodayMetrics(): List<HealthMetric> {
         val todayStart = startOfTodayMillis()
         if (date != todayStart) return emptyList()

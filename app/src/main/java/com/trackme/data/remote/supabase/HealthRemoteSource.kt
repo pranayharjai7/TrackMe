@@ -7,6 +7,15 @@ import io.github.jan.supabase.postgrest.postgrest
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Remote data source for Supabase health snapshot writes.
+ *
+ * Architecture Layer: Data remote source
+ *
+ * Responsibilities:
+ * - Upsert Health Connect daily snapshots into the backend table.
+ * - Keep DTO serialization details outside repositories and workers.
+ */
 @Singleton
 class HealthRemoteSource @Inject constructor(private val supabase: SupabaseClient) {
     suspend fun upsertSnapshot(entity: HealthSnapshotEntity) {

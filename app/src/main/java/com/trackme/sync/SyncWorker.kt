@@ -4,7 +4,12 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.trackme.data.local.dao.*
+import com.trackme.data.local.dao.PlannedExerciseDao
+import com.trackme.data.local.dao.PendingDeletionDao
+import com.trackme.data.local.dao.SessionSetDao
+import com.trackme.data.local.dao.WorkoutDayDao
+import com.trackme.data.local.dao.WorkoutPlanDao
+import com.trackme.data.local.dao.WorkoutSessionDao
 import com.trackme.data.local.entity.PendingDeletionEntity
 import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import dagger.assisted.Assisted
@@ -12,6 +17,16 @@ import dagger.assisted.AssistedInject
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 
+/**
+ * WorkManager worker that reconciles local Room rows with Supabase.
+ *
+ * Architecture Layer: Sync/Data boundary
+ *
+ * Responsibilities:
+ * - Push queued soft deletions before any pull/merge operation.
+ * - Run last-write-wins reconciliation for each synced table.
+ * - Keep retry semantics centralized in WorkManager instead of ViewModels.
+ */
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -29,141 +44,239 @@ class SyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result = runCatching {
         val userId = supabase.auth.currentSessionOrNull()?.user?.id ?: return Result.success()
 
-        // Step 1: Push pending offline deletions to remote before the LWW merge runs.
-        // This prevents the merge from re-inserting items the user deleted while offline.
+        // Push pending offline deletions first so the merge cannot restore deleted rows.
         pendingDeletionDao.getAllForUser(userId).forEach { op ->
             runCatching { remoteSource.markDeleted(op.tableName, op.entityId, op.userId, op.deletedAt) }
                 .onSuccess { pendingDeletionDao.deleteById(op.entityId) }
         }
 
-        // Step 2: LWW merge. Reload pending — only failures from step 1 remain.
+        // Only deletion pushes that failed above remain in this map.
         val failedPending = pendingDeletionDao.getAllForUser(userId).associateBy { it.entityId }
 
-        mergePlans(userId, failedPending)
+        mergePlans(userId)
         mergeDays(userId, failedPending)
         mergePlannedExercises(userId, failedPending)
-        mergeSessions(userId, failedPending)
+        mergeSessions(userId)
         mergeSets(userId, failedPending)
     }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
 
-    private suspend fun mergePlans(userId: String, failedPending: Map<String, PendingDeletionEntity>) {
-        val remoteMap = remoteSource.fetchPlans(userId).associateBy { it.id }
-        val localMap = workoutPlanDao.getAllForSync(userId).associateBy { it.id }
+    private suspend fun mergePlans(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchPlans(userId).associateBy { it.id },
+        localMap = workoutPlanDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { workoutPlanDao.insert(it) },
+        upsertRemote = { remoteSource.upsertPlan(it) },
+        markSynced = { workoutPlanDao.markSynced(it) },
+    )
+
+    private suspend fun mergeDays(
+        userId: String,
+        failedPending: Map<String, PendingDeletionEntity>,
+    ) = mergeSoftDeleteAware(
+        tableName = "workout_days",
+        remoteMap = remoteSource.fetchDays(userId).associateBy { it.id },
+        localMap = workoutDayDao.getAllForSync(userId).associateBy { it.id },
+        failedPending = failedPending,
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        deletedAt = { it.deletedAt },
+        copyAsPendingDelete = { entity, timestamp ->
+            entity.copy(deletedAt = timestamp, updatedAt = timestamp, isSynced = false)
+        },
+        softDeleteLocal = { id, timestamp -> workoutDayDao.softDelete(id, timestamp) },
+        insertLocal = { workoutDayDao.insert(it) },
+        upsertRemote = { remoteSource.upsertDay(it) },
+        markSynced = { workoutDayDao.markSynced(it) },
+    )
+
+    private suspend fun mergePlannedExercises(
+        userId: String,
+        failedPending: Map<String, PendingDeletionEntity>,
+    ) = mergeSoftDeleteAware(
+        tableName = "planned_exercises",
+        remoteMap = remoteSource.fetchPlannedExercises(userId).associateBy { it.id },
+        localMap = plannedExerciseDao.getAllForSync(userId).associateBy { it.id },
+        failedPending = failedPending,
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        deletedAt = { it.deletedAt },
+        copyAsPendingDelete = { entity, timestamp ->
+            entity.copy(deletedAt = timestamp, updatedAt = timestamp, isSynced = false)
+        },
+        softDeleteLocal = { id, timestamp -> plannedExerciseDao.softDelete(id, timestamp) },
+        insertLocal = { plannedExerciseDao.insert(it) },
+        upsertRemote = { remoteSource.upsertPlannedExercise(it) },
+        markSynced = { plannedExerciseDao.markSynced(it) },
+    )
+
+    private suspend fun mergeSessions(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchSessions(userId).associateBy { it.id },
+        localMap = workoutSessionDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { workoutSessionDao.insert(it) },
+        upsertRemote = { remoteSource.upsertSession(it) },
+        markSynced = { workoutSessionDao.markSynced(it) },
+    )
+
+    private suspend fun mergeSets(
+        userId: String,
+        failedPending: Map<String, PendingDeletionEntity>,
+    ) = mergeSoftDeleteAware(
+        tableName = "session_sets",
+        remoteMap = remoteSource.fetchSets(userId).associateBy { it.id },
+        localMap = sessionSetDao.getAllForSync(userId).associateBy { it.id },
+        failedPending = failedPending,
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        deletedAt = { it.deletedAt },
+        copyAsPendingDelete = { entity, timestamp ->
+            entity.copy(deletedAt = timestamp, updatedAt = timestamp, isSynced = false)
+        },
+        softDeleteLocal = { id, timestamp -> sessionSetDao.softDelete(id, timestamp) },
+        insertLocal = { sessionSetDao.insert(it) },
+        upsertRemote = { remoteSource.upsertSet(it) },
+        markSynced = { sessionSetDao.markSynced(it) },
+    )
+
+    /**
+     * Runs the shared last-write-wins merge for tables without delete recovery.
+     *
+     * Inputs:
+     * - remoteMap/localMap: rows keyed by stable entity ID.
+     * - callbacks: table-specific Room and Supabase operations.
+     */
+    private suspend fun <T> mergeLastWriteWins(
+        remoteMap: Map<String, T>,
+        localMap: Map<String, T>,
+        entityId: (T) -> String,
+        updatedAt: (T) -> Long,
+        isSynced: (T) -> Boolean,
+        insertLocal: suspend (T) -> Unit,
+        upsertRemote: suspend (T) -> Unit,
+        markSynced: suspend (String) -> Unit,
+    ) {
         (remoteMap.keys + localMap.keys).forEach { id ->
-            val remote = remoteMap[id]
-            val local = localMap[id]
-            when {
-                local == null -> workoutPlanDao.insert(remote!!)
-                remote == null -> { remoteSource.upsertPlan(local); workoutPlanDao.markSynced(local.id) }
-                remote.updatedAt > local.updatedAt -> workoutPlanDao.insert(remote)
-                local.updatedAt > remote.updatedAt || !local.isSynced -> { remoteSource.upsertPlan(local); workoutPlanDao.markSynced(local.id) }
-            }
+            mergeOneLastWriteWins(
+                remote = remoteMap[id],
+                local = localMap[id],
+                entityId = entityId,
+                updatedAt = updatedAt,
+                isSynced = isSynced,
+                insertLocal = insertLocal,
+                upsertRemote = upsertRemote,
+                markSynced = markSynced,
+                afterRemoteUpsert = {},
+            )
         }
     }
 
-    private suspend fun mergeDays(userId: String, failedPending: Map<String, PendingDeletionEntity>) {
-        val remoteMap = remoteSource.fetchDays(userId).associateBy { it.id }
-        val localMap = workoutDayDao.getAllForSync(userId).associateBy { it.id }
-        val pendingForTable = failedPending.filter { it.value.tableName == "workout_days" }
+    /**
+     * Runs LWW merge plus offline-delete recovery for soft-deletable tables.
+     *
+     * Side effects:
+     * - Creates a local soft-deleted row when a failed delete exists only remotely.
+     * - Clears pending deletion rows only after the remote row is gone or updated.
+     */
+    private suspend fun <T> mergeSoftDeleteAware(
+        tableName: String,
+        remoteMap: Map<String, T>,
+        localMap: Map<String, T>,
+        failedPending: Map<String, PendingDeletionEntity>,
+        entityId: (T) -> String,
+        updatedAt: (T) -> Long,
+        isSynced: (T) -> Boolean,
+        deletedAt: (T) -> Long?,
+        copyAsPendingDelete: (T, Long) -> T,
+        softDeleteLocal: suspend (String, Long) -> Unit,
+        insertLocal: suspend (T) -> Unit,
+        upsertRemote: suspend (T) -> Unit,
+        markSynced: suspend (String) -> Unit,
+    ) {
+        val pendingForTable = failedPending.filter { it.value.tableName == tableName }
         (remoteMap.keys + localMap.keys + pendingForTable.keys).forEach { id ->
             val remote = remoteMap[id]
             val local = localMap[id]
             val pending = pendingForTable[id]
+
             when {
-                // Offline-deleted item: local was wiped on sign-out, remote push failed.
-                // Insert locally as soft-deleted so UI never shows it.
-                // Keep isSynced=false so the next LWW run will push deletedAt to remote.
-                pending != null && local == null -> {
-                    if (remote != null) {
-                        val ts = maxOf(remote.updatedAt, pending.deletedAt)
-                        workoutDayDao.insert(remote.copy(deletedAt = ts, updatedAt = ts, isSynced = false))
-                    } else {
-                        pendingDeletionDao.deleteById(id)
-                    }
+                pending != null && local == null -> recoverMissingLocalDelete(
+                    id = id,
+                    remote = remote,
+                    pending = pending,
+                    updatedAt = updatedAt,
+                    copyAsPendingDelete = copyAsPendingDelete,
+                    insertLocal = insertLocal,
+                )
+                pending != null && local != null && deletedAt(local) == null -> {
+                    softDeleteLocal(entityId(local), pending.deletedAt)
                 }
-                // Recovery: local was re-inserted as active by a previous bad sync despite a pending deletion.
-                pending != null && local != null && local.deletedAt == null -> {
-                    workoutDayDao.softDelete(local.id, pending.deletedAt)
-                }
-                local == null -> workoutDayDao.insert(remote!!)
-                remote == null -> { remoteSource.upsertDay(local); workoutDayDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                remote.updatedAt > local.updatedAt -> workoutDayDao.insert(remote)
-                local.updatedAt > remote.updatedAt || !local.isSynced -> { remoteSource.upsertDay(local); workoutDayDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                else -> pendingDeletionDao.deleteById(id)
+                else -> mergeOneLastWriteWins(
+                    remote = remote,
+                    local = local,
+                    entityId = entityId,
+                    updatedAt = updatedAt,
+                    isSynced = isSynced,
+                    insertLocal = insertLocal,
+                    upsertRemote = upsertRemote,
+                    markSynced = markSynced,
+                    afterRemoteUpsert = { pendingDeletionDao.deleteById(it) },
+                    afterNoOp = { pendingDeletionDao.deleteById(id) },
+                )
             }
         }
     }
 
-    private suspend fun mergePlannedExercises(userId: String, failedPending: Map<String, PendingDeletionEntity>) {
-        val remoteMap = remoteSource.fetchPlannedExercises(userId).associateBy { it.id }
-        val localMap = plannedExerciseDao.getAllForSync(userId).associateBy { it.id }
-        val pendingForTable = failedPending.filter { it.value.tableName == "planned_exercises" }
-        (remoteMap.keys + localMap.keys + pendingForTable.keys).forEach { id ->
-            val remote = remoteMap[id]
-            val local = localMap[id]
-            val pending = pendingForTable[id]
-            when {
-                pending != null && local == null -> {
-                    if (remote != null) {
-                        val ts = maxOf(remote.updatedAt, pending.deletedAt)
-                        plannedExerciseDao.insert(remote.copy(deletedAt = ts, updatedAt = ts, isSynced = false))
-                    } else {
-                        pendingDeletionDao.deleteById(id)
-                    }
-                }
-                pending != null && local != null && local.deletedAt == null -> {
-                    plannedExerciseDao.softDelete(local.id, pending.deletedAt)
-                }
-                local == null -> plannedExerciseDao.insert(remote!!)
-                remote == null -> { remoteSource.upsertPlannedExercise(local); plannedExerciseDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                remote.updatedAt > local.updatedAt -> plannedExerciseDao.insert(remote)
-                local.updatedAt > remote.updatedAt || !local.isSynced -> { remoteSource.upsertPlannedExercise(local); plannedExerciseDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                else -> pendingDeletionDao.deleteById(id)
-            }
+    private suspend fun <T> recoverMissingLocalDelete(
+        id: String,
+        remote: T?,
+        pending: PendingDeletionEntity,
+        updatedAt: (T) -> Long,
+        copyAsPendingDelete: (T, Long) -> T,
+        insertLocal: suspend (T) -> Unit,
+    ) {
+        if (remote != null) {
+            val deletedAt = maxOf(updatedAt(remote), pending.deletedAt)
+            insertLocal(copyAsPendingDelete(remote, deletedAt))
+        } else {
+            pendingDeletionDao.deleteById(id)
         }
     }
 
-    private suspend fun mergeSessions(userId: String, failedPending: Map<String, PendingDeletionEntity>) {
-        val remoteMap = remoteSource.fetchSessions(userId).associateBy { it.id }
-        val localMap = workoutSessionDao.getAllForSync(userId).associateBy { it.id }
-        (remoteMap.keys + localMap.keys).forEach { id ->
-            val remote = remoteMap[id]
-            val local = localMap[id]
-            when {
-                local == null -> workoutSessionDao.insert(remote!!)
-                remote == null -> { remoteSource.upsertSession(local); workoutSessionDao.markSynced(local.id) }
-                remote.updatedAt > local.updatedAt -> workoutSessionDao.insert(remote)
-                local.updatedAt > remote.updatedAt || !local.isSynced -> { remoteSource.upsertSession(local); workoutSessionDao.markSynced(local.id) }
+    private suspend fun <T> mergeOneLastWriteWins(
+        remote: T?,
+        local: T?,
+        entityId: (T) -> String,
+        updatedAt: (T) -> Long,
+        isSynced: (T) -> Boolean,
+        insertLocal: suspend (T) -> Unit,
+        upsertRemote: suspend (T) -> Unit,
+        markSynced: suspend (String) -> Unit,
+        afterRemoteUpsert: suspend (String) -> Unit,
+        afterNoOp: suspend () -> Unit = {},
+    ) {
+        when {
+            local == null && remote != null -> insertLocal(remote)
+            remote == null && local != null -> {
+                upsertRemote(local)
+                markSynced(entityId(local))
+                afterRemoteUpsert(entityId(local))
             }
-        }
-    }
-
-    private suspend fun mergeSets(userId: String, failedPending: Map<String, PendingDeletionEntity>) {
-        val remoteMap = remoteSource.fetchSets(userId).associateBy { it.id }
-        val localMap = sessionSetDao.getAllForSync(userId).associateBy { it.id }
-        val pendingForTable = failedPending.filter { it.value.tableName == "session_sets" }
-        (remoteMap.keys + localMap.keys + pendingForTable.keys).forEach { id ->
-            val remote = remoteMap[id]
-            val local = localMap[id]
-            val pending = pendingForTable[id]
-            when {
-                pending != null && local == null -> {
-                    if (remote != null) {
-                        val ts = maxOf(remote.updatedAt, pending.deletedAt)
-                        sessionSetDao.insert(remote.copy(deletedAt = ts, updatedAt = ts, isSynced = false))
-                    } else {
-                        pendingDeletionDao.deleteById(id)
-                    }
-                }
-                pending != null && local != null && local.deletedAt == null -> {
-                    sessionSetDao.softDelete(local.id, pending.deletedAt)
-                }
-                local == null -> sessionSetDao.insert(remote!!)
-                remote == null -> { remoteSource.upsertSet(local); sessionSetDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                remote.updatedAt > local.updatedAt -> sessionSetDao.insert(remote)
-                local.updatedAt > remote.updatedAt || !local.isSynced -> { remoteSource.upsertSet(local); sessionSetDao.markSynced(local.id); pendingDeletionDao.deleteById(local.id) }
-                else -> pendingDeletionDao.deleteById(id)
+            remote != null && local != null && updatedAt(remote) > updatedAt(local) -> {
+                insertLocal(remote)
             }
+            remote != null && local != null && (updatedAt(local) > updatedAt(remote) || !isSynced(local)) -> {
+                upsertRemote(local)
+                markSynced(entityId(local))
+                afterRemoteUpsert(entityId(local))
+            }
+            else -> afterNoOp()
         }
     }
 }

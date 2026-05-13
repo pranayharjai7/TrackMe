@@ -7,6 +7,16 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Facade for scheduling workout data sync jobs.
+ *
+ * Architecture Layer: Sync coordinator
+ *
+ * Responsibilities:
+ * - Coalesce immediate sync requests after local writes.
+ * - Register periodic sync with network constraints.
+ * - Cancel queued sync during sign-out/local data clearing.
+ */
 @Singleton
 class SyncManager @Inject constructor(
     @ApplicationContext private val context: Context,

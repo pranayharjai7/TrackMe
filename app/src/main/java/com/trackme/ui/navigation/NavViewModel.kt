@@ -12,6 +12,15 @@ import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
+/**
+ * ViewModel responsible for deciding the root navigation start destination.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Combine onboarding completion with Supabase session state.
+ * - Expose null while auth storage initialization is still loading.
+ */
 @HiltViewModel
 class NavViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,

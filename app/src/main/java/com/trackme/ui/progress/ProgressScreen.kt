@@ -340,7 +340,9 @@ private fun StrengthTrajectoryCard(
                 onExpandedChange = { dropdownExpanded = it },
             ) {
                 Surface(
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White.copy(alpha = 0.05f),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
@@ -458,8 +460,10 @@ private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>) {
             val producer = remember { ChartEntryModelProducer() }
             LaunchedEffect(weightsWithData) {
                 producer.setEntries(
-                    weightsWithData.mapIndexed { index, snapshot ->
-                        FloatEntry(x = index.toFloat(), y = snapshot.weightKg!!)
+                    weightsWithData.mapIndexedNotNull { index, snapshot ->
+                        snapshot.weightKg?.let { weight ->
+                            FloatEntry(x = index.toFloat(), y = weight)
+                        }
                     }
                 )
             }

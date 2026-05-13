@@ -41,7 +41,6 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayEditorScreen(
-    dayId: String,
     onAddExercise: () -> Unit,
     onExerciseClick: (exerciseId: String) -> Unit,
     onBack: () -> Unit,

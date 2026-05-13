@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.trackme.domain.model.*
-import com.trackme.domain.repository.ExerciseRepository
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.domain.usecase.*
 import io.mockk.*
@@ -41,24 +40,24 @@ class ActiveSessionViewModelTest {
     @Test
     fun `rest timer initial state is 90 seconds and not running`() = runTest {
         val workoutRepository = mockk<WorkoutRepository>(relaxed = true)
-        val exerciseRepository = mockk<ExerciseRepository>(relaxed = true)
         val startSession = mockk<StartSessionUseCase>()
         val logSet = mockk<LogSetUseCase>(relaxed = true)
         val finishSession = mockk<FinishSessionUseCase>(relaxed = true)
         val addExerciseToDay = mockk<AddExerciseToDayUseCase>(relaxed = true)
+        val observePlannedExercises = mockk<ObservePlannedExercisesWithDetailsUseCase>()
         val supabase = mockk<SupabaseClient>(relaxed = true)
         val dataStore = mockk<DataStore<Preferences>>(relaxed = true)
 
         val session = fakeSession()
         coEvery { startSession(any(), any()) } returns session
-        every { workoutRepository.getPlannedExercisesForDay(any()) } returns flowOf(emptyList())
+        every { observePlannedExercises(any()) } returns flowOf(emptyList())
         every { workoutRepository.getSessionSets(any()) } returns flowOf(emptyList())
         every { dataStore.data } returns flowOf(emptyPreferences())
 
         val savedState = androidx.lifecycle.SavedStateHandle(mapOf("dayId" to "day1"))
         val vm = ActiveSessionViewModel(
-            workoutRepository, exerciseRepository, startSession, logSet, finishSession,
-            addExerciseToDay, supabase, dataStore, savedState,
+            workoutRepository, startSession, logSet, finishSession,
+            addExerciseToDay, observePlannedExercises, supabase, dataStore, savedState,
         )
 
         vm.uiState.test {

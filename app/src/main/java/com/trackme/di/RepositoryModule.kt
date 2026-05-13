@@ -12,6 +12,15 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Hilt bindings for repository interfaces.
+ *
+ * Architecture Layer: Dependency injection
+ *
+ * Responsibilities:
+ * - Bind domain repository contracts to data-layer implementations.
+ * - Preserve dependency inversion so ViewModels/use cases depend on interfaces.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {

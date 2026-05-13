@@ -34,6 +34,16 @@ import com.trackme.ui.workout.planner.DayEditorScreen
 import com.trackme.ui.workout.planner.WeeklyPlannerScreen
 import com.trackme.ui.workout.session.ActiveSessionScreen
 
+/**
+ * Root Compose navigation graph.
+ *
+ * Architecture Layer: UI navigation
+ *
+ * Responsibilities:
+ * - Choose the authenticated/onboarded start destination from NavViewModel.
+ * - Wire route arguments into feature screens and Hilt ViewModels.
+ * - Keep navigation side effects out of individual screen composables.
+ */
 @Composable
 fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
     val startDestination by navViewModel.startDestination.collectAsStateWithLifecycle()
@@ -49,6 +59,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
         }
         return
     }
+    val resolvedStartDestination = startDestination ?: return
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -75,7 +86,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = startDestination!!,
+                startDestination = resolvedStartDestination,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Background)
@@ -116,7 +127,6 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
             ) { backStack ->
                 val dayId = backStack.arguments?.getString("dayId") ?: return@composable
                 DayEditorScreen(
-                    dayId = dayId,
                     onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) },
                     onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
                     onBack = { navController.popBackStack() },
@@ -125,8 +135,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
             composable(
                 route = Routes.ExerciseSearch.route,
                 arguments = listOf(navArgument("dayId") { type = NavType.StringType; defaultValue = "" }),
-            ) { backStack ->
-                val dayId = backStack.arguments?.getString("dayId") ?: ""
+            ) {
                 ExerciseSearchScreen(
                     onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
                     onBack = { navController.popBackStack() },

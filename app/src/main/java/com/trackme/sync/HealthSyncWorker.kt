@@ -12,6 +12,16 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 import java.util.concurrent.TimeUnit
 
+/**
+ * WorkManager worker that syncs Health Connect snapshots to local Room and Supabase.
+ *
+ * Architecture Layer: Sync/Data boundary
+ *
+ * Responsibilities:
+ * - Pull Health Connect data through HealthRepository.
+ * - Push unsynced daily snapshots to Supabase.
+ * - Retry transient failures while treating permission failures as terminal.
+ */
 @HiltWorker
 class HealthSyncWorker @AssistedInject constructor(
     @Assisted context: Context,

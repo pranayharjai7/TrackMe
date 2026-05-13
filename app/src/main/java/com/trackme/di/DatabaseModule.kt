@@ -16,6 +16,16 @@ import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "trackme_prefs")
 
+/**
+ * Hilt providers for Room, DAOs, and DataStore.
+ *
+ * Architecture Layer: Dependency injection
+ *
+ * Responsibilities:
+ * - Build the singleton Room database with the existing migration chain.
+ * - Expose DAO instances without leaking database construction into callers.
+ * - Provide the app-wide preferences DataStore.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {

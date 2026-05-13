@@ -15,24 +15,34 @@ private data class DeletionPatch(
     @SerialName("updated_at") val updatedAt: Long,
 )
 
+/**
+ * Remote data source for Supabase workout tables.
+ *
+ * Architecture Layer: Data remote source
+ *
+ * Responsibilities:
+ * - Keep Supabase table names and DTO contracts in one backend-facing class.
+ * - Translate remote DTOs into Room entities for repository/sync layers.
+ * - Preserve soft-delete columns used by the offline sync algorithm.
+ */
 @Singleton
 class WorkoutRemoteSource @Inject constructor(
     private val supabase: SupabaseClient,
 ) {
     suspend fun upsertPlan(entity: WorkoutPlanEntity) {
-        supabase.postgrest["workout_plans"].upsert(
+        supabase.postgrest[TABLE_WORKOUT_PLANS].upsert(
             WorkoutPlanDto(entity.id, entity.userId, entity.name, entity.isActive, entity.createdAt, entity.updatedAt, entity.deletedAt)
         )
     }
 
     suspend fun upsertDay(entity: WorkoutDayEntity) {
-        supabase.postgrest["workout_days"].upsert(
+        supabase.postgrest[TABLE_WORKOUT_DAYS].upsert(
             WorkoutDayDto(entity.id, entity.planId, entity.userId, entity.dayOfWeek, entity.name, entity.updatedAt, entity.deletedAt)
         )
     }
 
     suspend fun upsertPlannedExercise(entity: PlannedExerciseEntity) {
-        supabase.postgrest["planned_exercises"].upsert(
+        supabase.postgrest[TABLE_PLANNED_EXERCISES].upsert(
             PlannedExerciseDto(
                 entity.id, entity.dayId, entity.userId, entity.exerciseId,
                 entity.orderIndex, entity.updatedAt, entity.deletedAt,
@@ -44,43 +54,43 @@ class WorkoutRemoteSource @Inject constructor(
     }
 
     suspend fun upsertSession(entity: WorkoutSessionEntity) {
-        supabase.postgrest["workout_sessions"].upsert(
+        supabase.postgrest[TABLE_WORKOUT_SESSIONS].upsert(
             WorkoutSessionDto(entity.id, entity.userId, entity.dayId, entity.date, entity.durationMinutes, entity.notes, entity.updatedAt, entity.deletedAt)
         )
     }
 
     suspend fun upsertSet(entity: SessionSetEntity) {
-        supabase.postgrest["session_sets"].upsert(
+        supabase.postgrest[TABLE_SESSION_SETS].upsert(
             SessionSetDto(entity.id, entity.sessionId, entity.userId, entity.exerciseId, entity.setNumber, entity.weightKg, entity.reps, entity.completed, entity.updatedAt, entity.deletedAt, entity.durationSeconds, entity.distanceKm, entity.speedKmh, entity.inclinePercent)
         )
     }
 
     suspend fun fetchPlans(userId: String): List<WorkoutPlanEntity> =
-        supabase.postgrest["workout_plans"]
+        supabase.postgrest[TABLE_WORKOUT_PLANS]
             .select { filter { eq("user_id", userId) } }
             .decodeList<WorkoutPlanDto>()
             .map { WorkoutPlanEntity(it.id, it.userId, it.name, it.isActive, it.createdAt, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
 
     suspend fun fetchDays(userId: String): List<WorkoutDayEntity> =
-        supabase.postgrest["workout_days"]
+        supabase.postgrest[TABLE_WORKOUT_DAYS]
             .select { filter { eq("user_id", userId) } }
             .decodeList<WorkoutDayDto>()
             .map { WorkoutDayEntity(it.id, it.planId, it.userId, it.dayOfWeek, it.name, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
 
     suspend fun fetchPlannedExercises(userId: String): List<PlannedExerciseEntity> =
-        supabase.postgrest["planned_exercises"]
+        supabase.postgrest[TABLE_PLANNED_EXERCISES]
             .select { filter { eq("user_id", userId) } }
             .decodeList<PlannedExerciseDto>()
             .map { PlannedExerciseEntity(it.id, it.dayId, it.userId, it.exerciseId, it.orderIndex, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, targetSets = it.targetSets, targetReps = it.targetReps, targetWeightKg = it.targetWeightKg, targetDurationSeconds = it.targetDurationSeconds, targetDistanceKm = it.targetDistanceKm, targetSpeedKmh = it.targetSpeedKmh, targetIncline = it.targetIncline) }
 
     suspend fun fetchSessions(userId: String): List<WorkoutSessionEntity> =
-        supabase.postgrest["workout_sessions"]
+        supabase.postgrest[TABLE_WORKOUT_SESSIONS]
             .select { filter { eq("user_id", userId) } }
             .decodeList<WorkoutSessionDto>()
             .map { WorkoutSessionEntity(it.id, it.userId, it.dayId, it.date, it.durationMinutes, it.notes, it.updatedAt, isSynced = true, deletedAt = it.deletedAt) }
 
     suspend fun fetchSets(userId: String): List<SessionSetEntity> =
-        supabase.postgrest["session_sets"]
+        supabase.postgrest[TABLE_SESSION_SETS]
             .select { filter { eq("user_id", userId) } }
             .decodeList<SessionSetDto>()
             .map { SessionSetEntity(it.id, it.sessionId, it.userId, it.exerciseId, it.setNumber, it.weightKg, it.reps, it.completed, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, durationSeconds = it.durationSeconds, distanceKm = it.distanceKm, speedKmh = it.speedKmh, inclinePercent = it.inclinePercent) }
@@ -92,5 +102,13 @@ class WorkoutRemoteSource @Inject constructor(
                 eq("user_id", userId)
             }
         }
+    }
+
+    private companion object {
+        const val TABLE_WORKOUT_PLANS = "workout_plans"
+        const val TABLE_WORKOUT_DAYS = "workout_days"
+        const val TABLE_PLANNED_EXERCISES = "planned_exercises"
+        const val TABLE_WORKOUT_SESSIONS = "workout_sessions"
+        const val TABLE_SESSION_SETS = "session_sets"
     }
 }

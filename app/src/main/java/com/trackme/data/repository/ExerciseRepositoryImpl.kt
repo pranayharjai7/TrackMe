@@ -11,6 +11,16 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Repository implementation for bundled exercise definitions.
+ *
+ * Architecture Layer: Data repository
+ *
+ * Responsibilities:
+ * - Seed the Room exercise table from the packaged JSON asset.
+ * - Expose search/category queries as domain Exercise models.
+ * - Batch-load exercise metadata for screens that already have exercise IDs.
+ */
 @Singleton
 class ExerciseRepositoryImpl @Inject constructor(
     private val exerciseDao: ExerciseDao,

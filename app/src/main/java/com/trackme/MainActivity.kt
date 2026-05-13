@@ -19,6 +19,16 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Main Android entry point for the Compose app.
+ *
+ * Architecture Layer: UI host
+ *
+ * Responsibilities:
+ * - Configure system bars and Compose content.
+ * - Seed bundled exercise data at startup.
+ * - Schedule sync when the process enters foreground.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 

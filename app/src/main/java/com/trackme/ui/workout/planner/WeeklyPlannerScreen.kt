@@ -122,8 +122,8 @@ fun WeeklyPlannerScreen(
     }
 
     // Dialogs (Moved outside Scaffold to ensure they appear on top)
-    if (showDeleteDialog && pendingDeleteDay != null) {
-            val day = pendingDeleteDay!!
+    if (showDeleteDialog) {
+        pendingDeleteDay?.let { day ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false; pendingDeleteDay = null },
                 title = { Text("Delete ${day.name}?", color = OnSurface) },
@@ -145,9 +145,11 @@ fun WeeklyPlannerScreen(
                 shape = RoundedCornerShape(24.dp),
             )
         }
+    }
 
-        if (showAddDayDialog && pendingDayOfWeek != null) {
-            val dowLabel = pendingDayOfWeek!!.name.lowercase().replaceFirstChar { it.uppercase() }
+    if (showAddDayDialog) {
+        pendingDayOfWeek?.let { dayOfWeek ->
+            val dowLabel = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
             AlertDialog(
                 onDismissRequest = { showAddDayDialog = false; newDayName = "" },
                 title = { Text("Add $dowLabel Workout", color = OnSurface) },
@@ -164,7 +166,7 @@ fun WeeklyPlannerScreen(
                     Button(
                         onClick = {
                             viewModel.addDay(
-                                pendingDayOfWeek!!,
+                                dayOfWeek,
                                 newDayName.trim().ifEmpty { "$dowLabel Workout" },
                             )
                             showAddDayDialog = false
@@ -180,34 +182,35 @@ fun WeeklyPlannerScreen(
                 shape = RoundedCornerShape(24.dp),
             )
         }
+    }
 
-        if (state.showNewPlanDialog) {
-            AlertDialog(
-                onDismissRequest = viewModel::dismissNewPlanDialog,
-                title = { Text("New Routine", color = OnSurface) },
-                text = {
-                    OutlinedTextField(
-                        value = state.newPlanName,
-                        onValueChange = viewModel::onNewPlanNameChange,
-                        label = { Text("Routine name (e.g. PPL)") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = viewModel::createPlan, 
-                        enabled = !state.isCreatingPlan,
-                        colors = ButtonDefaults.buttonColors(containerColor = Violet)
-                    ) {
-                        Text("Create", color = Color.White)
-                    }
-                },
-                dismissButton = { TextButton(onClick = viewModel::dismissNewPlanDialog) { Text("Cancel", color = OnSurface) } },
-                containerColor = Surface,
-                shape = RoundedCornerShape(24.dp),
-            )
-        }
+    if (state.showNewPlanDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissNewPlanDialog,
+            title = { Text("New Routine", color = OnSurface) },
+            text = {
+                OutlinedTextField(
+                    value = state.newPlanName,
+                    onValueChange = viewModel::onNewPlanNameChange,
+                    label = { Text("Routine name (e.g. PPL)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::createPlan,
+                    enabled = !state.isCreatingPlan,
+                    colors = ButtonDefaults.buttonColors(containerColor = Violet),
+                ) {
+                    Text("Create", color = Color.White)
+                }
+            },
+            dismissButton = { TextButton(onClick = viewModel::dismissNewPlanDialog) { Text("Cancel", color = OnSurface) } },
+            containerColor = Surface,
+            shape = RoundedCornerShape(24.dp),
+        )
+    }
 }
 @Composable
 private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, onShare: () -> Unit) {

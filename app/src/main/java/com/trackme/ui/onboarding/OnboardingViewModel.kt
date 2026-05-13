@@ -14,7 +14,7 @@ import javax.inject.Inject
 
 data class OnboardingUiState(
     val useKg: Boolean = true,
-    val goal: String = "BUILD_MUSCLE",
+    val goal: String = DEFAULT_FITNESS_GOAL,
     val isSaving: Boolean = false,
     val isAlreadyDone: Boolean = false,
     val currentStep: Int = 1,
@@ -25,6 +25,20 @@ val PREF_GOAL = stringPreferencesKey("fitness_goal")
 val PREF_INPUT_STYLE = stringPreferencesKey("input_style")
 val PREF_ONBOARDING_DONE = booleanPreferencesKey("onboarding_complete")
 
+const val DEFAULT_USE_KG = true
+const val DEFAULT_FITNESS_GOAL = "BUILD_MUSCLE"
+const val DEFAULT_INPUT_STYLE = "TAP_EXPAND"
+
+/**
+ * ViewModel responsible for first-run app preference setup.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Read onboarding completion state from DataStore.
+ * - Collect the user's preferred units and fitness goal.
+ * - Persist onboarding completion without touching workout or backend state.
+ */
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
@@ -40,8 +54,8 @@ class OnboardingViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isAlreadyDone = true,
-                        useKg = prefs[PREF_USE_KG] ?: true,
-                        goal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE",
+                        useKg = prefs[PREF_USE_KG] ?: DEFAULT_USE_KG,
+                        goal = prefs[PREF_GOAL] ?: DEFAULT_FITNESS_GOAL,
                     )
                 }
             }

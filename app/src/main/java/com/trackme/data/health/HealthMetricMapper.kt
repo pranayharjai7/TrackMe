@@ -15,8 +15,29 @@ private data class MetricValue(val value: String, val unit: String? = null) {
     fun asText(): String = if (unit.isNullOrBlank()) value else "$value $unit"
 }
 
+/**
+ * Maps raw Health Connect records into the app's normalized health metric rows.
+ *
+ * Architecture Layer: Data mapper
+ *
+ * Responsibilities:
+ * - Preserve Health Connect record details for detailed UI display.
+ * - Generate stable Room IDs from record metadata or deterministic record content.
+ * - Keep every supported record type in one mapper so SDK upgrades are auditable.
+ */
 @OptIn(ExperimentalMindfulnessSessionApi::class, ExperimentalPersonalHealthRecordApi::class)
 object HealthMetricMapper {
+    /**
+     * Converts a single Health Connect Record into a HealthMetricEntity.
+     *
+     * Inputs:
+     * - userId: Supabase user ID that owns the metric.
+     * - record: Health Connect SDK record read from the device.
+     * - updatedAt: sync timestamp applied consistently across a sync batch.
+     *
+     * Output:
+     * - A normalized entity, or null when the record type is intentionally unsupported.
+     */
     fun toEntity(userId: String, record: Record, updatedAt: Long): HealthMetricEntity? =
         when (record) {
             is ActiveCaloriesBurnedRecord -> record.entity(
@@ -536,7 +557,8 @@ object HealthMetricMapper {
         updatedAt: Long,
     ): HealthMetricEntity {
         val avg = sampleValues.averageOrNull()
-        val value = avg?.let { MetricValue(it.display(if (unit == "bpm") 0 else 1), unit) }
+        val decimals = seriesDecimals(unit)
+        val value = avg?.let { MetricValue(it.display(decimals), unit) }
             ?: MetricValue("${sampleValues.size}", "samples")
         return entity(
             userId = userId,
@@ -544,9 +566,9 @@ object HealthMetricMapper {
             displayName = displayName,
             value = value,
             details = listOfNotNull(
-                avg?.let { "Average: ${it.display(if (unit == "bpm") 0 else 1)} $unit" },
-                sampleValues.minOrNull()?.let { "Minimum: ${it.display(if (unit == "bpm") 0 else 1)} $unit" },
-                sampleValues.maxOrNull()?.let { "Maximum: ${it.display(if (unit == "bpm") 0 else 1)} $unit" },
+                avg?.let { "Average: ${it.display(decimals)} $unit" },
+                sampleValues.minOrNull()?.let { "Minimum: ${it.display(decimals)} $unit" },
+                sampleValues.maxOrNull()?.let { "Maximum: ${it.display(decimals)} $unit" },
                 "$sampleLabel: ${sampleValues.size}",
             ),
             updatedAt = updatedAt,
@@ -708,6 +730,8 @@ object HealthMetricMapper {
     }
 
     private fun Long.formatLong(): String = "%,d".format(Locale.US, this)
+
+    private fun seriesDecimals(unit: String): Int = if (unit == "bpm") 0 else 1
 
     private fun enumLabel(value: String?): String =
         value?.split("_")?.joinToString(" ") { part ->

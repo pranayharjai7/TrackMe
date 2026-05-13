@@ -14,6 +14,7 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.trackme.data.local.entity.HealthMetricEntity
 import com.trackme.data.local.entity.HealthSnapshotEntity
+import com.trackme.domain.model.HcSdkStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.ZoneId
@@ -21,8 +22,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
 
-enum class HcSdkStatus { AVAILABLE, NEEDS_UPDATE, NEEDS_INSTALL }
-
+/**
+ * Data-layer adapter around Android Health Connect.
+ *
+ * Architecture Layer: Data
+ *
+ * Responsibilities:
+ * - Translate Health Connect SDK records into Room entities.
+ * - Hide optional feature checks and permission details from ViewModels.
+ * - Fail softly when a record type is unavailable so sync can continue.
+ */
 @Singleton
 @OptIn(ExperimentalMindfulnessSessionApi::class, ExperimentalPersonalHealthRecordApi::class)
 class HealthConnectManager @Inject constructor(
@@ -288,4 +297,3 @@ class HealthConnectManager @Inject constructor(
         )
     }
 }
-

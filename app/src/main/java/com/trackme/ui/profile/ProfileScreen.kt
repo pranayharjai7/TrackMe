@@ -32,7 +32,7 @@ import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.trackme.data.health.HcSdkStatus
+import com.trackme.domain.model.HcSdkStatus
 import com.trackme.ui.components.*
 import com.trackme.ui.theme.*
 import java.text.SimpleDateFormat

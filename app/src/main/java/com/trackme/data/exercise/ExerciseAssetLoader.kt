@@ -24,6 +24,16 @@ private data class RawExercise(
     val images: List<String> = emptyList(),
 )
 
+/**
+ * Loads the bundled exercise catalog from app assets.
+ *
+ * Architecture Layer: Data/local asset source
+ *
+ * Responsibilities:
+ * - Parse exercises.json into serializable RawExercise records.
+ * - Convert remote-style asset image paths into displayable GitHub image URLs.
+ * - Produce ExerciseEntity objects ready for Room seeding.
+ */
 @Singleton
 class ExerciseAssetLoader @Inject constructor(
     @ApplicationContext private val context: Context,

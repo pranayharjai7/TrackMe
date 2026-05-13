@@ -1,9 +1,9 @@
 package com.trackme.data.repository
 
-import com.trackme.data.health.HcSdkStatus
 import com.trackme.data.health.HealthConnectManager
 import com.trackme.data.local.dao.HealthMetricDao
 import com.trackme.data.local.dao.HealthSnapshotDao
+import com.trackme.domain.model.HcSdkStatus
 import com.trackme.domain.model.HealthMetric
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.repository.HealthRepository
@@ -14,6 +14,16 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Repository implementation for Health Connect and health metric persistence.
+ *
+ * Architecture Layer: Data repository
+ *
+ * Responsibilities:
+ * - Coordinate Health Connect reads through HealthConnectManager.
+ * - Persist normalized snapshots and detailed metrics in Room.
+ * - Expose domain models through the HealthRepository interface.
+ */
 @Singleton
 class HealthRepositoryImpl @Inject constructor(
     private val healthConnectManager: HealthConnectManager,
@@ -23,17 +33,15 @@ class HealthRepositoryImpl @Inject constructor(
 
     override suspend fun syncFromHealthConnect(userId: String) = withContext(Dispatchers.IO) {
         val snapshots = runCatching { healthConnectManager.readLast30Days(userId) }
-            .onFailure { it.printStackTrace() }
             .getOrElse { emptyList() }
-        
+
         if (snapshots.isNotEmpty()) {
             healthSnapshotDao.insertAll(snapshots)
         }
 
         val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId) }
-            .onFailure { it.printStackTrace() }
             .getOrElse { emptyList() }
-            
+
         healthMetricDao.replaceForUser(userId, metrics)
     }
 

@@ -14,7 +14,9 @@ import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import java.util.Calendar
+import com.trackme.utils.MILLIS_PER_DAY
+import com.trackme.utils.millisDaysAgo
+import com.trackme.utils.startOfLocalDayMillis
 import javax.inject.Inject
 
 enum class HomeDashboardState {
@@ -44,6 +46,16 @@ data class HomeUiState(
     val displayName: String = "",
 )
 
+/**
+ * ViewModel responsible for the home dashboard.
+ *
+ * Architecture Layer: ViewModel (MVVM)
+ *
+ * Responsibilities:
+ * - Combine Supabase auth state with workout, progress, and health data.
+ * - Derive dashboard mode without letting the Compose screen perform business logic.
+ * - Expose only UI-ready state to HomeScreen.
+ */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getTodayWorkout: GetTodayWorkoutUseCase,
@@ -66,7 +78,7 @@ class HomeViewModel @Inject constructor(
             val uid = session.user?.id.orEmpty()
             if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
 
-            val thirtyDaysAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+            val thirtyDaysAgo = millisDaysAgo(30)
             val displayName = session.user
                 ?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: ""
 
@@ -87,20 +99,20 @@ class HomeViewModel @Inject constructor(
                 getHealthSnapshots(uid, 30),
                 weekStripFlow,
             ) { today, prs, sessions, snapshots, weekStrip ->
-                val todayMidnight = normalizeToMidnight(System.currentTimeMillis())
+                val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
                 val completedDayIdsToday = sessions
-                    .filter { normalizeToMidnight(it.date) == todayMidnight && it.durationMinutes > 0 }
+                    .filter { startOfLocalDayMillis(it.date) == todayMidnight && it.durationMinutes > 0 }
                     .map { it.dayId }
                     .toSet()
                 val validDayIds = weekStrip.filterNotNull().map { it.id }.toSet()
                 val activeSession = sessions.firstOrNull {
-                    normalizeToMidnight(it.date) == todayMidnight
+                    startOfLocalDayMillis(it.date) == todayMidnight
                         && it.durationMinutes == 0
                         && it.dayId !in completedDayIdsToday
                         && it.dayId in validDayIds
                 }
                 val isTodaySessionFinished = today != null && sessions.any {
-                    normalizeToMidnight(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
+                    startOfLocalDayMillis(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
                 }
                 
                 val dashboardState = when {
@@ -111,25 +123,7 @@ class HomeViewModel @Inject constructor(
                 }
                 
                 val latestSnapshot = snapshots.maxByOrNull { it.date }
-                val healthInsight = latestSnapshot?.let { snap ->
-                    if (dashboardState == HomeDashboardState.REST_RECOVERY) {
-                        val steps = snap.steps ?: 0L
-                        val score = (steps / 100).toInt().coerceIn(0, 100)
-                        HealthInsight(
-                            title = "Recovery & Readiness",
-                            description = "You've taken ${"%,d".format(steps)} steps today. Keep active but prioritize rest.",
-                            score = score
-                        )
-                    } else {
-                        val cals = snap.activeCaloriesBurned ?: 0f
-                        val score = (cals / 5).toInt().coerceIn(0, 100)
-                        HealthInsight(
-                            title = "Active Energy",
-                            description = "You've burned ${cals.toInt()} kcal today. Fuel your body for the workout!",
-                            score = score
-                        )
-                    }
-                }
+                val healthInsight = latestSnapshot?.toHealthInsight(dashboardState)
 
                 HomeUiState(
                     isLoading = false,
@@ -140,7 +134,7 @@ class HomeViewModel @Inject constructor(
                     weekStrip = weekStrip,
                     streakDays = calculateStreak(
                         sessions.filter { it.durationMinutes > 0 }
-                            .map { normalizeToMidnight(it.date) }.distinct(),
+                            .map { startOfLocalDayMillis(it.date) }.distinct(),
                         System.currentTimeMillis(),
                     ),
                     latestSnapshot = latestSnapshot,
@@ -153,28 +147,41 @@ class HomeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 }
 
+/**
+ * Calculates consecutive local-day workout completions ending today.
+ *
+ * Inputs:
+ * - sortedMidnights: any order of local midnight timestamps for completed sessions.
+ * - nowMs: the current time, injectable for deterministic tests.
+ */
 internal fun calculateStreak(sortedMidnights: List<Long>, nowMs: Long): Int {
     if (sortedMidnights.isEmpty()) return 0
     val sorted = sortedMidnights.sortedDescending()
-    val todayMid = normalizeToMidnight(nowMs)
+    val todayMid = startOfLocalDayMillis(nowMs)
     var streak = 0
     var expected = todayMid
     for (day in sorted) {
         if (day == expected) {
             streak++
-            expected -= 86_400_000L
+            expected -= MILLIS_PER_DAY
         } else if (day < expected) break
     }
     return streak
 }
 
-internal fun normalizeToMidnight(epochMs: Long): Long {
-    val cal = Calendar.getInstance()
-    cal.timeInMillis = epochMs
-    cal.set(Calendar.HOUR_OF_DAY, 0)
-    cal.set(Calendar.MINUTE, 0)
-    cal.set(Calendar.SECOND, 0)
-    cal.set(Calendar.MILLISECOND, 0)
-    return cal.timeInMillis
-}
-
+private fun HealthSnapshot.toHealthInsight(dashboardState: HomeDashboardState): HealthInsight =
+    if (dashboardState == HomeDashboardState.REST_RECOVERY) {
+        val steps = steps ?: 0L
+        HealthInsight(
+            title = "Recovery & Readiness",
+            description = "You've taken ${"%,d".format(steps)} steps today. Keep active but prioritize rest.",
+            score = (steps / 100).toInt().coerceIn(0, 100),
+        )
+    } else {
+        val calories = activeCaloriesBurned ?: 0f
+        HealthInsight(
+            title = "Active Energy",
+            description = "You've burned ${calories.toInt()} kcal today. Fuel your body for the workout!",
+            score = (calories / 5).toInt().coerceIn(0, 100),
+        )
+    }
