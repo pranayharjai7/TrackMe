@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 
 data class Tilt(val pitch: Float = 0f, val roll: Float = 0f)
@@ -56,4 +57,12 @@ fun rememberDeviceTilt(): State<Tilt> {
     }
 
     return tiltState
+}
+
+fun androidx.compose.ui.Modifier.parallaxTilt(tilt: Tilt, intensity: Float = 10f): androidx.compose.ui.Modifier {
+    return this.graphicsLayer {
+        rotationX = tilt.pitch * intensity
+        rotationY = -tilt.roll * intensity // Inverted for natural feel
+        cameraDistance = 12f * density
+    }
 }

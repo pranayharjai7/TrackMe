@@ -23,6 +23,8 @@ import com.trackme.domain.model.DayOfWeek
 import com.trackme.domain.model.WorkoutDay
 import com.trackme.ui.components.GlassmorphicCard
 import com.trackme.ui.components.PlanningMeshGradient
+import com.trackme.ui.components.rememberDeviceTilt
+import com.trackme.ui.components.parallaxTilt
 import com.trackme.ui.theme.*
 
 @Composable
@@ -31,6 +33,7 @@ fun WeeklyPlannerScreen(
     viewModel: WeeklyPlannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val tilt by rememberDeviceTilt()
 
     var showAddDayDialog by remember { mutableStateOf(false) }
     var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
@@ -56,7 +59,8 @@ fun WeeklyPlannerScreen(
                 item {
                     PlannerHeroHeader(
                         planName = state.activePlan?.name ?: "My Routine",
-                        activeDaysCount = state.days.size
+                        activeDaysCount = state.days.size,
+                        tilt = tilt
                     )
                 }
 
@@ -67,6 +71,7 @@ fun WeeklyPlannerScreen(
                         dayOfWeek = dow,
                         workoutDay = day,
                         exerciseCount = count,
+                        tilt = tilt,
                         onClick = {
                             if (day != null) {
                                 onEditDay(day.id)
@@ -189,11 +194,12 @@ fun WeeklyPlannerScreen(
         }
 }
 @Composable
-private fun PlannerHeroHeader(planName: String, activeDaysCount: Int) {
+private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, tilt: com.trackme.ui.components.Tilt) {
     Column(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 16.dp)
+            .parallaxTilt(tilt, intensity = 5f)
     ) {
         Text(
             "Routine Planner",
@@ -227,6 +233,7 @@ private fun GlassDayCard(
     dayOfWeek: DayOfWeek,
     workoutDay: WorkoutDay?,
     exerciseCount: Int,
+    tilt: com.trackme.ui.components.Tilt,
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
 ) {
@@ -235,7 +242,8 @@ private fun GlassDayCard(
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            .parallaxTilt(tilt, intensity = 8f),
         shape = RoundedCornerShape(24.dp)
     ) {
         Card(

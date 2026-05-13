@@ -31,6 +31,8 @@ import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.ui.components.GlassmorphicCard
 import com.trackme.ui.components.PlanningMeshGradient
+import com.trackme.ui.components.rememberDeviceTilt
+import com.trackme.ui.components.parallaxTilt
 import com.trackme.ui.theme.*
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -45,6 +47,7 @@ fun DayEditorScreen(
     viewModel: DayEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val tilt by rememberDeviceTilt()
     val lazyListState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -80,7 +83,11 @@ fun DayEditorScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Column(Modifier.padding(bottom = 24.dp)) {
+                Column(
+                    Modifier
+                        .padding(bottom = 24.dp)
+                        .parallaxTilt(tilt, intensity = 5f)
+                ) {
                     IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                     }
@@ -145,6 +152,7 @@ fun DayEditorScreen(
                                     .fillMaxWidth()
                                     .zIndex(if (isDragging) 1f else 0f)
                                     .scale(scale)
+                                    .parallaxTilt(tilt, intensity = 8f)
                                     .shadow(elevation, RoundedCornerShape(24.dp), clip = false),
                                 containerColor = if (isDragging) Surface else Color.White.copy(alpha = 0.05f)
                             ) {
