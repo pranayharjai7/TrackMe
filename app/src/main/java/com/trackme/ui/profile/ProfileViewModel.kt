@@ -9,6 +9,7 @@ import com.trackme.data.health.HcSdkStatus
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.ClearLocalUserDataUseCase
 import com.trackme.ui.onboarding.PREF_GOAL
+import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_USE_KG
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
@@ -27,6 +28,7 @@ data class ProfileUiState(
     val isSyncing: Boolean = false,
     val useKg: Boolean = true,
     val fitnessGoal: String = "BUILD_MUSCLE",
+    val inputStyle: String = "TAP_EXPAND",
 )
 
 @HiltViewModel
@@ -64,6 +66,7 @@ class ProfileViewModel @Inject constructor(
                     it.copy(
                         useKg = prefs[PREF_USE_KG] ?: true,
                         fitnessGoal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE",
+                        inputStyle = prefs[PREF_INPUT_STYLE] ?: "TAP_EXPAND",
                     )
                 }
             }
@@ -110,11 +113,12 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun savePreferences(useKg: Boolean, fitnessGoal: String) {
+    fun savePreferences(useKg: Boolean, fitnessGoal: String, inputStyle: String) {
         viewModelScope.launch {
             dataStore.edit { prefs ->
                 prefs[PREF_USE_KG] = useKg
                 prefs[PREF_GOAL] = fitnessGoal
+                prefs[PREF_INPUT_STYLE] = inputStyle
             }
         }
     }

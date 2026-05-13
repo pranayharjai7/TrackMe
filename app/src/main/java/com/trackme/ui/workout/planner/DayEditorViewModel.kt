@@ -23,6 +23,7 @@ data class DayEditorUiState(
     val plannedExercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
     val isLoading: Boolean = true,
     val editingExercise: Pair<PlannedExercise, Exercise?>? = null,
+    val inputStyle: String = "TAP_EXPAND",
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -32,6 +33,7 @@ class DayEditorViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val addExerciseToDay: AddExerciseToDayUseCase,
     private val supabase: SupabaseClient,
+    private val dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -57,6 +59,11 @@ class DayEditorViewModel @Inject constructor(
                 .collect { withDetails ->
                     _uiState.update { it.copy(plannedExercises = withDetails, isLoading = false) }
                 }
+        }
+        viewModelScope.launch {
+            dataStore.data.collect { prefs ->
+                _uiState.update { it.copy(inputStyle = prefs[com.trackme.ui.onboarding.PREF_INPUT_STYLE] ?: "TAP_EXPAND") }
+            }
         }
     }
 

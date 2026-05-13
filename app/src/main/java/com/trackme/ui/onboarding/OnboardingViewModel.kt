@@ -22,6 +22,7 @@ data class OnboardingUiState(
 
 val PREF_USE_KG = booleanPreferencesKey("use_kg")
 val PREF_GOAL = stringPreferencesKey("fitness_goal")
+val PREF_INPUT_STYLE = stringPreferencesKey("input_style")
 val PREF_ONBOARDING_DONE = booleanPreferencesKey("onboarding_complete")
 
 @HiltViewModel

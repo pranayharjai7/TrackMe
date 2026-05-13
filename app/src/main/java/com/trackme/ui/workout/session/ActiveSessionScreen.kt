@@ -27,6 +27,7 @@ import com.trackme.domain.model.LoggingType
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.domain.model.SessionSet
 import com.trackme.domain.model.loggingType
+import com.trackme.ui.components.HorizontalWheelPicker
 import com.trackme.ui.components.WheelPicker
 import com.trackme.ui.theme.*
 
@@ -110,6 +111,7 @@ fun ActiveSessionScreen(
                         plannedExercise = pe,
                         exercise = exercise,
                         loggedSets = exerciseSets,
+                        inputStyle = state.inputStyle,
                         onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
                         onLogSet = { weight, reps, duration, distance, speed, incline ->
                             viewModel.logSet(
@@ -182,6 +184,7 @@ private fun ExerciseSessionCard(
     plannedExercise: PlannedExercise,
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
+    inputStyle: String,
     onExerciseClick: () -> Unit,
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
     onTargetSetsChanged: (Int) -> Unit = {},
@@ -325,24 +328,66 @@ private fun ExerciseSessionCard(
             // Input fields (only when sets remain)
             if (!allSetsLogged) {
                 HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.15f))
-                when (loggingType) {
+                
+                var isExpanded by remember { mutableStateOf(inputStyle != "TAP_EXPAND") }
+                LaunchedEffect(inputStyle) { isExpanded = inputStyle != "TAP_EXPAND" }
+                
+                if (!isExpanded) {
+                    val summaryText = when (loggingType) {
+                        LoggingType.WEIGHTED_REPS -> "${weightWhole + weightDecimal} kg × $repsInput reps"
+                        LoggingType.BODYWEIGHT_REPS -> "$repsInput reps"
+                        LoggingType.TIMED -> "${durationMin}m ${durationSec}s"
+                        LoggingType.CARDIO -> "${durationMin}m | ${distanceWhole + distanceDecimal} km | ${speedWhole + speedDecimal} km/h | ${inclineWhole + inclineDecimal}%"
+                    }
+                    OutlinedButton(
+                        onClick = { isExpanded = true },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Target: $summaryText", color = OnSurface)
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
+                    }
+                } else {
+                    val isHorizontal = inputStyle == "HORIZONTAL"
+                    when (loggingType) {
                     LoggingType.WEIGHTED_REPS -> {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Weight (kg)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                                    WheelPicker(items = wholeNumbers, initialIndex = weightWhole, modifier = Modifier.width(56.dp), onItemSelected = { weightWhole = it })
-                                    Text(".", style = MaterialTheme.typography.titleLarge)
-                                    WheelPicker(items = decimalWeightOptions, initialIndex = decimalWeightOptions.indexOf(weightDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { weightDecimal = it })
+                        if (isHorizontal) {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Weight (kg)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        HorizontalWheelPicker(items = wholeNumbers, initialIndex = weightWhole, modifier = Modifier.weight(1f), onItemSelected = { weightWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleLarge)
+                                        HorizontalWheelPicker(items = decimalWeightOptions, initialIndex = decimalWeightOptions.indexOf(weightDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.weight(1f), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { weightDecimal = it })
+                                    }
+                                }
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Reps", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    HorizontalWheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.fillMaxWidth(), onItemSelected = { repsInput = it })
                                 }
                             }
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Reps", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                WheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.width(80.dp), onItemSelected = { repsInput = it })
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Weight (kg)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        WheelPicker(items = wholeNumbers, initialIndex = weightWhole, modifier = Modifier.width(56.dp), onItemSelected = { weightWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleLarge)
+                                        WheelPicker(items = decimalWeightOptions, initialIndex = decimalWeightOptions.indexOf(weightDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { weightDecimal = it })
+                                    }
+                                }
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Reps", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    WheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.width(80.dp), onItemSelected = { repsInput = it })
+                                }
                             }
                         }
                         Button(
-                            onClick = { onLogSet(weightWhole + weightDecimal, repsInput, null, null, null, null) },
+                            onClick = { 
+                                onLogSet(weightWhole + weightDecimal, repsInput, null, null, null, null)
+                                if (inputStyle == "TAP_EXPAND") isExpanded = false
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                         ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
@@ -350,10 +395,17 @@ private fun ExerciseSessionCard(
                     LoggingType.BODYWEIGHT_REPS -> {
                         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Reps", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                            WheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.width(80.dp), onItemSelected = { repsInput = it })
+                            if (isHorizontal) {
+                                HorizontalWheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.fillMaxWidth(), onItemSelected = { repsInput = it })
+                            } else {
+                                WheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.width(80.dp), onItemSelected = { repsInput = it })
+                            }
                         }
                         Button(
-                            onClick = { onLogSet(0f, repsInput, null, null, null, null) },
+                            onClick = { 
+                                onLogSet(0f, repsInput, null, null, null, null)
+                                if (inputStyle == "TAP_EXPAND") isExpanded = false
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                         ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
@@ -362,57 +414,103 @@ private fun ExerciseSessionCard(
                         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Duration", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                                WheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.width(60.dp), itemToString = { "$it m" }, onItemSelected = { durationMin = it })
-                                Text(":", style = MaterialTheme.typography.titleLarge)
-                                WheelPicker(items = secsList, initialIndex = durationSec, modifier = Modifier.width(60.dp), itemToString = { "%02d s".format(it) }, onItemSelected = { durationSec = it })
+                                if (isHorizontal) {
+                                    HorizontalWheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.weight(1f), itemToString = { "$it m" }, onItemSelected = { durationMin = it })
+                                    Text(":", style = MaterialTheme.typography.titleLarge)
+                                    HorizontalWheelPicker(items = secsList, initialIndex = durationSec, modifier = Modifier.weight(1f), itemToString = { "%02d s".format(it) }, onItemSelected = { durationSec = it })
+                                } else {
+                                    WheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.width(60.dp), itemToString = { "$it m" }, onItemSelected = { durationMin = it })
+                                    Text(":", style = MaterialTheme.typography.titleLarge)
+                                    WheelPicker(items = secsList, initialIndex = durationSec, modifier = Modifier.width(60.dp), itemToString = { "%02d s".format(it) }, onItemSelected = { durationSec = it })
+                                }
                             }
                         }
                         Button(
-                            onClick = { onLogSet(0f, 0, durationMin * 60 + durationSec, null, null, null) },
+                            onClick = { 
+                                onLogSet(0f, 0, durationMin * 60 + durationSec, null, null, null)
+                                if (inputStyle == "TAP_EXPAND") isExpanded = false
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                         ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
                     }
                     LoggingType.CARDIO -> {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Duration (min)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                WheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.width(80.dp), onItemSelected = { durationMin = it })
-                            }
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Speed (km/h)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                                    WheelPicker(items = wholeNumbers, initialIndex = speedWhole, modifier = Modifier.width(56.dp), onItemSelected = { speedWhole = it })
-                                    Text(".", style = MaterialTheme.typography.titleMedium)
-                                    WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(speedDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { speedDecimal = it })
+                        if (isHorizontal) {
+                            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Duration (min)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    HorizontalWheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.fillMaxWidth(), onItemSelected = { durationMin = it })
+                                }
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Speed (km/h)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        HorizontalWheelPicker(items = wholeNumbers, initialIndex = speedWhole, modifier = Modifier.weight(1f), onItemSelected = { speedWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        HorizontalWheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(speedDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.weight(1f), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { speedDecimal = it })
+                                    }
+                                }
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Distance (km)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        HorizontalWheelPicker(items = wholeNumbers, initialIndex = distanceWhole, modifier = Modifier.weight(1f), onItemSelected = { distanceWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        HorizontalWheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(distanceDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.weight(1f), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { distanceDecimal = it })
+                                    }
+                                }
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("Incline (%)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        HorizontalWheelPicker(items = wholeNumbers, initialIndex = inclineWhole, modifier = Modifier.weight(1f), onItemSelected = { inclineWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        HorizontalWheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(inclineDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.weight(1f), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { inclineDecimal = it })
+                                    }
                                 }
                             }
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Distance (km)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                                    WheelPicker(items = wholeNumbers, initialIndex = distanceWhole, modifier = Modifier.width(56.dp), onItemSelected = { distanceWhole = it })
-                                    Text(".", style = MaterialTheme.typography.titleMedium)
-                                    WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(distanceDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { distanceDecimal = it })
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Duration (min)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    WheelPicker(items = minsList, initialIndex = durationMin, modifier = Modifier.width(80.dp), onItemSelected = { durationMin = it })
+                                }
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Speed (km/h)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        WheelPicker(items = wholeNumbers, initialIndex = speedWhole, modifier = Modifier.width(56.dp), onItemSelected = { speedWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(speedDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { speedDecimal = it })
+                                    }
                                 }
                             }
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Incline (%)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                                    WheelPicker(items = wholeNumbers, initialIndex = inclineWhole, modifier = Modifier.width(56.dp), onItemSelected = { inclineWhole = it })
-                                    Text(".", style = MaterialTheme.typography.titleMedium)
-                                    WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(inclineDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { inclineDecimal = it })
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Distance (km)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        WheelPicker(items = wholeNumbers, initialIndex = distanceWhole, modifier = Modifier.width(56.dp), onItemSelected = { distanceWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(distanceDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { distanceDecimal = it })
+                                    }
+                                }
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Incline (%)", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                        WheelPicker(items = wholeNumbers, initialIndex = inclineWhole, modifier = Modifier.width(56.dp), onItemSelected = { inclineWhole = it })
+                                        Text(".", style = MaterialTheme.typography.titleMedium)
+                                        WheelPicker(items = decimalTenths, initialIndex = decimalTenths.indexOf(inclineDecimal).takeIf { it >= 0 } ?: 0, modifier = Modifier.width(56.dp), itemToString = { it.toString().substringAfter('.') }, onItemSelected = { inclineDecimal = it })
+                                    }
                                 }
                             }
                         }
                         Button(
-                            onClick = { onLogSet(0f, 0, durationMin * 60, distanceWhole + distanceDecimal, speedWhole + speedDecimal, inclineWhole + inclineDecimal) },
+                            onClick = { 
+                                onLogSet(0f, 0, durationMin * 60, distanceWhole + distanceDecimal, speedWhole + speedDecimal, inclineWhole + inclineDecimal) 
+                                if (inputStyle == "TAP_EXPAND") isExpanded = false
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                         ) { Text("Log Cardio", fontWeight = FontWeight.SemiBold) }
                     }
                 }
+            }
             }
         }
     }

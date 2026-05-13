@@ -14,6 +14,9 @@ import com.trackme.domain.usecase.StartSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -26,6 +29,7 @@ data class ActiveSessionUiState(
     val restSeconds: Int = 90,
     val restSecondsRemaining: Int = 90,
     val isFinishing: Boolean = false,
+    val inputStyle: String = "TAP_EXPAND",
 )
 
 @HiltViewModel
@@ -36,6 +40,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val logSetUseCase: LogSetUseCase,
     private val finishSessionUseCase: FinishSessionUseCase,
     private val supabase: SupabaseClient,
+    private val dataStore: DataStore<Preferences>,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -49,6 +54,12 @@ class ActiveSessionViewModel @Inject constructor(
     private var restTimerJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            dataStore.data.collect { prefs ->
+                _uiState.update { it.copy(inputStyle = prefs[PREF_INPUT_STYLE] ?: "TAP_EXPAND") }
+            }
+        }
+        
         viewModelScope.launch {
             val todayStart = run {
                 val cal = java.util.Calendar.getInstance()

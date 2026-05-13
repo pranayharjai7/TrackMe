@@ -47,6 +47,7 @@ fun DayEditorScreen(
             TargetParamSheet(
                 exercise = it,
                 initial = pe,
+                inputStyle = state.inputStyle,
                 onConfirm = { sets, reps, weight, duration, distance, speed, incline ->
                     viewModel.saveEditedParams(pe, sets, reps, weight, duration, distance, speed, incline)
                 },

@@ -215,7 +215,7 @@ fun ProfileScreen(
                         }
                         Switch(
                             checked = state.useKg,
-                            onCheckedChange = { viewModel.savePreferences(it, state.fitnessGoal) },
+                            onCheckedChange = { viewModel.savePreferences(it, state.fitnessGoal, state.inputStyle) },
                         )
                     }
 
@@ -234,7 +234,33 @@ fun ProfileScreen(
                             goals.forEach { (key, label) ->
                                 FilterChip(
                                     selected = state.fitnessGoal == key,
-                                    onClick = { viewModel.savePreferences(state.useKg, key) },
+                                    onClick = { viewModel.savePreferences(state.useKg, key, state.inputStyle) },
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Violet.copy(alpha = 0.2f),
+                                        selectedLabelColor = Violet,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = OnSurfaceMuted.copy(alpha = 0.1f))
+
+                    Column {
+                        Text("Workout Input Style", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+                        Text("Choose how to input weights and reps during a workout.", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
+                        Spacer(Modifier.height(8.dp))
+                        val styles = listOf(
+                            "TAP_EXPAND" to "Tap-to-Expand",
+                            "HORIZONTAL" to "Horizontal Rulers",
+                        )
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            styles.forEach { (key, label) ->
+                                FilterChip(
+                                    selected = state.inputStyle == key,
+                                    onClick = { viewModel.savePreferences(state.useKg, state.fitnessGoal, key) },
                                     label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = Violet.copy(alpha = 0.2f),
