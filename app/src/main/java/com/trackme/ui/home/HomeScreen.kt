@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.WorkoutDay
+import com.trackme.domain.model.formatExerciseName
 import com.trackme.ui.components.GlassmorphicCard
 import com.trackme.ui.components.ReactiveMeshGradient
 import com.trackme.ui.theme.*
@@ -364,7 +365,7 @@ private fun HallOfFameCarousel(prs: List<PersonalRecord>) {
                     Column(Modifier.padding(16.dp)) {
                         Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(24.dp))
                         Spacer(Modifier.height(12.dp))
-                        Text(pr.exerciseId, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
+                        Text(pr.exerciseId.formatExerciseName(), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
                         Spacer(Modifier.height(4.dp))
                         Text("${pr.maxWeightKg} kg", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
                     }

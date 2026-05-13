@@ -34,6 +34,7 @@ import com.patrykandpatrick.vico.core.entry.FloatEntry
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.SessionSet
+import com.trackme.domain.model.formatExerciseName
 import com.trackme.domain.usecase.MuscleVolume
 import com.trackme.ui.components.*
 import com.trackme.ui.theme.*
@@ -350,7 +351,7 @@ private fun StrengthTrajectoryCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            selectedExerciseId?.replaceFirstChar { it.uppercase() } ?: "Select exercise",
+                            selectedExerciseId?.formatExerciseName() ?: "Select exercise",
                             color = Color.White,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -365,7 +366,7 @@ private fun StrengthTrajectoryCard(
                 ) {
                     exerciseOptions.forEach { exerciseId ->
                         DropdownMenuItem(
-                            text = { Text(exerciseId.replaceFirstChar { it.uppercase() }, color = Color.White) },
+                            text = { Text(exerciseId.formatExerciseName(), color = Color.White) },
                             onClick = {
                                 onSelectExercise(exerciseId)
                                 dropdownExpanded = false
@@ -395,7 +396,7 @@ private fun StrengthTrajectoryCard(
                 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Showing max weight progression for ${selectedExerciseId ?: "selected exercise"}",
+                    "Showing max weight progression for ${selectedExerciseId?.formatExerciseName() ?: "selected exercise"}",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.5f)
                 )
@@ -503,7 +504,7 @@ private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>) {
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                mv.muscle.replaceFirstChar { it.uppercase() },
+                                mv.muscle.formatExerciseName(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -538,7 +539,7 @@ private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>) {
                         
                         AnimatedVisibility(visible = isSelected) {
                             Text(
-                                "You're prioritizing ${mv.muscle} which accounts for ${(fraction * 100).toInt()}% of your relative volume.",
+                                "You're prioritizing ${mv.muscle.formatExerciseName()} which accounts for ${(fraction * 100).toInt()}% of your relative volume.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.6f),
                                 modifier = Modifier.padding(top = 8.dp, start = 90.dp)
@@ -579,7 +580,7 @@ private fun InteractivePRCard(pr: PersonalRecord) {
             Spacer(Modifier.width(16.dp))
             
             Column(Modifier.weight(1f)) {
-                Text(pr.exerciseId.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(pr.exerciseId.formatExerciseName(), style = MaterialTheme.typography.bodyLarge, color = Color.White, fontWeight = FontWeight.Bold)
                 Text("Achieved $dateStr", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
             }
             
