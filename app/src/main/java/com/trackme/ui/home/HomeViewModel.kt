@@ -16,7 +16,22 @@ import kotlinx.coroutines.flow.*
 import java.util.Calendar
 import javax.inject.Inject
 
+enum class HomeDashboardState {
+    REST_RECOVERY,
+    PRE_WORKOUT,
+    ACTIVE_SESSION,
+    TRIUMPH
+}
+
+data class HealthInsight(
+    val title: String,
+    val description: String,
+    val score: Int
+)
+
 data class HomeUiState(
+    val dashboardState: HomeDashboardState = HomeDashboardState.REST_RECOVERY,
+    val healthInsight: HealthInsight? = null,
     val todayWorkoutDay: WorkoutDay? = null,
     val recentPRs: List<PersonalRecord> = emptyList(),
     val weekStrip: List<WorkoutDay?> = emptyList(),
@@ -80,7 +95,38 @@ class HomeViewModel @Inject constructor(
                 val isTodaySessionFinished = today != null && sessions.any {
                     normalizeToMidnight(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
                 }
+                
+                val dashboardState = when {
+                    activeSession != null -> HomeDashboardState.ACTIVE_SESSION
+                    isTodaySessionFinished -> HomeDashboardState.TRIUMPH
+                    today != null -> HomeDashboardState.PRE_WORKOUT
+                    else -> HomeDashboardState.REST_RECOVERY
+                }
+                
+                val latestSnapshot = snapshots.maxByOrNull { it.date }
+                val healthInsight = latestSnapshot?.let { snap ->
+                    if (dashboardState == HomeDashboardState.REST_RECOVERY) {
+                        val steps = snap.steps ?: 0L
+                        val score = (steps / 100).toInt().coerceIn(0, 100)
+                        HealthInsight(
+                            title = "Recovery & Readiness",
+                            description = "You've taken ${"%,d".format(steps)} steps today. Keep active but prioritize rest.",
+                            score = score
+                        )
+                    } else {
+                        val cals = snap.activeCaloriesBurned ?: 0f
+                        val score = (cals / 5).toInt().coerceIn(0, 100)
+                        HealthInsight(
+                            title = "Active Energy",
+                            description = "You've burned ${cals.toInt()} kcal today. Fuel your body for the workout!",
+                            score = score
+                        )
+                    }
+                }
+
                 HomeUiState(
+                    dashboardState = dashboardState,
+                    healthInsight = healthInsight,
                     todayWorkoutDay = today,
                     recentPRs = prs.take(3),
                     weekStrip = weekStrip,
@@ -89,7 +135,7 @@ class HomeViewModel @Inject constructor(
                             .map { normalizeToMidnight(it.date) }.distinct(),
                         System.currentTimeMillis(),
                     ),
-                    latestSnapshot = snapshots.maxByOrNull { it.date },
+                    latestSnapshot = latestSnapshot,
                     activeSessionDayId = activeSession?.dayId,
                     isTodaySessionFinished = isTodaySessionFinished,
                     displayName = displayName,

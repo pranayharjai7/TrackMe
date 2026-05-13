@@ -1,50 +1,32 @@
 package com.trackme.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.WorkoutDay
+import com.trackme.ui.components.GlassmorphicCard
+import com.trackme.ui.components.ReactiveMeshGradient
 import com.trackme.ui.theme.*
 import java.util.Calendar
-
-private fun greetingTimeOfDay(): String {
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    return when {
-        hour < 5 -> "Good night,"
-        hour < 12 -> "Good morning,"
-        hour < 17 -> "Good afternoon,"
-        hour < 21 -> "Good evening,"
-        else -> "Good night,"
-    }
-}
-
-private fun greetingName(name: String): String {
-    val firstName = name.trim().substringBefore(" ")
-    return if (firstName.isEmpty()) "Let's crush it!" else "$firstName!"
-}
-
-private val DAY_LABELS = listOf("M", "T", "W", "T", "F", "S", "S")
 
 @Composable
 fun HomeScreen(
@@ -54,100 +36,38 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Violet.copy(alpha = 0.08f), Background)))
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Dynamic Background
+        ReactiveMeshGradient(state = state.dashboardState)
+
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(vertical = 24.dp),
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(top = 64.dp, bottom = 120.dp), // Extra padding for bottom nav & top bar
         ) {
             item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            greetingTimeOfDay(),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = OnSurfaceMuted,
-                            fontWeight = FontWeight.Normal,
-                        )
-                        Text(
-                            greetingName(state.displayName),
-                            style = MaterialTheme.typography.displaySmall,
-                            color = OnBackground,
-                            fontWeight = FontWeight.ExtraBold,
-                        )
-                    }
-                    if (state.streakDays > 0) {
-                        Spacer(Modifier.width(8.dp))
-                        StreakBadge(state.streakDays)
-                    }
-                }
+                GreetingHeader(state)
+            }
+
+            item {
+                HeroActionCard(state, onStartSession, onResumeSession)
             }
 
             if (state.weekStrip.isNotEmpty()) {
-                item { WeekStrip(state.weekStrip) }
-            }
-
-            state.activeSessionDayId?.let { dayId ->
                 item {
-                    Card(
-                        onClick = { onResumeSession(dayId) },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = 0.2f)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator(Modifier.size(20.dp), color = Violet, strokeWidth = 2.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                "Session in progress — tap to resume",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Violet,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Violet)
-                        }
-                    }
+                    LiquidWeekTimeline(state.weekStrip)
                 }
             }
 
-            item {
-                val todayDay = state.todayWorkoutDay
-                val isActiveForToday = state.activeSessionDayId != null &&
-                        state.activeSessionDayId == todayDay?.id
-                TodayWorkoutCard(
-                    day = todayDay,
-                    isInProgress = isActiveForToday,
-                    isFinished = state.isTodaySessionFinished,
-                    onStart = { todayDay?.let { onStartSession(it.id) } },
-                )
-            }
-
-            state.latestSnapshot?.let { snapshot ->
-                item { HealthConnectCard(snapshot) }
+            state.healthInsight?.let { insight ->
+                item {
+                    RadialHealthSnapshotCard(insight)
+                }
             }
 
             if (state.recentPRs.isNotEmpty()) {
                 item {
-                    Text(
-                        "Recent Personal Records",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = OnSurface,
-                    )
-                }
-                items(state.recentPRs, key = { it.id }) { pr ->
-                    PersonalRecordCard(pr)
+                    HallOfFameCarousel(state.recentPRs)
                 }
             }
         }
@@ -155,74 +75,187 @@ fun HomeScreen(
 }
 
 @Composable
-private fun StreakBadge(days: Int) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Coral.copy(alpha = 0.15f),
+private fun GreetingHeader(state: HomeUiState) {
+    val contextAwareGreeting = when (state.dashboardState) {
+        HomeDashboardState.REST_RECOVERY -> "Time to recover,"
+        HomeDashboardState.PRE_WORKOUT -> "Ready to crush it,"
+        HomeDashboardState.ACTIVE_SESSION -> "Keep pushing,"
+        HomeDashboardState.TRIUMPH -> "Great job today,"
+    }
+    
+    val firstName = state.displayName.trim().substringBefore(" ")
+    val name = if (firstName.isEmpty()) "Champion" else firstName
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text("🔥", style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.weight(1f)) {
             Text(
-                "$days day streak",
-                style = MaterialTheme.typography.labelMedium,
-                color = Coral,
-                fontWeight = FontWeight.Bold,
+                contextAwareGreeting,
+                style = MaterialTheme.typography.titleMedium,
+                color = OnSurface.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Normal,
             )
+            Text(
+                name,
+                style = MaterialTheme.typography.displaySmall,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+            )
+        }
+        if (state.streakDays > 0) {
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White.copy(alpha = 0.15f),
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("🔥", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "${state.streakDays} days",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun WeekStrip(weekDays: List<WorkoutDay?>) {
+private fun HeroActionCard(
+    state: HomeUiState,
+    onStartSession: (dayId: String) -> Unit,
+    onResumeSession: (dayId: String) -> Unit
+) {
+    GlassmorphicCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    ) {
+        Column(Modifier.padding(24.dp)) {
+            when (state.dashboardState) {
+                HomeDashboardState.REST_RECOVERY -> {
+                    Text("Rest Day 🛌", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("No workout scheduled today. Focus on your nutrition, mobility, and recovery.", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+                }
+                HomeDashboardState.PRE_WORKOUT -> {
+                    val day = state.todayWorkoutDay
+                    Text(day?.name ?: "Workout", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(day?.dayOfWeek?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Today", style = MaterialTheme.typography.bodyMedium, color = Coral)
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = { day?.let { onStartSession(it.id) } },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Background)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Start Workout", fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+                HomeDashboardState.ACTIVE_SESSION -> {
+                    Text("Session in Progress", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Tap below to jump back in", style = MaterialTheme.typography.bodyMedium, color = Coral)
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = { state.activeSessionDayId?.let { onResumeSession(it) } },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Resume Session", fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+                HomeDashboardState.TRIUMPH -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Workout Complete", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Amazing job today. Your muscles are growing as we speak. See you tomorrow!", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+                }
+            }
+        }
+    }
+}
+
+private val DAY_LABELS = listOf("M", "T", "W", "T", "F", "S", "S")
+
+@Composable
+private fun LiquidWeekTimeline(weekDays: List<WorkoutDay?>) {
     val todayIndex = remember {
         val cal = Calendar.getInstance()
         ((cal.get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7)
     }
 
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "This Week",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             weekDays.forEachIndexed { index, day ->
                 val isToday = index == todayIndex
+                val isPast = index < todayIndex
+                
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         DAY_LABELS[index],
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isToday) Violet else OnSurfaceMuted,
+                        color = if (isToday) Color.White else Color.White.copy(alpha = 0.5f),
                         fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = when {
-                            isToday && day != null -> Violet.copy(alpha = 0.9f)
-                            isToday -> Violet.copy(alpha = 0.25f)
-                            day != null -> Violet.copy(alpha = 0.2f)
-                            else -> Surface
-                        },
-                        border = if (isToday) androidx.compose.foundation.BorderStroke(1.5.dp, Violet) else null,
-                        modifier = Modifier.size(32.dp),
+                    Spacer(Modifier.height(8.dp))
+                    
+                    val bgColor = when {
+                        isToday -> Color.White.copy(alpha = 0.25f)
+                        isPast && day != null -> Teal.copy(alpha = 0.3f)
+                        day != null -> Violet.copy(alpha = 0.2f)
+                        else -> Color.Transparent
+                    }
+                    val borderColor = if (isToday) Color.White else Color.White.copy(alpha = 0.1f)
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(bgColor)
+                            .border(if (isToday) 2.dp else 1.dp, borderColor, CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
                         if (day != null) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                Icon(
-                                    Icons.Default.FitnessCenter,
-                                    contentDescription = day.name,
-                                    tint = if (isToday) androidx.compose.ui.graphics.Color.White else Violet,
-                                    modifier = Modifier.size(16.dp),
-                                )
+                            if (isPast) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Teal, modifier = Modifier.size(20.dp))
+                            } else {
+                                Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = if (isToday) Color.White else Violet, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -233,136 +266,62 @@ private fun WeekStrip(weekDays: List<WorkoutDay?>) {
 }
 
 @Composable
-private fun HealthConnectCard(snapshot: HealthSnapshot) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        modifier = Modifier.fillMaxWidth(),
+private fun RadialHealthSnapshotCard(insight: HealthInsight) {
+    GlassmorphicCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
     ) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Favorite, contentDescription = null, tint = Coral, modifier = Modifier.size(20.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Health Today", style = MaterialTheme.typography.labelSmall, color = OnSurfaceMuted)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    snapshot.steps?.let {
-                        Text("${"%,d".format(it)} steps", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
-                    }
-                    snapshot.weightKg?.let {
-                        Text("%.1f kg".format(it), style = MaterialTheme.typography.bodyMedium, color = OnSurface)
-                    }
-                    snapshot.activeCaloriesBurned?.let {
-                        Text("${it.toInt()} kcal", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
-                    }
-                }
+            // Simulated Radial Progress
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(4.dp, if (insight.score > 70) Teal else if (insight.score > 30) Color(0xFFFFD700) else Coral, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("${insight.score}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(Modifier.width(20.dp))
+            Column {
+                Text(insight.title, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(insight.description, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
             }
         }
     }
 }
 
 @Composable
-private fun TodayWorkoutCard(day: WorkoutDay?, isInProgress: Boolean, isFinished: Boolean, onStart: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(4.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(20.dp)) {
-            if (day == null) {
-                Text("Rest Day 🛌", style = MaterialTheme.typography.titleLarge, color = OnSurface)
-                Text(
-                    "No workout scheduled today",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnSurfaceMuted,
-                )
-            } else {
-                Text(
-                    day.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = OnSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    day.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Violet,
-                )
-                Spacer(Modifier.height(16.dp))
-                when {
-                    isFinished -> {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Teal, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Workout complete",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Teal,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            OutlinedButton(
-                                onClick = onStart,
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Restart")
-                            }
-                        }
-                    }
-                    isInProgress -> {
-                        Button(
-                            onClick = onStart,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Teal),
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Continue Workout", fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    else -> {
-                        Button(
-                            onClick = onStart,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Start Workout", fontWeight = FontWeight.SemiBold)
-                        }
+private fun HallOfFameCarousel(prs: List<PersonalRecord>) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "Hall of Fame",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(prs, key = { it.id }) { pr ->
+                GlassmorphicCard(modifier = Modifier.width(200.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(pr.exerciseId, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
+                        Spacer(Modifier.height(4.dp))
+                        Text("${pr.maxWeightKg} kg", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PersonalRecordCard(pr: PersonalRecord) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Teal, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(pr.exerciseId, style = MaterialTheme.typography.bodyMedium, color = OnSurface, modifier = Modifier.weight(1f))
-            Text("${pr.maxWeightKg}kg", style = MaterialTheme.typography.titleMedium, color = Teal, fontWeight = FontWeight.Bold)
         }
     }
 }
