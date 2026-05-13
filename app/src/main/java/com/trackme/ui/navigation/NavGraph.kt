@@ -1,6 +1,8 @@
 package com.trackme.ui.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,7 +38,12 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
     val startDestination by navViewModel.startDestination.collectAsStateWithLifecycle()
 
     if (startDestination == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Background),
+            contentAlignment = Alignment.Center,
+        ) {
             CircularProgressIndicator(color = Violet)
         }
         return
@@ -51,21 +58,28 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
         Routes.Progress.route, Routes.Profile.route,
     )
 
-    Scaffold(
-        containerColor = Background, // Prevent black flicker by matching app theme
-        bottomBar = {
-            if (showBottomBar) {
-                TrackMeBottomBar(navController = navController, currentRoute = currentRoute)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background),
+    ) {
+        Scaffold(
+            containerColor = Background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                if (showBottomBar) {
+                    TrackMeBottomBar(navController = navController, currentRoute = currentRoute)
+                }
             }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = startDestination!!,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = startDestination!!,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Background)
+                    .padding(innerPadding),
+            ) {
             composable(Routes.Auth.route) {
                 AuthScreen(
                     onAuthSuccess = { _ ->
@@ -149,6 +163,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                         }
                     }
                 )
+            }
             }
         }
     }
