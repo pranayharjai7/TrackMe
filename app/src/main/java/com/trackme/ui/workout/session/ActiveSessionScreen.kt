@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.LoggingType
 import com.trackme.domain.model.PlannedExercise
@@ -42,7 +43,7 @@ fun ActiveSessionScreen(
     onAddExercise: () -> Unit,
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -71,8 +72,9 @@ fun ActiveSessionScreen(
             }
 
             val totalExercises = state.exercises.size
+            val completedExerciseIds = state.loggedSetsByExercise.keys
             val completedExercises = state.exercises.count { (pe, _) ->
-                state.loggedSets.any { it.exerciseId == pe.exerciseId }
+                pe.exerciseId in completedExerciseIds
             }
             if (totalExercises > 0) {
                 val progress = completedExercises.toFloat() / totalExercises.toFloat()
@@ -108,7 +110,7 @@ fun ActiveSessionScreen(
                 contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp),
             ) {
                 items(state.exercises, key = { it.first.id }) { (pe, exercise) ->
-                    val exerciseSets = state.loggedSets.filter { it.exerciseId == pe.exerciseId }
+                    val exerciseSets = state.loggedSetsByExercise[pe.exerciseId].orEmpty()
                     ExerciseSessionCard(
                         plannedExercise = pe,
                         exercise = exercise,

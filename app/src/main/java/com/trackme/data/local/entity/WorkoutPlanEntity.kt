@@ -1,10 +1,18 @@
 package com.trackme.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.WorkoutPlan
 
-@Entity(tableName = "workout_plans")
+@Entity(
+    tableName = "workout_plans",
+    indices = [
+        Index(value = ["userId"], name = "idx_workout_plans_user"),
+        Index(value = ["userId", "isActive", "deletedAt"], name = "idx_workout_plans_active"),
+        Index(value = ["isSynced"], name = "idx_workout_plans_sync"),
+    ],
+)
 data class WorkoutPlanEntity(
     @PrimaryKey val id: String,
     val userId: String,

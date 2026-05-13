@@ -1,6 +1,7 @@
 package com.trackme.ui.auth
 
 import app.cash.turbine.test
+import com.trackme.sync.SyncManager
 import io.github.jan.supabase.SupabaseClient
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -15,12 +16,13 @@ import org.junit.Test
 class AuthViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val supabase = mockk<SupabaseClient>(relaxed = true)
+    private val syncManager = mockk<SyncManager>(relaxed = true)
     private lateinit var viewModel: AuthViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = AuthViewModel(supabase)
+        viewModel = AuthViewModel(supabase, syncManager)
     }
 
     @After

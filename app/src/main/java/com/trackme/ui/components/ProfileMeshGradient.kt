@@ -17,8 +17,7 @@ fun ProfileMeshGradient(
     state: ProfileDashboardState,
     modifier: Modifier = Modifier
 ) {
-    val tiltState by rememberDeviceTilt()
-    val tilt = tiltState
+    val tiltState = rememberDeviceTilt()
 
     // Determine colors based on state
     // Titan (Build Muscle), Breeze (Lose Weight), Velocity (Endurance), Cosmos (Default)
@@ -66,6 +65,7 @@ fun ProfileMeshGradient(
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        val tilt = tiltState.value
         val width = size.width
         val height = size.height
 

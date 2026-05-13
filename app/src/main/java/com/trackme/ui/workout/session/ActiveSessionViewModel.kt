@@ -26,6 +26,7 @@ data class ActiveSessionUiState(
     val sessionId: String = "",
     val exercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
     val loggedSets: List<SessionSet> = emptyList(),
+    val loggedSetsByExercise: Map<String, List<SessionSet>> = emptyMap(),
     val restTimerRunning: Boolean = false,
     val restSeconds: Int = 90,
     val restSecondsRemaining: Int = 90,
@@ -82,13 +83,19 @@ class ActiveSessionViewModel @Inject constructor(
 
             launch {
                 workoutRepository.getPlannedExercisesForDay(dayId).collect { planned ->
-                    val withDetails = planned.map { pe -> pe to exerciseRepository.getById(pe.exerciseId) }
+                    val exerciseById = exerciseRepository.getByIds(planned.map { it.exerciseId })
+                    val withDetails = planned.map { pe -> pe to exerciseById[pe.exerciseId] }
                     _uiState.update { it.copy(exercises = withDetails) }
                 }
             }
             launch {
                 workoutRepository.getSessionSets(session.id).collect { sets ->
-                    _uiState.update { it.copy(loggedSets = sets) }
+                    _uiState.update {
+                        it.copy(
+                            loggedSets = sets,
+                            loggedSetsByExercise = sets.groupBy { set -> set.exerciseId },
+                        )
+                    }
                 }
             }
         }
@@ -160,7 +167,7 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     fun setsForExercise(exerciseId: String): List<SessionSet> =
-        _uiState.value.loggedSets.filter { it.exerciseId == exerciseId }
+        _uiState.value.loggedSetsByExercise[exerciseId].orEmpty()
 
     fun plannedFor(exerciseId: String): PlannedExercise? =
         _uiState.value.exercises.find { it.first.exerciseId == exerciseId }?.first

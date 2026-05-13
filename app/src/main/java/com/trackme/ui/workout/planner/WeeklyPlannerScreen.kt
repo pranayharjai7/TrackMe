@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.DayOfWeek
 import com.trackme.domain.model.WorkoutDay
 import com.trackme.ui.components.GlassmorphicCard
@@ -32,8 +33,8 @@ fun WeeklyPlannerScreen(
     onEditDay: (dayId: String) -> Unit,
     viewModel: WeeklyPlannerViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val tilt by rememberDeviceTilt()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tilt = rememberDeviceTilt()
 
     var showAddDayDialog by remember { mutableStateOf(false) }
     var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
@@ -194,7 +195,7 @@ fun WeeklyPlannerScreen(
         }
 }
 @Composable
-private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, tilt: com.trackme.ui.components.Tilt) {
+private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, tilt: State<com.trackme.ui.components.Tilt>) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -233,7 +234,7 @@ private fun GlassDayCard(
     dayOfWeek: DayOfWeek,
     workoutDay: WorkoutDay?,
     exerciseCount: Int,
-    tilt: com.trackme.ui.components.Tilt,
+    tilt: State<com.trackme.ui.components.Tilt>,
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
 ) {

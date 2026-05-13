@@ -13,7 +13,7 @@ import com.trackme.ui.theme.*
 
 @Composable
 fun PlanningMeshGradient(modifier: Modifier = Modifier) {
-    val tilt by rememberDeviceTilt()
+    val tiltState = rememberDeviceTilt()
     
     val color1 = Violet.copy(alpha = 0.35f)
     val color2 = Color(0xFF312E81).copy(alpha = 0.6f) // Deep Indigo
@@ -32,6 +32,7 @@ fun PlanningMeshGradient(modifier: Modifier = Modifier) {
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        val tilt = tiltState.value
         val width = size.width
         val height = size.height
 

@@ -2,6 +2,7 @@ package com.trackme.data.repository
 
 import com.trackme.data.local.dao.*
 import com.trackme.data.local.entity.PersonalRecordEntity
+import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import com.trackme.sync.SyncManager
 import io.mockk.*
 import kotlinx.coroutines.test.runTest
@@ -15,11 +16,14 @@ class WorkoutRepositoryImplTest {
     private val workoutSessionDao = mockk<WorkoutSessionDao>(relaxed = true)
     private val sessionSetDao = mockk<SessionSetDao>(relaxed = true)
     private val personalRecordDao = mockk<PersonalRecordDao>(relaxed = true)
+    private val pendingDeletionDao = mockk<PendingDeletionDao>(relaxed = true)
+    private val remoteSource = mockk<WorkoutRemoteSource>(relaxed = true)
     private val syncManager = mockk<SyncManager>(relaxed = true)
 
     private val repo = WorkoutRepositoryImpl(
         workoutPlanDao, workoutDayDao, plannedExerciseDao,
-        workoutSessionDao, sessionSetDao, personalRecordDao, syncManager,
+        workoutSessionDao, sessionSetDao, personalRecordDao,
+        pendingDeletionDao, remoteSource, syncManager,
     )
 
     @Test

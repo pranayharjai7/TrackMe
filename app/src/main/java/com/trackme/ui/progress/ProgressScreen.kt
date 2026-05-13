@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
@@ -41,9 +42,9 @@ import java.util.*
 
 @Composable
 fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
-    val state by viewModel.uiState.collectAsState()
-    val strengthHistory by viewModel.strengthHistory.collectAsState()
-    val tilt by rememberDeviceTilt()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val strengthHistory by viewModel.strengthHistory.collectAsStateWithLifecycle()
+    val tilt = rememberDeviceTilt()
 
     Box(modifier = Modifier.fillMaxSize()) {
         ProgressMeshGradient(state = state.dashboardState)
@@ -135,7 +136,7 @@ private fun ProgressHeader(state: ProgressUiState) {
 }
 
 @Composable
-private fun FitnessEngineCard(state: ProgressUiState, tilt: Tilt) {
+private fun FitnessEngineCard(state: ProgressUiState, tilt: State<Tilt>) {
     var expanded by remember { mutableStateOf(false) }
     
     GlassmorphicCard(
@@ -234,7 +235,7 @@ private fun MetricSmall(label: String, value: String, icon: ImageVector, tint: C
 }
 
 @Composable
-private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>, tilt: Tilt) {
+private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>, tilt: State<Tilt>) {
     var selectedDay by remember { mutableStateOf<Long?>(null) }
     
     val days = remember {
@@ -323,7 +324,7 @@ private fun InteractiveStrengthChartCard(
     exerciseOptions: List<String>,
     selectedExerciseId: String?,
     onSelectExercise: (String) -> Unit,
-    tilt: Tilt
+    tilt: State<Tilt>
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
     val sortedSets = remember(history) { 
@@ -383,7 +384,7 @@ private fun InteractiveStrengthChartCard(
             Spacer(Modifier.height(20.dp))
 
             if (sortedSets.size >= 2) {
-                val producer = remember(sortedSets) { ChartEntryModelProducer() }
+                val producer = remember { ChartEntryModelProducer() }
                 LaunchedEffect(sortedSets) {
                     producer.setEntries(
                         sortedSets.mapIndexed { index, set ->
@@ -417,7 +418,7 @@ private fun InteractiveStrengthChartCard(
 }
 
 @Composable
-private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: Tilt) {
+private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: State<Tilt>) {
     val weightsWithData = remember(snapshots) {
         snapshots.filter { it.weightKg != null }.sortedBy { it.date }
     }
@@ -460,7 +461,7 @@ private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: Ti
             
             Spacer(Modifier.height(16.dp))
 
-            val producer = remember(weightsWithData) { ChartEntryModelProducer() }
+            val producer = remember { ChartEntryModelProducer() }
             LaunchedEffect(weightsWithData) {
                 producer.setEntries(
                     weightsWithData.mapIndexed { index, snapshot ->
@@ -479,7 +480,7 @@ private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: Ti
 }
 
 @Composable
-private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>, tilt: Tilt) {
+private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>, tilt: State<Tilt>) {
     var selectedMuscle by remember { mutableStateOf<String?>(null) }
     val maxSets = remember(muscleVolume) { muscleVolume.maxOfOrNull { it.totalSets }?.toFloat() ?: 1f }
 
@@ -559,7 +560,7 @@ private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>, tilt: 
 }
 
 @Composable
-private fun InteractivePRCard(pr: PersonalRecord, tilt: Tilt) {
+private fun InteractivePRCard(pr: PersonalRecord, tilt: State<Tilt>) {
     val dateStr = remember(pr.achievedAt) {
         SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(pr.achievedAt))
     }

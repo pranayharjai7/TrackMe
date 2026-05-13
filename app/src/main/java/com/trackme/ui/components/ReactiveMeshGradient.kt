@@ -17,7 +17,7 @@ fun ReactiveMeshGradient(
     state: HomeDashboardState,
     modifier: Modifier = Modifier
 ) {
-    val tilt by rememberDeviceTilt()
+    val tiltState = rememberDeviceTilt()
 
     // Determine colors based on state
     val colors = when (state) {
@@ -56,6 +56,7 @@ fun ReactiveMeshGradient(
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        val tilt = tiltState.value
         val width = size.width
         val height = size.height
 

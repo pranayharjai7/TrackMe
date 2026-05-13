@@ -1,10 +1,17 @@
 package com.trackme.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.PersonalRecord
 
-@Entity(tableName = "personal_records")
+@Entity(
+    tableName = "personal_records",
+    indices = [
+        Index(value = ["userId", "achievedAt"], name = "idx_personal_records_user_date"),
+        Index(value = ["userId", "exerciseId"], name = "idx_personal_records_exercise"),
+    ],
+)
 data class PersonalRecordEntity(
     @PrimaryKey val id: String,
     val userId: String,

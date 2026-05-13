@@ -1,13 +1,20 @@
 package com.trackme.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.Exercise
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-@Entity(tableName = "exercises")
+@Entity(
+    tableName = "exercises",
+    indices = [
+        Index(value = ["name"], name = "idx_exercises_name"),
+        Index(value = ["category"], name = "idx_exercises_category"),
+    ],
+)
 data class ExerciseEntity(
     @PrimaryKey val id: String,
     val name: String,

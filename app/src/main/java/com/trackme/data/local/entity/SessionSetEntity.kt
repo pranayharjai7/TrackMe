@@ -1,10 +1,20 @@
 package com.trackme.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.SessionSet
 
-@Entity(tableName = "session_sets")
+@Entity(
+    tableName = "session_sets",
+    indices = [
+        Index(value = ["userId"], name = "idx_session_sets_user"),
+        Index(value = ["sessionId", "deletedAt", "exerciseId", "setNumber"], name = "idx_session_sets_session"),
+        Index(value = ["userId", "exerciseId", "deletedAt", "updatedAt"], name = "idx_session_sets_history"),
+        Index(value = ["userId", "updatedAt", "completed", "deletedAt"], name = "idx_session_sets_since"),
+        Index(value = ["isSynced"], name = "idx_session_sets_sync"),
+    ],
+)
 data class SessionSetEntity(
     @PrimaryKey val id: String,
     val sessionId: String,

@@ -1,6 +1,9 @@
 package com.trackme.ui.workout.session
 
 import app.cash.turbine.test
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
 import com.trackme.domain.model.*
 import com.trackme.domain.repository.ExerciseRepository
 import com.trackme.domain.repository.WorkoutRepository
@@ -42,16 +45,20 @@ class ActiveSessionViewModelTest {
         val startSession = mockk<StartSessionUseCase>()
         val logSet = mockk<LogSetUseCase>(relaxed = true)
         val finishSession = mockk<FinishSessionUseCase>(relaxed = true)
+        val addExerciseToDay = mockk<AddExerciseToDayUseCase>(relaxed = true)
         val supabase = mockk<SupabaseClient>(relaxed = true)
+        val dataStore = mockk<DataStore<Preferences>>(relaxed = true)
 
         val session = fakeSession()
         coEvery { startSession(any(), any()) } returns session
         every { workoutRepository.getPlannedExercisesForDay(any()) } returns flowOf(emptyList())
         every { workoutRepository.getSessionSets(any()) } returns flowOf(emptyList())
+        every { dataStore.data } returns flowOf(emptyPreferences())
 
         val savedState = androidx.lifecycle.SavedStateHandle(mapOf("dayId" to "day1"))
         val vm = ActiveSessionViewModel(
-            workoutRepository, exerciseRepository, startSession, logSet, finishSession, supabase, savedState
+            workoutRepository, exerciseRepository, startSession, logSet, finishSession,
+            addExerciseToDay, supabase, dataStore, savedState,
         )
 
         vm.uiState.test {

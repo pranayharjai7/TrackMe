@@ -2,7 +2,10 @@ package com.trackme.ui.workout.exercise
 
 import app.cash.turbine.test
 import com.trackme.domain.model.Exercise
+import com.trackme.domain.repository.WorkoutRepository
+import com.trackme.domain.usecase.AddExerciseToDayUseCase
 import com.trackme.domain.usecase.SearchExercisesUseCase
+import io.github.jan.supabase.SupabaseClient
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +22,9 @@ class ExerciseSearchViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val searchUseCase = mockk<SearchExercisesUseCase>()
+    private val addExerciseToDay = mockk<AddExerciseToDayUseCase>(relaxed = true)
+    private val workoutRepository = mockk<WorkoutRepository>(relaxed = true)
+    private val supabase = mockk<SupabaseClient>(relaxed = true)
     private lateinit var viewModel: ExerciseSearchViewModel
 
     @Before
@@ -36,17 +42,23 @@ class ExerciseSearchViewModelTest {
             youtubeQuery = "bench press tutorial",
         )
         every { searchUseCase(any()) } returns flowOf(listOf(fakeExercise))
-        viewModel = ExerciseSearchViewModel(searchUseCase)
+        viewModel = ExerciseSearchViewModel(
+            searchUseCase,
+            addExerciseToDay,
+            workoutRepository,
+            supabase,
+            androidx.lifecycle.SavedStateHandle(mapOf("dayId" to "")),
+        )
     }
 
     @After
     fun tearDown() { Dispatchers.resetMain() }
 
     @Test
-    fun `initial query is empty`() = runTest {
+    fun `initial state is empty`() = runTest {
         viewModel.uiState.test {
             val state = awaitItem()
-            assertEquals("", state.query)
+            assertEquals(emptyList<Exercise>(), state.results)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -58,7 +70,7 @@ class ExerciseSearchViewModelTest {
             viewModel.onQueryChange("bench")
             advanceTimeBy(400)
             val state = awaitItem()
-            assertEquals("bench", state.query)
+            assertEquals("Bench Press", state.results.first().name)
             cancelAndIgnoreRemainingEvents()
         }
     }

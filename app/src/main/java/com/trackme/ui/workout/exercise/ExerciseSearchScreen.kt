@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.Exercise
 import com.trackme.ui.theme.*
 import com.trackme.ui.workout.planner.TargetParamSheet
@@ -27,7 +28,7 @@ fun ExerciseSearchScreen(
     onBack: () -> Unit,
     viewModel: ExerciseSearchViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var queryText by remember { mutableStateOf("") }
     val addingForDay = viewModel.dayId.isNotEmpty()
 

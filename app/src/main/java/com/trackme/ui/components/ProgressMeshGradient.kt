@@ -17,7 +17,7 @@ fun ProgressMeshGradient(
     state: ProgressState,
     modifier: Modifier = Modifier
 ) {
-    val tilt by rememberDeviceTilt()
+    val tiltState = rememberDeviceTilt()
 
     // Determine colors based on state
     // Aurora (Momentum), Twilight (Maintenance), Ember (Recovery), Dawn (Uncharted)
@@ -57,6 +57,7 @@ fun ProgressMeshGradient(
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        val tilt = tiltState.value
         val width = size.width
         val height = size.height
 

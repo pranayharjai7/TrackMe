@@ -27,6 +27,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.ui.components.GlassmorphicCard
@@ -46,8 +47,8 @@ fun DayEditorScreen(
     onBack: () -> Unit,
     viewModel: DayEditorViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val tilt by rememberDeviceTilt()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tilt = rememberDeviceTilt()
     val lazyListState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->

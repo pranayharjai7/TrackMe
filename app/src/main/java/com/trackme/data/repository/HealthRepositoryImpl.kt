@@ -5,8 +5,10 @@ import com.trackme.data.health.HealthConnectManager
 import com.trackme.data.local.dao.HealthSnapshotDao
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.repository.HealthRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,7 +18,7 @@ class HealthRepositoryImpl @Inject constructor(
     private val healthSnapshotDao: HealthSnapshotDao,
 ) : HealthRepository {
 
-    override suspend fun syncFromHealthConnect(userId: String) {
+    override suspend fun syncFromHealthConnect(userId: String) = withContext(Dispatchers.IO) {
         val snapshots = healthConnectManager.readLast30Days(userId)
         if (snapshots.isNotEmpty()) {
             healthSnapshotDao.insertAll(snapshots)

@@ -13,6 +13,7 @@ import com.trackme.domain.repository.WorkoutRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import java.util.Calendar
@@ -102,6 +103,7 @@ class ProgressViewModel @Inject constructor(
                 )
             }
         }
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProgressUiState())
 
     @OptIn(ExperimentalCoroutinesApi::class)

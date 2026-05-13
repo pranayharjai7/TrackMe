@@ -47,10 +47,9 @@ class DayEditorViewModel @Inject constructor(
             workoutRepository.getPlannedExercisesForDay(dayId)
                 .flatMapLatest { planned ->
                     flow {
-                        val withDetails = coroutineScope {
-                            planned.map { pe ->
-                                async { pe to exerciseRepository.getById(pe.exerciseId) }
-                            }.awaitAll()
+                        val exerciseById = exerciseRepository.getByIds(planned.map { it.exerciseId })
+                        val withDetails = planned.map { pe ->
+                            pe to exerciseById[pe.exerciseId]
                         }
                         emit(withDetails)
                     }

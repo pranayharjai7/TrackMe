@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,7 +33,7 @@ import com.trackme.ui.workout.session.ActiveSessionScreen
 
 @Composable
 fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
-    val startDestination by navViewModel.startDestination.collectAsState()
+    val startDestination by navViewModel.startDestination.collectAsStateWithLifecycle()
 
     if (startDestination == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

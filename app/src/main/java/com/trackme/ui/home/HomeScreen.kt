@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.WorkoutDay
@@ -38,12 +39,18 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Dynamic Background
-        ReactiveMeshGradient(state = state.dashboardState)
+        ReactiveMeshGradient(
+            state = state.dashboardState,
+            modifier = Modifier
+                .matchParentSize()
+                .zIndex(0f),
+        )
 
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding(),
+                .statusBarsPadding()
+                .zIndex(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp), // Consistent top padding + bottom nav space
         ) {

@@ -19,7 +19,7 @@ import com.trackme.data.local.entity.*
         HealthSnapshotEntity::class,
         PendingDeletionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -68,6 +68,45 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE session_sets ADD COLUMN distanceKm REAL")
                 db.execSQL("ALTER TABLE session_sets ADD COLUMN speedKmh REAL")
                 db.execSQL("ALTER TABLE session_sets ADD COLUMN inclinePercent REAL")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_exercises_category ON exercises(category)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_plans_user ON workout_plans(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_plans_active ON workout_plans(userId, isActive, deletedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_plans_sync ON workout_plans(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_days_user ON workout_days(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_days_plan ON workout_days(planId, deletedAt, dayOfWeek)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_days_sync ON workout_days(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_planned_exercises_user ON planned_exercises(userId, deletedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_planned_exercises_day ON planned_exercises(dayId, deletedAt, orderIndex)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_planned_exercises_exercise ON planned_exercises(exerciseId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_planned_exercises_sync ON planned_exercises(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON workout_sessions(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_sessions_user_date ON workout_sessions(userId, date, deletedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_sessions_in_progress ON workout_sessions(userId, dayId, date, durationMinutes, deletedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_workout_sessions_sync ON workout_sessions(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_session_sets_user ON session_sets(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_session_sets_session ON session_sets(sessionId, deletedAt, exerciseId, setNumber)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_session_sets_history ON session_sets(userId, exerciseId, deletedAt, updatedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_session_sets_since ON session_sets(userId, updatedAt, completed, deletedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_session_sets_sync ON session_sets(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_personal_records_user_date ON personal_records(userId, achievedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_personal_records_exercise ON personal_records(userId, exerciseId)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_snapshots_user_date ON health_snapshots(userId, date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_snapshots_sync ON health_snapshots(isSynced)")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_pending_deletions_user ON pending_deletions(userId)")
             }
         }
     }

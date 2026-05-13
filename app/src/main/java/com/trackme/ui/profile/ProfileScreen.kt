@@ -34,6 +34,7 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.trackme.data.health.HcSdkStatus
 import com.trackme.ui.components.*
@@ -46,9 +47,8 @@ fun ProfileScreen(
     onSignOut: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val tiltState by rememberDeviceTilt()
-    val tilt = tiltState
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tilt = rememberDeviceTilt()
     var showSignOutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -139,7 +139,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun InteractiveProfileHeader(state: ProfileUiState, tilt: Tilt) {
+private fun InteractiveProfileHeader(state: ProfileUiState, tilt: State<Tilt>) {
     val infiniteTransition = rememberInfiniteTransition(label = "halo")
     val haloAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
@@ -208,7 +208,7 @@ private fun InteractiveProfileHeader(state: ProfileUiState, tilt: Tilt) {
 }
 
 @Composable
-private fun GoalSanctuaryCard(currentGoal: String, onGoalSelected: (String) -> Unit, tilt: Tilt) {
+private fun GoalSanctuaryCard(currentGoal: String, onGoalSelected: (String) -> Unit, tilt: State<Tilt>) {
     val goals = listOf(
         Triple("BUILD_MUSCLE", "The Athlete", Icons.Default.FitnessCenter),
         Triple("LOSE_WEIGHT", "The Shapeshifter", Icons.Default.Whatshot),
@@ -282,7 +282,7 @@ private fun HealthConnectPulseCard(
     onConnect: () -> Unit,
     onSync: () -> Unit,
     onInstall: () -> Unit,
-    tilt: Tilt
+    tilt: State<Tilt>
 ) {
     val isSyncing = state.isSyncing
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -368,7 +368,7 @@ private fun HealthConnectPulseCard(
 private fun GlassmorphicPreferencesCard(
     state: ProfileUiState,
     onPrefChange: (Boolean, String) -> Unit,
-    tilt: Tilt
+    tilt: State<Tilt>
 ) {
     GlassmorphicCard(
         modifier = Modifier

@@ -1,10 +1,17 @@
 package com.trackme.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.trackme.domain.model.HealthSnapshot
 
-@Entity(tableName = "health_snapshots")
+@Entity(
+    tableName = "health_snapshots",
+    indices = [
+        Index(value = ["userId", "date"], name = "idx_health_snapshots_user_date"),
+        Index(value = ["isSynced"], name = "idx_health_snapshots_sync"),
+    ],
+)
 data class HealthSnapshotEntity(
     @PrimaryKey val id: String,
     val userId: String,
