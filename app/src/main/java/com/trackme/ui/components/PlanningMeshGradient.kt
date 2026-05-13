@@ -1,0 +1,81 @@
+package com.trackme.ui.components
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.trackme.ui.theme.*
+
+@Composable
+fun PlanningMeshGradient(modifier: Modifier = Modifier) {
+    val color1 = Violet.copy(alpha = 0.3f)
+    val color2 = Color(0xFF312E81).copy(alpha = 0.5f) // Deep Indigo
+    val color3 = Color(0xFF1E1E2F) // Charcoal
+    val bgColor = Background
+
+    val anim1Color by animateColorAsState(color1, tween(3000), label = "p1")
+    val anim2Color by animateColorAsState(color2, tween(3000), label = "p2")
+    val anim3Color by animateColorAsState(color3, tween(3000), label = "p3")
+
+    val infiniteTransition = rememberInfiniteTransition(label = "planningMesh")
+    val flowOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(25000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "planningFlow"
+    )
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        val c1X = width * 0.3f + Math.cos(flowOffset.toDouble()).toFloat() * 150f
+        val c1Y = height * 0.3f + Math.sin(flowOffset.toDouble()).toFloat() * 150f
+
+        val c2X = width * 0.7f + Math.sin((flowOffset + 1f).toDouble()).toFloat() * 200f
+        val c2Y = height * 0.8f + Math.cos((flowOffset + 1f).toDouble()).toFloat() * 200f
+
+        val c3X = width * 0.5f + Math.cos((flowOffset + 2f).toDouble()).toFloat() * 250f
+        val c3Y = height * 0.5f + Math.sin((flowOffset + 2f).toDouble()).toFloat() * 250f
+
+        drawRect(color = bgColor)
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(anim1Color, Color.Transparent),
+                center = Offset(c1X, c1Y),
+                radius = width * 0.9f
+            ),
+            center = Offset(c1X, c1Y),
+            radius = width * 0.9f
+        )
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(anim2Color, Color.Transparent),
+                center = Offset(c2X, c2Y),
+                radius = width * 1.1f
+            ),
+            center = Offset(c2X, c2Y),
+            radius = width * 1.1f
+        )
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(anim3Color, Color.Transparent),
+                center = Offset(c3X, c3Y),
+                radius = width * 0.8f
+            ),
+            center = Offset(c3X, c3Y),
+            radius = width * 0.8f
+        )
+    }
+}

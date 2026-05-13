@@ -16,13 +16,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun GlassmorphicCard(
     modifier: Modifier = Modifier,
+    containerColor: Color = Color.White.copy(alpha = 0.05f),
     shape: Shape = RoundedCornerShape(24.dp),
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.05f))
+            .background(containerColor)
             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), shape),
         content = content
     )

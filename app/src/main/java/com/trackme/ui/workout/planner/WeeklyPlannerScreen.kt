@@ -1,8 +1,11 @@
 package com.trackme.ui.workout.planner
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -12,14 +15,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.DayOfWeek
 import com.trackme.domain.model.WorkoutDay
+import com.trackme.ui.components.GlassmorphicCard
+import com.trackme.ui.components.PlanningMeshGradient
 import com.trackme.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklyPlannerScreen(
     onEditDay: (dayId: String) -> Unit,
@@ -34,32 +39,31 @@ fun WeeklyPlannerScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var pendingDeleteDay by remember { mutableStateOf<WorkoutDay?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(state.activePlan?.name ?: "My Routine") },
-                actions = {
-                    IconButton(onClick = viewModel::showNewPlanDialog) {
-                        Icon(Icons.Default.Add, "New plan")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Background),
-            )
-        },
-        containerColor = Background,
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        PlanningMeshGradient()
+
         if (state.activePlan == null) {
-            EmptyPlanState(onCreatePlan = viewModel::showNewPlanDialog, modifier = Modifier.padding(padding))
+            EmptyPlanState(onCreatePlan = viewModel::showNewPlanDialog)
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(top = 24.dp, bottom = 80.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                item {
+                    PlannerHeroHeader(
+                        planName = state.activePlan?.name ?: "My Routine",
+                        activeDaysCount = state.days.size
+                    )
+                }
+
                 items(DayOfWeek.entries, key = { it.name }) { dow ->
                     val day = state.days.firstOrNull { it.dayOfWeek == dow }
                     val count = day?.let { state.exerciseCounts[it.id] } ?: 0
-                    DayCard(
+                    GlassDayCard(
                         dayOfWeek = dow,
                         workoutDay = day,
                         exerciseCount = count,
@@ -80,91 +84,146 @@ fun WeeklyPlannerScreen(
                 }
             }
         }
+
+        // FAB for new routine
+        FloatingActionButton(
+            onClick = viewModel::showNewPlanDialog,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp)
+                .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+            containerColor = Violet.copy(alpha = 0.9f),
+            contentColor = Color.White,
+            shape = CircleShape
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "New Routine")
+        }
     }
 
+    // Dialogs (Moved outside Scaffold to ensure they appear on top)
     if (showDeleteDialog && pendingDeleteDay != null) {
-        val day = pendingDeleteDay!!
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false; pendingDeleteDay = null },
-            title = { Text("Delete ${day.name}?") },
-            text = { Text("This will remove the workout day and all its exercises. This cannot be undone.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteDay(day)
-                        showDeleteDialog = false
-                        pendingDeleteDay = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Coral),
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false; pendingDeleteDay = null }) { Text("Cancel") }
-            },
-            containerColor = Surface,
-            shape = RoundedCornerShape(24.dp),
-        )
-    }
+            val day = pendingDeleteDay!!
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false; pendingDeleteDay = null },
+                title = { Text("Delete ${day.name}?", color = OnSurface) },
+                text = { Text("This will remove the workout day and all its exercises. This cannot be undone.", color = OnSurfaceMuted) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteDay(day)
+                            showDeleteDialog = false
+                            pendingDeleteDay = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                    ) { Text("Delete", color = Color.White) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false; pendingDeleteDay = null }) { Text("Cancel", color = OnSurface) }
+                },
+                containerColor = Surface,
+                shape = RoundedCornerShape(24.dp),
+            )
+        }
 
-    if (showAddDayDialog && pendingDayOfWeek != null) {
-        val dowLabel = pendingDayOfWeek!!.name.lowercase().replaceFirstChar { it.uppercase() }
-        AlertDialog(
-            onDismissRequest = { showAddDayDialog = false; newDayName = "" },
-            title = { Text("Add $dowLabel Workout") },
-            text = {
-                OutlinedTextField(
-                    value = newDayName,
-                    onValueChange = { newDayName = it },
-                    label = { Text("Day name (e.g. Push Day)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.addDay(
-                        pendingDayOfWeek!!,
-                        newDayName.trim().ifEmpty { "$dowLabel Workout" },
+        if (showAddDayDialog && pendingDayOfWeek != null) {
+            val dowLabel = pendingDayOfWeek!!.name.lowercase().replaceFirstChar { it.uppercase() }
+            AlertDialog(
+                onDismissRequest = { showAddDayDialog = false; newDayName = "" },
+                title = { Text("Add $dowLabel Workout", color = OnSurface) },
+                text = {
+                    OutlinedTextField(
+                        value = newDayName,
+                        onValueChange = { newDayName = it },
+                        label = { Text("Day name (e.g. Push Day)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
                     )
-                    showAddDayDialog = false
-                    newDayName = ""
-                }) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDayDialog = false; newDayName = "" }) { Text("Cancel") }
-            },
-            containerColor = Surface,
-            shape = RoundedCornerShape(24.dp),
-        )
-    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.addDay(
+                                pendingDayOfWeek!!,
+                                newDayName.trim().ifEmpty { "$dowLabel Workout" },
+                            )
+                            showAddDayDialog = false
+                            newDayName = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Violet)
+                    ) { Text("Add", color = Color.White) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddDayDialog = false; newDayName = "" }) { Text("Cancel", color = OnSurface) }
+                },
+                containerColor = Surface,
+                shape = RoundedCornerShape(24.dp),
+            )
+        }
 
-    if (state.showNewPlanDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissNewPlanDialog,
-            title = { Text("New Routine") },
-            text = {
-                OutlinedTextField(
-                    value = state.newPlanName,
-                    onValueChange = viewModel::onNewPlanNameChange,
-                    label = { Text("Routine name (e.g. PPL)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                )
-            },
-            confirmButton = {
-                Button(onClick = viewModel::createPlan, enabled = !state.isCreatingPlan) {
-                    Text("Create")
-                }
-            },
-            dismissButton = { TextButton(onClick = viewModel::dismissNewPlanDialog) { Text("Cancel") } },
-            containerColor = Surface,
-            shape = RoundedCornerShape(24.dp),
+        if (state.showNewPlanDialog) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissNewPlanDialog,
+                title = { Text("New Routine", color = OnSurface) },
+                text = {
+                    OutlinedTextField(
+                        value = state.newPlanName,
+                        onValueChange = viewModel::onNewPlanNameChange,
+                        label = { Text("Routine name (e.g. PPL)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = viewModel::createPlan, 
+                        enabled = !state.isCreatingPlan,
+                        colors = ButtonDefaults.buttonColors(containerColor = Violet)
+                    ) {
+                        Text("Create", color = Color.White)
+                    }
+                },
+                dismissButton = { TextButton(onClick = viewModel::dismissNewPlanDialog) { Text("Cancel", color = OnSurface) } },
+                containerColor = Surface,
+                shape = RoundedCornerShape(24.dp),
+            )
+        }
+}
+@Composable
+private fun PlannerHeroHeader(planName: String, activeDaysCount: Int) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    ) {
+        Text(
+            "Routine Planner",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Normal,
         )
+        Text(
+            planName,
+            style = MaterialTheme.typography.displayMedium,
+            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+        )
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White.copy(alpha = 0.1f),
+        ) {
+            Text(
+                "$activeDaysCount Workout Days • ${7 - activeDaysCount} Rest Days",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
     }
 }
 
 @Composable
-private fun DayCard(
+private fun GlassDayCard(
     dayOfWeek: DayOfWeek,
     workoutDay: WorkoutDay?,
     exerciseCount: Int,
@@ -172,44 +231,70 @@ private fun DayCard(
     onDelete: (() -> Unit)?,
 ) {
     val dayLabel = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (workoutDay != null) Surface else Surface.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(if (workoutDay != null) 4.dp else 0.dp),
-        modifier = Modifier.fillMaxWidth(),
+    
+    GlassmorphicCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = Violet, fontWeight = FontWeight.Bold)
-                Text(
-                    workoutDay?.name ?: "Rest Day",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (workoutDay != null) OnSurface else OnSurfaceMuted,
-                )
-                if (workoutDay != null && exerciseCount > 0) {
-                    Text(
-                        "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = OnSurfaceMuted,
-                    )
+        Card(
+            onClick = onClick,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Icon / Avatar indicating day state
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(if (workoutDay != null) Violet.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (workoutDay != null) {
+                        Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Violet)
+                    } else {
+                        Text("🛌", style = MaterialTheme.typography.titleMedium)
+                    }
                 }
-            }
-            if (workoutDay != null) {
-                if (onDelete != null) {
+
+                Spacer(Modifier.width(16.dp))
+
+                // Titles
+                Column(Modifier.weight(1f)) {
+                    Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = if (workoutDay != null) Violet else Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                    Text(
+                        workoutDay?.name ?: "Rest Day",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (workoutDay != null) Color.White else Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (workoutDay != null && exerciseCount > 0) {
+                        Text(
+                            "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f),
+                        )
+                    } else if (workoutDay != null) {
+                        Text(
+                            "Tap to add exercises",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Coral,
+                        )
+                    }
+                }
+
+                // Delete Action
+                if (workoutDay != null && onDelete != null) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Delete day",
-                            tint = OnSurfaceMuted.copy(alpha = 0.6f),
-                            modifier = Modifier.size(18.dp),
+                            tint = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(20.dp),
                         )
                     }
-                    Spacer(Modifier.width(4.dp))
                 }
-                Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Violet)
             }
         }
     }
@@ -219,10 +304,18 @@ private fun DayCard(
 private fun EmptyPlanState(onCreatePlan: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("No routine yet", style = MaterialTheme.typography.titleLarge, color = OnSurfaceMuted)
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = onCreatePlan, shape = RoundedCornerShape(16.dp)) {
-                Text("Create My Routine")
+            Text("No routine yet", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onCreatePlan, 
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Violet),
+                modifier = Modifier
+                    .height(56.dp)
+                    .padding(horizontal = 32.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+            ) {
+                Text("Create My Routine", fontWeight = FontWeight.Bold)
             }
         }
     }

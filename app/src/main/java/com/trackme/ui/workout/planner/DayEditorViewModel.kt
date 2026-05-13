@@ -11,16 +11,13 @@ import com.trackme.domain.usecase.AddExerciseToDayUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class DayEditorUiState(
     val plannedExercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
+    val estimatedDurationMinutes: Int = 0,
     val isLoading: Boolean = true,
     val editingExercise: Pair<PlannedExercise, Exercise?>? = null,
     val inputStyle: String = "TAP_EXPAND",
@@ -43,6 +40,8 @@ class DayEditorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DayEditorUiState())
     val uiState: StateFlow<DayEditorUiState> = _uiState.asStateFlow()
 
+    private var reorderJob: Job? = null
+
     init {
         viewModelScope.launch {
             workoutRepository.getPlannedExercisesForDay(dayId)
@@ -57,7 +56,8 @@ class DayEditorViewModel @Inject constructor(
                     }
                 }
                 .collect { withDetails ->
-                    _uiState.update { it.copy(plannedExercises = withDetails, isLoading = false) }
+                    val duration = calculateEstimatedWorkoutDuration(withDetails.map { it.first })
+                    _uiState.update { it.copy(plannedExercises = withDetails, estimatedDurationMinutes = duration, isLoading = false) }
                 }
         }
         viewModelScope.launch {
@@ -76,11 +76,15 @@ class DayEditorViewModel @Inject constructor(
         if (from < 0 || to < 0 || from >= current.size || to >= current.size) return
         val moved = current.removeAt(from)
         current.add(to, moved)
+        
         val reordered = current.mapIndexed { index, (pe, exercise) ->
             pe.copy(orderIndex = index) to exercise
         }
         _uiState.update { it.copy(plannedExercises = reordered) }
-        viewModelScope.launch {
+        
+        reorderJob?.cancel()
+        reorderJob = viewModelScope.launch {
+            delay(500)
             workoutRepository.reorderExercises(reordered.map { it.first })
         }
     }
@@ -127,4 +131,22 @@ class DayEditorViewModel @Inject constructor(
             )
         }
     }
+}
+
+internal fun calculateEstimatedWorkoutDuration(exercises: List<PlannedExercise>): Int {
+    if (exercises.isEmpty()) return 0
+    var totalSeconds = 0
+    for (exercise in exercises) {
+        val sets = exercise.targetSets
+        val restSeconds = 90 // average rest per set
+        
+        val timePerSet = when {
+            exercise.targetDurationSeconds != null -> exercise.targetDurationSeconds
+            exercise.targetReps != null -> exercise.targetReps * 4 // roughly 4 seconds per rep
+            else -> 60 // fallback
+        }
+        
+        totalSeconds += sets * (timePerSet + restSeconds)
+    }
+    return totalSeconds / 60
 }

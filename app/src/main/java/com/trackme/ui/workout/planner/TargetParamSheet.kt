@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.LoggingType
@@ -74,6 +75,7 @@ fun TargetParamSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Surface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = OnSurfaceMuted.copy(alpha = 0.4f)) }
     ) {
         Column(
             modifier = Modifier
@@ -83,7 +85,7 @@ fun TargetParamSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column {
-                Text(exercise.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = OnSurface)
+                Text(exercise.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(loggingType.displayName, style = MaterialTheme.typography.labelMedium, color = Violet)
             }
 

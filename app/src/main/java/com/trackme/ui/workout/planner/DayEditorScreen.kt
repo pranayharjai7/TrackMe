@@ -1,6 +1,7 @@
 package com.trackme.ui.workout.planner
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,12 +18,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.PlannedExercise
+import com.trackme.ui.components.GlassmorphicCard
+import com.trackme.ui.components.PlanningMeshGradient
 import com.trackme.ui.theme.*
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -38,8 +46,11 @@ fun DayEditorScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val lazyListState = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        viewModel.reorderExercises(from.index, to.index)
+        // Index 0 is the Hero Header, skip reordering if trying to move above it
+        if (to.index == 0) return@rememberReorderableLazyListState
+        viewModel.reorderExercises(from.index - 1, to.index - 1)
     }
 
     state.editingExercise?.let { (pe, exercise) ->
@@ -56,124 +67,140 @@ fun DayEditorScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Edit Day") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+    Box(modifier = Modifier.fillMaxSize()) {
+        PlanningMeshGradient()
+
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp, start = 24.dp, end = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Column(Modifier.padding(bottom = 24.dp)) {
+                    IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp)) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                     }
-                },
-                actions = {
-                    IconButton(onClick = onAddExercise) {
-                        Icon(Icons.Default.Add, "Add exercise", tint = Violet)
+                    Text("Edit Routine", style = MaterialTheme.typography.displaySmall, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            "${state.plannedExercises.size} Exercises • ~${state.estimatedDurationMinutes} mins",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Coral,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Background),
-            )
-        },
-        containerColor = Background,
-    ) { padding ->
-        when {
-            state.isLoading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Violet)
                 }
             }
-            state.plannedExercises.isEmpty() -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No exercises yet", color = OnSurfaceMuted)
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = onAddExercise, shape = RoundedCornerShape(16.dp)) {
-                            Text("Add Exercise")
+
+            when {
+                state.isLoading -> {
+                    item {
+                        Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Violet)
                         }
                     }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    state = lazyListState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                ) {
+                state.plannedExercises.isEmpty() -> {
+                    item {
+                        Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("No exercises yet", color = Color.White.copy(alpha = 0.7f))
+                                Spacer(Modifier.height(16.dp))
+                                Button(
+                                    onClick = onAddExercise, 
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Violet)
+                                ) {
+                                    Text("Add Exercise", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> {
                     items(
                         items = state.plannedExercises,
                         key = { it.first.id },
                     ) { (pe, exercise) ->
                         ReorderableItem(reorderState, key = pe.id) { isDragging ->
-                            val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "dragElevation")
-                            PlannedExerciseItem(
-                                pe = pe,
-                                exercise = exercise,
-                                onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
-                                onEdit = { viewModel.startEditExercise(pe) },
-                                onRemove = { viewModel.removeExercise(pe) },
-                                dragModifier = Modifier.draggableHandle(),
-                                modifier = Modifier.shadow(elevation, RoundedCornerShape(20.dp)),
-                            )
+                            val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elev")
+                            val scale by animateFloatAsState(if (isDragging) 1.02f else 1f, label = "scale")
+                            
+                            LaunchedEffect(isDragging) {
+                                if (isDragging) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            }
+                            
+                            GlassmorphicCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (isDragging) 1f else 0f)
+                                    .scale(scale)
+                                    .shadow(elevation, RoundedCornerShape(24.dp), clip = false),
+                                containerColor = if (isDragging) Surface else Color.White.copy(alpha = 0.05f)
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.DragHandle,
+                                        contentDescription = "Drag to reorder",
+                                        tint = Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier.draggableHandle().size(24.dp),
+                                    )
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable(enabled = exercise != null, onClick = { exercise?.let { onExerciseClick(it.id) } })
+                                            .padding(vertical = 4.dp),
+                                    ) {
+                                        Text(
+                                            exercise?.name ?: pe.exerciseId,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        exercise?.let {
+                                            Text(
+                                                it.primaryMuscles.joinToString(", "),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Violet,
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { viewModel.startEditExercise(pe) }) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit params", tint = Violet)
+                                    }
+                                    IconButton(onClick = { viewModel.removeExercise(pe) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Coral)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = onAddExercise,
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Violet.copy(alpha = 0.8f))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add Exercise", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlannedExerciseItem(
-    pe: PlannedExercise,
-    exercise: Exercise?,
-    onExerciseClick: () -> Unit,
-    onEdit: () -> Unit,
-    onRemove: () -> Unit,
-    dragModifier: Modifier = Modifier,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(4.dp),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.DragHandle,
-                contentDescription = "Drag to reorder",
-                tint = OnSurfaceMuted,
-                modifier = dragModifier.size(20.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(enabled = exercise != null, onClick = onExerciseClick)
-                    .padding(vertical = 4.dp),
-            ) {
-                Text(
-                    exercise?.name ?: pe.exerciseId,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OnSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                exercise?.let {
-                    Text(
-                        it.primaryMuscles.joinToString(", "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Violet,
-                    )
-                }
-            }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit params", tint = Violet)
-            }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Coral)
             }
         }
     }
