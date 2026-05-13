@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class ProfileDashboardState {
+    TITAN, BREEZE, VELOCITY, COSMOS
+}
+
 data class ProfileUiState(
     val displayName: String = "",
     val email: String = "",
@@ -29,6 +33,7 @@ data class ProfileUiState(
     val useKg: Boolean = true,
     val fitnessGoal: String = "BUILD_MUSCLE",
     val inputStyle: String = "TAP_EXPAND",
+    val dashboardState: ProfileDashboardState = ProfileDashboardState.COSMOS,
 )
 
 @HiltViewModel
@@ -62,11 +67,19 @@ class ProfileViewModel @Inject constructor(
 
         viewModelScope.launch {
             dataStore.data.collect { prefs ->
+                val goal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE"
+                val state = when (goal) {
+                    "BUILD_MUSCLE" -> ProfileDashboardState.TITAN
+                    "LOSE_WEIGHT" -> ProfileDashboardState.BREEZE
+                    "IMPROVE_ENDURANCE" -> ProfileDashboardState.VELOCITY
+                    else -> ProfileDashboardState.COSMOS
+                }
                 _uiState.update {
                     it.copy(
                         useKg = prefs[PREF_USE_KG] ?: true,
-                        fitnessGoal = prefs[PREF_GOAL] ?: "BUILD_MUSCLE",
+                        fitnessGoal = goal,
                         inputStyle = prefs[PREF_INPUT_STYLE] ?: "TAP_EXPAND",
+                        dashboardState = state,
                     )
                 }
             }

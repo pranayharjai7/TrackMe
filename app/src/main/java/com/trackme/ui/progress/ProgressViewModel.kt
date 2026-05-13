@@ -18,7 +18,15 @@ import kotlinx.coroutines.flow.*
 import java.util.Calendar
 import javax.inject.Inject
 
+enum class ProgressState {
+    MOMENTUM, MAINTENANCE, RECOVERY, UNCHARTED
+}
+
+data class ProgressInsight(val title: String, val description: String)
+
 data class ProgressUiState(
+    val dashboardState: ProgressState = ProgressState.UNCHARTED,
+    val primaryInsight: ProgressInsight? = null,
     val personalRecords: List<PersonalRecord> = emptyList(),
     val weightHistory: List<HealthSnapshot> = emptyList(),
     val latestSnapshot: HealthSnapshot? = null,
@@ -57,9 +65,32 @@ class ProgressViewModel @Inject constructor(
             ) { prs, snapshots, sets, muscleVol, selectedId ->
                 val volumeByDay = sets.groupBy { normalizeToDay(it.updatedAt) }
                     .mapValues { (_, daySets) -> daySets.size }
+                
+                // Calculate Progress State
+                val now = System.currentTimeMillis()
+                val fourteenDaysAgo = now - 14L * 24 * 60 * 60 * 1000
+                val recentSets = sets.filter { it.updatedAt >= fourteenDaysAgo }
+                val olderSets = sets.filter { it.updatedAt < fourteenDaysAgo }
+                
+                val state = when {
+                    sets.size < 10 -> ProgressState.UNCHARTED
+                    recentSets.size > olderSets.size * 1.15 -> ProgressState.MOMENTUM
+                    recentSets.size < olderSets.size * 0.75 -> ProgressState.RECOVERY
+                    else -> ProgressState.MAINTENANCE
+                }
+
+                val insight = when (state) {
+                    ProgressState.MOMENTUM -> ProgressInsight("Momentum Building", "Your training volume is up ${(recentSets.size * 100f / olderSets.size.coerceAtLeast(1).toFloat()).toInt() - 100}% compared to the previous two weeks. Keep riding this wave!")
+                    ProgressState.MAINTENANCE -> ProgressInsight("Steady Consistency", "You're maintaining a solid baseline. Consistent effort is the key to long-term gains.")
+                    ProgressState.RECOVERY -> ProgressInsight("Recovery Phase", "Your volume has decreased recently. If you're resting, enjoy it. If not, it's time to get back on track.")
+                    ProgressState.UNCHARTED -> ProgressInsight("Just Beginning", "Log more workouts to unlock deep insights into your progress trajectory.")
+                }
+
                 val options = prs.map { it.exerciseId }.distinct().sorted()
                 val effectiveSelectedId = selectedId ?: prs.maxByOrNull { it.maxWeightKg }?.exerciseId
                 ProgressUiState(
+                    dashboardState = state,
+                    primaryInsight = insight,
                     personalRecords = prs,
                     weightHistory = snapshots,
                     latestSnapshot = snapshots.maxByOrNull { it.date },
