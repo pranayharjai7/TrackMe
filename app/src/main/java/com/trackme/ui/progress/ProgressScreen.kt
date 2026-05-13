@@ -49,8 +49,10 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
         ProgressMeshGradient(state = state.dashboardState)
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 80.dp, bottom = 120.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp, start = 20.dp, end = 20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             item {

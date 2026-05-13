@@ -8,6 +8,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,6 +22,7 @@ import com.trackme.ui.home.HomeScreen
 import com.trackme.ui.onboarding.OnboardingScreen
 import com.trackme.ui.profile.ProfileScreen
 import com.trackme.ui.progress.ProgressScreen
+import com.trackme.ui.theme.Background
 import com.trackme.ui.theme.Violet
 import com.trackme.ui.workout.exercise.ExerciseDetailScreen
 import com.trackme.ui.workout.exercise.ExerciseSearchScreen
@@ -49,6 +51,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
     )
 
     Scaffold(
+        containerColor = Background, // Prevent black flicker by matching app theme
         bottomBar = {
             if (showBottomBar) {
                 TrackMeBottomBar(navController = navController, currentRoute = currentRoute)
@@ -58,7 +61,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
         NavHost(
             navController = navController,
             startDestination = startDestination!!,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier.fillMaxSize(),
         ) {
             composable(Routes.Auth.route) {
                 AuthScreen(

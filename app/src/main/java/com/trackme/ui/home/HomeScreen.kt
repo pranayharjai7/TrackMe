@@ -41,9 +41,11 @@ fun HomeScreen(
         ReactiveMeshGradient(state = state.dashboardState)
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 64.dp, bottom = 120.dp), // Extra padding for bottom nav & top bar
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp), // Consistent top padding + bottom nav space
         ) {
             item {
                 GreetingHeader(state)
