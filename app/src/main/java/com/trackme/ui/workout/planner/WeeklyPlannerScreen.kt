@@ -11,7 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +37,6 @@ fun WeeklyPlannerScreen(
     viewModel: WeeklyPlannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val tilt = rememberDeviceTilt()
 
     var showAddDayDialog by remember { mutableStateOf(false) }
     var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
@@ -42,6 +44,20 @@ fun WeeklyPlannerScreen(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var pendingDeleteDay by remember { mutableStateOf<WorkoutDay?>(null) }
+
+    val context = LocalContext.current
+    LaunchedEffect(state.routineTextToShare) {
+        state.routineTextToShare?.let { text ->
+            val sendIntent: Intent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, text)
+                type = "text/plain"
+            }
+            val shareIntent = Intent.createChooser(sendIntent, null)
+            context.startActivity(shareIntent)
+            viewModel.onRoutineShared()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         PlanningMeshGradient()
@@ -61,7 +77,7 @@ fun WeeklyPlannerScreen(
                     PlannerHeroHeader(
                         planName = state.activePlan?.name ?: "My Routine",
                         activeDaysCount = state.days.size,
-                        tilt = tilt
+                        onShare = viewModel::prepareRoutineForSharing
                     )
                 }
 
@@ -72,7 +88,6 @@ fun WeeklyPlannerScreen(
                         dayOfWeek = dow,
                         workoutDay = day,
                         exerciseCount = count,
-                        tilt = tilt,
                         onClick = {
                             if (day != null) {
                                 onEditDay(day.id)
@@ -195,36 +210,49 @@ fun WeeklyPlannerScreen(
         }
 }
 @Composable
-private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, tilt: State<com.trackme.ui.components.Tilt>) {
-    Column(
-        Modifier
+private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, onShare: () -> Unit) {
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .parallaxTilt(tilt, intensity = 5f)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            "Routine Planner",
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White.copy(alpha = 0.7f),
-            fontWeight = FontWeight.Normal,
-        )
-        Text(
-            planName,
-            style = MaterialTheme.typography.displayMedium,
-            color = Color.White,
-            fontWeight = FontWeight.ExtraBold,
-        )
-        Spacer(Modifier.height(8.dp))
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White.copy(alpha = 0.1f),
-        ) {
+        Column(Modifier.weight(1f)) {
             Text(
-                "$activeDaysCount Workout Days • ${7 - activeDaysCount} Rest Days",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                "Routine Planner",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Normal,
             )
+            Text(
+                planName,
+                style = MaterialTheme.typography.displayMedium,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White.copy(alpha = 0.1f),
+            ) {
+                Text(
+                    "$activeDaysCount Workout Days • ${7 - activeDaysCount} Rest Days",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+        
+        IconButton(
+            onClick = onShare,
+            modifier = Modifier
+                .size(48.dp)
+                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+        ) {
+            Icon(Icons.Default.Share, contentDescription = "Share Routine", tint = Color.White)
         }
     }
 }
@@ -234,7 +262,6 @@ private fun GlassDayCard(
     dayOfWeek: DayOfWeek,
     workoutDay: WorkoutDay?,
     exerciseCount: Int,
-    tilt: State<com.trackme.ui.components.Tilt>,
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
 ) {
@@ -243,8 +270,7 @@ private fun GlassDayCard(
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .parallaxTilt(tilt, intensity = 8f),
+            .padding(horizontal = 24.dp),
         shape = RoundedCornerShape(24.dp)
     ) {
         Card(

@@ -12,6 +12,7 @@ class ClearLocalUserDataUseCase @Inject constructor(
     private val sessionSetDao: SessionSetDao,
     private val personalRecordDao: PersonalRecordDao,
     private val healthSnapshotDao: HealthSnapshotDao,
+    private val healthMetricDao: HealthMetricDao,
     private val syncManager: SyncManager,
 ) {
     suspend operator fun invoke() {
@@ -26,5 +27,6 @@ class ClearLocalUserDataUseCase @Inject constructor(
         sessionSetDao.deleteAll()
         personalRecordDao.deleteAll()
         healthSnapshotDao.deleteAll()
+        healthMetricDao.deleteAll()
     }
 }

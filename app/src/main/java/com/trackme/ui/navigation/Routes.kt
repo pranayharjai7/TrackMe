@@ -19,4 +19,5 @@ sealed class Routes(val route: String) {
     }
     object Progress : Routes("progress")
     object Profile : Routes("profile")
+    object HealthMetrics : Routes("health_metrics")
 }

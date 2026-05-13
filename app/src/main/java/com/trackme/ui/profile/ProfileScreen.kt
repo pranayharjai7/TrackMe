@@ -27,12 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
-import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
-import androidx.health.connect.client.records.HeightRecord
-import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.records.WeightRecord
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -45,19 +41,13 @@ import java.util.*
 @Composable
 fun ProfileScreen(
     onSignOut: () -> Unit,
+    onViewHealthData: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val tilt = rememberDeviceTilt()
     var showSignOutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val healthPermissions = setOf(
-        HealthPermission.getReadPermission(WeightRecord::class),
-        HealthPermission.getReadPermission(HeightRecord::class),
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-    )
     val permissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted -> viewModel.onPermissionResult(granted) }
@@ -75,37 +65,38 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            InteractiveProfileHeader(state, tilt)
+            InteractiveProfileHeader(state)
 
             GoalSanctuaryCard(
                 currentGoal = state.fitnessGoal,
-                onGoalSelected = { viewModel.savePreferences(state.useKg, it, state.inputStyle) },
-                tilt = tilt
+                onGoalSelected = { viewModel.savePreferences(state.useKg, it, state.inputStyle) }
             )
 
             HealthConnectPulseCard(
                 state = state,
-                onConnect = { permissionLauncher.launch(healthPermissions) },
+                onConnect = { permissionLauncher.launch(state.healthPermissions) },
                 onSync = { viewModel.syncHealthConnect() },
+                onViewHealthData = onViewHealthData,
+                onManagePermissions = {
+                    val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+                    runCatching { context.startActivity(intent) }
+                },
                 onInstall = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata"))
                     runCatching { context.startActivity(intent) }
-                },
-                tilt = tilt
+                }
             )
 
             GlassmorphicPreferencesCard(
                 state = state,
-                onPrefChange = { useKg, style -> viewModel.savePreferences(useKg, state.fitnessGoal, style) },
-                tilt = tilt
+                onPrefChange = { useKg, style -> viewModel.savePreferences(useKg, state.fitnessGoal, style) }
             )
 
             OutlinedButton(
                 onClick = { showSignOutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .parallaxTilt(tilt, 3f),
+                    .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Coral.copy(alpha = 0.5f)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Coral)
@@ -139,7 +130,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun InteractiveProfileHeader(state: ProfileUiState, tilt: State<Tilt>) {
+private fun InteractiveProfileHeader(state: ProfileUiState) {
     val infiniteTransition = rememberInfiniteTransition(label = "halo")
     val haloAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
@@ -154,8 +145,7 @@ private fun InteractiveProfileHeader(state: ProfileUiState, tilt: State<Tilt>) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
-                .size(120.dp)
-                .parallaxTilt(tilt, 15f),
+                .size(120.dp),
             contentAlignment = Alignment.Center
         ) {
             // Animated Halo
@@ -208,7 +198,7 @@ private fun InteractiveProfileHeader(state: ProfileUiState, tilt: State<Tilt>) {
 }
 
 @Composable
-private fun GoalSanctuaryCard(currentGoal: String, onGoalSelected: (String) -> Unit, tilt: State<Tilt>) {
+private fun GoalSanctuaryCard(currentGoal: String, onGoalSelected: (String) -> Unit) {
     val goals = listOf(
         Triple("BUILD_MUSCLE", "The Athlete", Icons.Default.FitnessCenter),
         Triple("LOSE_WEIGHT", "The Shapeshifter", Icons.Default.Whatshot),
@@ -218,7 +208,6 @@ private fun GoalSanctuaryCard(currentGoal: String, onGoalSelected: (String) -> U
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 8f)
     ) {
         Column(Modifier.padding(24.dp)) {
             Text(
@@ -281,8 +270,9 @@ private fun HealthConnectPulseCard(
     state: ProfileUiState,
     onConnect: () -> Unit,
     onSync: () -> Unit,
-    onInstall: () -> Unit,
-    tilt: State<Tilt>
+    onViewHealthData: () -> Unit,
+    onManagePermissions: () -> Unit,
+    onInstall: () -> Unit
 ) {
     val isSyncing = state.isSyncing
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -300,7 +290,6 @@ private fun HealthConnectPulseCard(
         modifier = Modifier
             .fillMaxWidth()
             .scale(pulseScale)
-            .parallaxTilt(tilt, 6f)
     ) {
         Column(Modifier.padding(24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -359,6 +348,43 @@ private fun HealthConnectPulseCard(
                         color = Color.White.copy(alpha = 0.4f)
                     )
                 }
+                
+                if (state.healthConnectConnected) {
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = onViewHealthData,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White,
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Violet.copy(alpha = 0.45f)),
+                    ) {
+                        Icon(Icons.Default.Insights, contentDescription = null, tint = Violet, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("View Health Metrics", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (state.hcStatus == HcSdkStatus.AVAILABLE) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onManagePermissions,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Manage Permissions", style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }
@@ -367,13 +393,11 @@ private fun HealthConnectPulseCard(
 @Composable
 private fun GlassmorphicPreferencesCard(
     state: ProfileUiState,
-    onPrefChange: (Boolean, String) -> Unit,
-    tilt: State<Tilt>
+    onPrefChange: (Boolean, String) -> Unit
 ) {
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 5f)
     ) {
         Column(Modifier.padding(24.dp)) {
             Text("Preferences", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)

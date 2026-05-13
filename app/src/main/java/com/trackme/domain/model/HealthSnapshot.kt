@@ -9,5 +9,6 @@ data class HealthSnapshot(
     val bmi: Float?,
     val steps: Long?,
     val activeCaloriesBurned: Float?,
+    val heartRateAvg: Int?,
     val updatedAt: Long,
 )

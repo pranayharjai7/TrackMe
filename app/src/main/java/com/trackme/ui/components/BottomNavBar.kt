@@ -50,13 +50,11 @@ fun TrackMeBottomBar(navController: NavController, currentRoute: String?) {
     )
     
     val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-    val tiltState = rememberDeviceTilt()
 
     // Full-bottom unified navigation container
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .parallaxTilt(tiltState, 1f), // Minimal tilt for structural stability
+            .fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         color = SurfaceVariant, // Solid opaque block
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),

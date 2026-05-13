@@ -17,9 +17,10 @@ import com.trackme.data.local.entity.*
         SessionSetEntity::class,
         PersonalRecordEntity::class,
         HealthSnapshotEntity::class,
+        HealthMetricEntity::class,
         PendingDeletionEntity::class,
     ],
-    version = 5,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,6 +32,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionSetDao(): SessionSetDao
     abstract fun personalRecordDao(): PersonalRecordDao
     abstract fun healthSnapshotDao(): HealthSnapshotDao
+    abstract fun healthMetricDao(): HealthMetricDao
     abstract fun pendingDeletionDao(): PendingDeletionDao
 
     companion object {
@@ -107,6 +109,36 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_snapshots_sync ON health_snapshots(isSynced)")
 
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_pending_deletions_user ON pending_deletions(userId)")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS health_metrics (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "category TEXT NOT NULL, " +
+                    "recordType TEXT NOT NULL, " +
+                    "displayName TEXT NOT NULL, " +
+                    "startTime INTEGER NOT NULL, " +
+                    "endTime INTEGER, " +
+                    "primaryValue TEXT NOT NULL, " +
+                    "primaryUnit TEXT, " +
+                    "details TEXT NOT NULL, " +
+                    "sourceApp TEXT, " +
+                    "rawData TEXT, " +
+                    "updatedAt INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_metrics_user_time ON health_metrics(userId, startTime)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_metrics_user_category ON health_metrics(userId, category)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_health_metrics_record_type ON health_metrics(recordType)")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE health_snapshots ADD COLUMN heartRateAvg INTEGER")
             }
         }
     }

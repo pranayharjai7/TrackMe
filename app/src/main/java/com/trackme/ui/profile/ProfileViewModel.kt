@@ -28,6 +28,7 @@ data class ProfileUiState(
     val avatarUrl: String? = null,
     val hcStatus: HcSdkStatus = HcSdkStatus.NEEDS_INSTALL,
     val healthConnectConnected: Boolean = false,
+    val healthPermissions: Set<String> = emptySet(),
     val lastSyncTime: Long? = null,
     val isSyncing: Boolean = false,
     val useKg: Boolean = true,
@@ -52,6 +53,7 @@ class ProfileViewModel @Inject constructor(
             val user = supabase.auth.currentSessionOrNull()?.user
             val hcStatus = healthRepository.getHealthConnectStatus()
             val hcConnected = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.hasHealthConnectPermissions() else false
+            val healthPermissions = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.getRequiredPermissions() else emptySet()
             val avatarUrl = user?.userMetadata?.get("avatar_url")?.toString()?.trim('"')
                 ?: user?.userMetadata?.get("picture")?.toString()?.trim('"')
             _uiState.update {
@@ -61,6 +63,7 @@ class ProfileViewModel @Inject constructor(
                     avatarUrl = avatarUrl,
                     hcStatus = hcStatus,
                     healthConnectConnected = hcConnected,
+                    healthPermissions = healthPermissions,
                 )
             }
         }
@@ -104,8 +107,15 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             val hcStatus = healthRepository.getHealthConnectStatus()
             val hcConnected = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.hasHealthConnectPermissions() else false
+            val healthPermissions = if (hcStatus == HcSdkStatus.AVAILABLE) healthRepository.getRequiredPermissions() else emptySet()
             val wasConnected = _uiState.value.healthConnectConnected
-            _uiState.update { it.copy(hcStatus = hcStatus, healthConnectConnected = hcConnected) }
+            _uiState.update {
+                it.copy(
+                    hcStatus = hcStatus,
+                    healthConnectConnected = hcConnected,
+                    healthPermissions = healthPermissions,
+                )
+            }
             if (!wasConnected && hcConnected) {
                 syncHealthConnect()
             }

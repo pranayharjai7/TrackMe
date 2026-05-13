@@ -2,7 +2,9 @@ package com.trackme.data.repository
 
 import com.trackme.data.health.HcSdkStatus
 import com.trackme.data.health.HealthConnectManager
+import com.trackme.data.local.dao.HealthMetricDao
 import com.trackme.data.local.dao.HealthSnapshotDao
+import com.trackme.domain.model.HealthMetric
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.repository.HealthRepository
 import kotlinx.coroutines.Dispatchers
@@ -16,17 +18,30 @@ import javax.inject.Singleton
 class HealthRepositoryImpl @Inject constructor(
     private val healthConnectManager: HealthConnectManager,
     private val healthSnapshotDao: HealthSnapshotDao,
+    private val healthMetricDao: HealthMetricDao,
 ) : HealthRepository {
 
     override suspend fun syncFromHealthConnect(userId: String) = withContext(Dispatchers.IO) {
-        val snapshots = healthConnectManager.readLast30Days(userId)
+        val snapshots = runCatching { healthConnectManager.readLast30Days(userId) }
+            .onFailure { it.printStackTrace() }
+            .getOrElse { emptyList() }
+        
         if (snapshots.isNotEmpty()) {
             healthSnapshotDao.insertAll(snapshots)
         }
+
+        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId) }
+            .onFailure { it.printStackTrace() }
+            .getOrElse { emptyList() }
+            
+        healthMetricDao.replaceForUser(userId, metrics)
     }
 
     override fun getSnapshots(userId: String, fromDate: Long): Flow<List<HealthSnapshot>> =
         healthSnapshotDao.getSince(userId, fromDate).map { list -> list.map { it.toDomain() } }
+
+    override fun getMetrics(userId: String): Flow<List<HealthMetric>> =
+        healthMetricDao.getAllForUser(userId).map { list -> list.map { it.toDomain() } }
 
     override suspend fun getLatestSnapshot(userId: String): HealthSnapshot? =
         healthSnapshotDao.getLatest(userId)?.toDomain()

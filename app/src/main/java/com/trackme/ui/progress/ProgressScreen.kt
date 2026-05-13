@@ -44,7 +44,6 @@ import java.util.*
 fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val strengthHistory by viewModel.strengthHistory.collectAsStateWithLifecycle()
-    val tilt = rememberDeviceTilt()
 
     Box(modifier = Modifier.fillMaxSize()) {
         ProgressMeshGradient(state = state.dashboardState)
@@ -61,36 +60,35 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
             }
 
             item {
-                FitnessEngineCard(state, tilt)
+                FitnessEngineCard(state)
             }
 
             if (state.sessionVolumes.isNotEmpty()) {
                 item {
-                    InteractiveHeatmapCard(state.sessionVolumes, tilt)
+                    InteractiveHeatmapCard(state.sessionVolumes)
                 }
             }
 
             if (state.exerciseOptions.isNotEmpty()) {
                 item {
-                    InteractiveStrengthChartCard(
+                    StrengthTrajectoryCard(
                         history = strengthHistory,
-                        exerciseOptions = state.exerciseOptions,
                         selectedExerciseId = state.selectedExerciseId,
-                        onSelectExercise = viewModel::selectExercise,
-                        tilt = tilt
+                        exerciseOptions = state.exerciseOptions,
+                        onSelectExercise = viewModel::selectExercise
                     )
                 }
             }
 
             if (state.weightHistory.count { it.weightKg != null } >= 2) {
                 item {
-                    InteractiveWeightChartCard(state.weightHistory, tilt)
+                    InteractiveWeightChartCard(state.weightHistory)
                 }
             }
 
             if (state.muscleVolume.isNotEmpty()) {
                 item {
-                    InteractiveMuscleVolumeCard(state.muscleVolume, tilt)
+                    InteractiveMuscleVolumeCard(state.muscleVolume)
                 }
             }
 
@@ -105,7 +103,7 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
                     )
                 }
                 items(state.personalRecords, key = { it.id }) { pr ->
-                    InteractivePRCard(pr, tilt)
+                    InteractivePRCard(pr)
                 }
             }
         }
@@ -136,13 +134,12 @@ private fun ProgressHeader(state: ProgressUiState) {
 }
 
 @Composable
-private fun FitnessEngineCard(state: ProgressUiState, tilt: State<Tilt>) {
+private fun FitnessEngineCard(state: ProgressUiState) {
     var expanded by remember { mutableStateOf(false) }
     
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 8f)
             .clickable { expanded = !expanded }
     ) {
         Column(Modifier.padding(24.dp)) {
@@ -235,7 +232,7 @@ private fun MetricSmall(label: String, value: String, icon: ImageVector, tint: C
 }
 
 @Composable
-private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>, tilt: State<Tilt>) {
+private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>) {
     var selectedDay by remember { mutableStateOf<Long?>(null) }
     
     val days = remember {
@@ -251,7 +248,6 @@ private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>, tilt: State<T
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 5f)
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -319,12 +315,11 @@ private fun InteractiveHeatmapCard(sessionVolumes: Map<Long, Int>, tilt: State<T
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun InteractiveStrengthChartCard(
+private fun StrengthTrajectoryCard(
     history: List<SessionSet>,
-    exerciseOptions: List<String>,
     selectedExerciseId: String?,
-    onSelectExercise: (String) -> Unit,
-    tilt: State<Tilt>
+    exerciseOptions: List<String>,
+    onSelectExercise: (String) -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
     val sortedSets = remember(history) { 
@@ -334,7 +329,6 @@ private fun InteractiveStrengthChartCard(
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 6f)
     ) {
         Column(Modifier.padding(20.dp)) {
             Text("Strength Trajectory", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
@@ -418,7 +412,7 @@ private fun InteractiveStrengthChartCard(
 }
 
 @Composable
-private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: State<Tilt>) {
+private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>) {
     val weightsWithData = remember(snapshots) {
         snapshots.filter { it.weightKg != null }.sortedBy { it.date }
     }
@@ -426,7 +420,6 @@ private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: St
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 4f)
     ) {
         Column(Modifier.padding(20.dp)) {
             Text("Body Composition", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
@@ -480,14 +473,13 @@ private fun InteractiveWeightChartCard(snapshots: List<HealthSnapshot>, tilt: St
 }
 
 @Composable
-private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>, tilt: State<Tilt>) {
+private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>) {
     var selectedMuscle by remember { mutableStateOf<String?>(null) }
     val maxSets = remember(muscleVolume) { muscleVolume.maxOfOrNull { it.totalSets }?.toFloat() ?: 1f }
 
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 7f)
     ) {
         Column(Modifier.padding(20.dp)) {
             Text("Muscle Distribution", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
@@ -560,7 +552,7 @@ private fun InteractiveMuscleVolumeCard(muscleVolume: List<MuscleVolume>, tilt: 
 }
 
 @Composable
-private fun InteractivePRCard(pr: PersonalRecord, tilt: State<Tilt>) {
+private fun InteractivePRCard(pr: PersonalRecord) {
     val dateStr = remember(pr.achievedAt) {
         SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(pr.achievedAt))
     }
@@ -568,7 +560,6 @@ private fun InteractivePRCard(pr: PersonalRecord, tilt: State<Tilt>) {
     GlassmorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .parallaxTilt(tilt, 3f)
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),

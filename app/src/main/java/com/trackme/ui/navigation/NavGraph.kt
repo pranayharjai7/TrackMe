@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.trackme.ui.auth.AuthScreen
 import com.trackme.ui.components.TrackMeBottomBar
+import com.trackme.ui.health.HealthMetricsScreen
 import com.trackme.ui.home.HomeScreen
 import com.trackme.ui.onboarding.OnboardingScreen
 import com.trackme.ui.profile.ProfileScreen
@@ -161,8 +162,12 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                         navController.navigate(Routes.Auth.route) {
                             popUpTo(0) { inclusive = true }
                         }
-                    }
+                    },
+                    onViewHealthData = { navController.navigate(Routes.HealthMetrics.route) },
                 )
+            }
+            composable(Routes.HealthMetrics.route) {
+                HealthMetricsScreen(onBack = { navController.popBackStack() })
             }
             }
         }

@@ -7,6 +7,7 @@ import com.trackme.domain.model.WorkoutDay
 import com.trackme.domain.model.WorkoutPlan
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.domain.usecase.GetActivePlanUseCase
+import com.trackme.domain.repository.ExerciseRepository
 import com.trackme.domain.usecase.SaveWorkoutDayUseCase
 import com.trackme.domain.usecase.SaveWorkoutPlanUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +25,7 @@ data class WeeklyPlannerUiState(
     val isCreatingPlan: Boolean = false,
     val showNewPlanDialog: Boolean = false,
     val newPlanName: String = "",
+    val routineTextToShare: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -31,6 +33,7 @@ data class WeeklyPlannerUiState(
 class WeeklyPlannerViewModel @Inject constructor(
     private val getActivePlan: GetActivePlanUseCase,
     private val workoutRepository: WorkoutRepository,
+    private val exerciseRepository: ExerciseRepository,
     private val savePlan: SaveWorkoutPlanUseCase,
     private val saveDay: SaveWorkoutDayUseCase,
     private val supabase: SupabaseClient,
@@ -84,5 +87,43 @@ class WeeklyPlannerViewModel @Inject constructor(
 
     fun deleteDay(day: WorkoutDay) {
         viewModelScope.launch { workoutRepository.deleteDay(day) }
+    }
+
+    fun prepareRoutineForSharing() {
+        val plan = _uiState.value.activePlan ?: return
+        val days = _uiState.value.days.sortedBy { it.dayOfWeek.ordinal }
+        
+        viewModelScope.launch {
+            val sb = StringBuilder()
+            sb.append("Weekly Routine: ${plan.name}\n")
+            sb.append("Generated via TrackMe\n\n")
+            
+            for (day in days) {
+                sb.append("${day.dayOfWeek.name}: ${day.name}\n")
+                val planned = workoutRepository.getPlannedExercisesForDay(day.id).first()
+                if (planned.isEmpty()) {
+                    sb.append("- Rest Day\n")
+                } else {
+                    val exerciseById = exerciseRepository.getByIds(planned.map { it.exerciseId })
+                    for (pe in planned.sortedBy { it.orderIndex }) {
+                        val ex = exerciseById[pe.exerciseId]
+                        val name = ex?.name ?: "Unknown Exercise"
+                        sb.append("- $name: ${pe.targetSets} sets")
+                        pe.targetReps?.let { sb.append(" x $it reps") }
+                        pe.targetWeightKg?.let { sb.append(" @ ${it}kg") }
+                        pe.targetDurationSeconds?.let { sb.append(", ${it}s") }
+                        pe.targetDistanceKm?.let { sb.append(", ${it}km") }
+                        sb.append("\n")
+                    }
+                }
+                sb.append("\n")
+            }
+            
+            _uiState.update { it.copy(routineTextToShare = sb.toString()) }
+        }
+    }
+
+    fun onRoutineShared() {
+        _uiState.update { it.copy(routineTextToShare = null) }
     }
 }
