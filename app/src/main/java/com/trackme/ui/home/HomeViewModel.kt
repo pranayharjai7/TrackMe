@@ -70,10 +70,12 @@ class HomeViewModel @Inject constructor(
                     .filter { normalizeToMidnight(it.date) == todayMidnight && it.durationMinutes > 0 }
                     .map { it.dayId }
                     .toSet()
+                val validDayIds = weekStrip.filterNotNull().map { it.id }.toSet()
                 val activeSession = sessions.firstOrNull {
                     normalizeToMidnight(it.date) == todayMidnight
                         && it.durationMinutes == 0
                         && it.dayId !in completedDayIdsToday
+                        && it.dayId in validDayIds
                 }
                 val isTodaySessionFinished = today != null && sessions.any {
                     normalizeToMidnight(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
