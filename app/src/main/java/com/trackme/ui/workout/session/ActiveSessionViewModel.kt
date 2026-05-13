@@ -11,6 +11,7 @@ import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.domain.usecase.FinishSessionUseCase
 import com.trackme.domain.usecase.LogSetUseCase
 import com.trackme.domain.usecase.StartSessionUseCase
+import com.trackme.domain.usecase.AddExerciseToDayUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
@@ -39,6 +40,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val startSession: StartSessionUseCase,
     private val logSetUseCase: LogSetUseCase,
     private val finishSessionUseCase: FinishSessionUseCase,
+    private val addExerciseToDay: AddExerciseToDayUseCase,
     private val supabase: SupabaseClient,
     private val dataStore: DataStore<Preferences>,
     savedStateHandle: SavedStateHandle,
@@ -162,4 +164,11 @@ class ActiveSessionViewModel @Inject constructor(
 
     fun plannedFor(exerciseId: String): PlannedExercise? =
         _uiState.value.exercises.find { it.first.exerciseId == exerciseId }?.first
+
+    fun addExercise(exerciseId: String) {
+        viewModelScope.launch {
+            val nextIndex = _uiState.value.exercises.size
+            addExerciseToDay(dayId, userId, exerciseId, nextIndex)
+        }
+    }
 }

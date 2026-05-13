@@ -9,7 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,6 +39,7 @@ fun ActiveSessionScreen(
     onSessionFinished: () -> Unit,
     onBack: () -> Unit,
     onExerciseClick: (exerciseId: String) -> Unit,
+    onAddExercise: () -> Unit,
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -123,6 +125,23 @@ fun ActiveSessionScreen(
                             viewModel.updateTargetSets(pe.exerciseId, newTarget)
                         }
                     )
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = onAddExercise,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Violet.copy(alpha = 0.4f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add Exercise", fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 if (!state.isFinishing) {
@@ -342,13 +361,21 @@ private fun ExerciseSessionCard(
                     OutlinedButton(
                         onClick = { isExpanded = true },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Violet.copy(alpha = 0.3f))
                     ) {
-                        Text("Target: $summaryText", color = OnSurface)
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Adjust, contentDescription = null, tint = Violet, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(summaryText, color = OnSurface, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = OnSurfaceMuted, modifier = Modifier.size(16.dp))
+                        }
                     }
-                } else {
+                }
+
+                if (isExpanded) {
                     val isHorizontal = inputStyle == "HORIZONTAL"
                     when (loggingType) {
                     LoggingType.WEIGHTED_REPS -> {
@@ -383,14 +410,6 @@ private fun ExerciseSessionCard(
                                 }
                             }
                         }
-                        Button(
-                            onClick = { 
-                                onLogSet(weightWhole + weightDecimal, repsInput, null, null, null, null)
-                                if (inputStyle == "TAP_EXPAND") isExpanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                        ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
                     }
                     LoggingType.BODYWEIGHT_REPS -> {
                         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -401,14 +420,6 @@ private fun ExerciseSessionCard(
                                 WheelPicker(items = repsList, initialIndex = repsInput, modifier = Modifier.width(80.dp), onItemSelected = { repsInput = it })
                             }
                         }
-                        Button(
-                            onClick = { 
-                                onLogSet(0f, repsInput, null, null, null, null)
-                                if (inputStyle == "TAP_EXPAND") isExpanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                        ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
                     }
                     LoggingType.TIMED -> {
                         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -425,14 +436,6 @@ private fun ExerciseSessionCard(
                                 }
                             }
                         }
-                        Button(
-                            onClick = { 
-                                onLogSet(0f, 0, durationMin * 60 + durationSec, null, null, null)
-                                if (inputStyle == "TAP_EXPAND") isExpanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                        ) { Text("Log Set $currentSetNumber", fontWeight = FontWeight.SemiBold) }
                     }
                     LoggingType.CARDIO -> {
                         if (isHorizontal) {
@@ -500,17 +503,36 @@ private fun ExerciseSessionCard(
                                 }
                             }
                         }
-                        Button(
-                            onClick = { 
-                                onLogSet(0f, 0, durationMin * 60, distanceWhole + distanceDecimal, speedWhole + speedDecimal, inclineWhole + inclineDecimal) 
-                                if (inputStyle == "TAP_EXPAND") isExpanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                        ) { Text("Log Cardio", fontWeight = FontWeight.SemiBold) }
+                    }
                     }
                 }
-            }
+
+                // Log Button is always visible
+                val logButtonLabel = when (loggingType) {
+                    LoggingType.WEIGHTED_REPS -> "Log Set $currentSetNumber"
+                    LoggingType.BODYWEIGHT_REPS -> "Log Set $currentSetNumber"
+                    LoggingType.TIMED -> "Log Interval $currentSetNumber"
+                    LoggingType.CARDIO -> "Log Cardio Session"
+                }
+
+                Button(
+                    onClick = {
+                        onLogSet(
+                            weightWhole + weightDecimal,
+                            repsInput,
+                            durationMin * 60 + durationSec,
+                            distanceWhole + distanceDecimal,
+                            speedWhole + speedDecimal,
+                            inclineWhole + inclineDecimal
+                        )
+                        if (inputStyle == "TAP_EXPAND") isExpanded = false
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White)
+                ) {
+                    Text(logButtonLabel, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

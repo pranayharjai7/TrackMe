@@ -131,6 +131,7 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                     onSessionFinished = { navController.popBackStack() },
                     onBack = { navController.popBackStack() },
                     onExerciseClick = { exerciseId -> navController.navigate(Routes.ExerciseDetail.createRoute(exerciseId)) },
+                    onAddExercise = { navController.navigate(Routes.ExerciseSearch.createRoute(dayId)) }
                 )
             }
             composable(Routes.Progress.route) { ProgressScreen() }

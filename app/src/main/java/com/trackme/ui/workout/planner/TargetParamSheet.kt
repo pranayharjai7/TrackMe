@@ -1,5 +1,6 @@
 package com.trackme.ui.workout.planner
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -103,11 +104,13 @@ fun TargetParamSheet(
                 OutlinedButton(
                     onClick = { isExpanded = true },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Violet.copy(alpha = 0.3f))
                 ) {
-                    Text("Target: $summaryText", color = OnSurface)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Current: $summaryText", color = OnSurface, style = MaterialTheme.typography.bodyMedium)
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = OnSurfaceMuted, modifier = Modifier.size(16.dp))
+                    }
                 }
             } else {
                 when (loggingType) {
