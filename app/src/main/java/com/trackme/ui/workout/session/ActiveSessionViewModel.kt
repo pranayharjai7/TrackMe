@@ -18,6 +18,9 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.edit
 import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import com.trackme.utils.startOfTodayMillis
@@ -108,6 +111,37 @@ class ActiveSessionViewModel @Inject constructor(
             }
             sessionStartTime = session.date
             updateUiState { it.copy(sessionId = session.id) }
+
+            // Restore persistent active exercise / rest timer state
+            try {
+                val prefs = dataStore.data.first()
+                val savedActive = prefs[stringPreferencesKey("${dayId}_active_exercise_id")]
+                val savedResting = prefs[stringPreferencesKey("${dayId}_resting_exercise_id")]
+                val savedRestEndTime = prefs[longPreferencesKey("${dayId}_rest_timer_end_time")]
+
+                if (savedActive != null) {
+                    updateUiState { it.copy(activeExerciseId = savedActive) }
+                }
+
+                if (savedResting != null && savedRestEndTime != null) {
+                    val now = System.currentTimeMillis()
+                    val remainingSeconds = ((savedRestEndTime - now) / 1000).toInt()
+                    if (remainingSeconds > 0) {
+                        updateUiState { it.copy(restingExerciseId = savedResting) }
+                        runRestTimer(savedResting, remainingSeconds)
+                    } else {
+                        // Rest timer expired while away, clean up preference keys
+                        launch {
+                            dataStore.edit { editPrefs ->
+                                editPrefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                                editPrefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore failure in reading datastore
+            }
 
             // Observe planned exercises. Any update here (such as changing target set counts)
             // will publish to exercises list, triggering an automatic recomposition and execution state derivation.
@@ -222,6 +256,18 @@ class ActiveSessionViewModel @Inject constructor(
                 restingExerciseId = if (it.restingExerciseId == exerciseId) null else it.restingExerciseId
             )
         }
+
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs[stringPreferencesKey("${dayId}_active_exercise_id")] = exerciseId
+                val currentResting = _uiState.value.restingExerciseId
+                if (currentResting != null) {
+                    prefs[stringPreferencesKey("${dayId}_resting_exercise_id")] = currentResting
+                } else {
+                    prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                }
+            }
+        }
     }
 
     /**
@@ -231,6 +277,17 @@ class ActiveSessionViewModel @Inject constructor(
         updateUiState {
             val newState = if (it.activeExerciseId == exerciseId) null else it.activeExerciseId
             it.copy(activeExerciseId = newState)
+        }
+
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                val currentActive = _uiState.value.activeExerciseId
+                if (currentActive != null) {
+                    prefs[stringPreferencesKey("${dayId}_active_exercise_id")] = currentActive
+                } else {
+                    prefs.remove(stringPreferencesKey("${dayId}_active_exercise_id"))
+                }
+            }
         }
     }
 
@@ -274,6 +331,18 @@ class ActiveSessionViewModel @Inject constructor(
                 )
             }
 
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey("${dayId}_active_exercise_id"))
+                if (isDone) {
+                    prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                    prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+                } else {
+                    prefs[stringPreferencesKey("${dayId}_resting_exercise_id")] = exerciseId
+                    val restEndTime = System.currentTimeMillis() + _uiState.value.restSeconds * 1000L
+                    prefs[longPreferencesKey("${dayId}_rest_timer_end_time")] = restEndTime
+                }
+            }
+
             if (!isDone) {
                 startRestTimer(exerciseId)
             }
@@ -289,6 +358,12 @@ class ActiveSessionViewModel @Inject constructor(
             it.copy(
                 restingExerciseId = if (it.restingExerciseId == exerciseId) null else it.restingExerciseId
             )
+        }
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+            }
         }
     }
 
@@ -376,12 +451,10 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Starts the global rest countdown. If an exerciseId is specified,
-     * it stays in the RESTING state until the countdown is zero or skipped.
+     * Runs the global rest countdown and cleans up its state.
      */
-    private fun startRestTimer(exerciseId: String? = null) {
+    private fun runRestTimer(exerciseId: String?, seconds: Int) {
         restTimerJob?.cancel()
-        val seconds = _uiState.value.restSeconds
         updateUiState { it.copy(restTimerRunning = true, restSecondsRemaining = seconds) }
         restTimerJob = viewModelScope.launch {
             for (remaining in seconds downTo 0) {
@@ -394,7 +467,19 @@ class ActiveSessionViewModel @Inject constructor(
                     restingExerciseId = if (exerciseId != null && state.restingExerciseId == exerciseId) null else state.restingExerciseId
                 )
             }
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+            }
         }
+    }
+
+    /**
+     * Starts the global rest countdown. If an exerciseId is specified,
+     * it stays in the RESTING state until the countdown is zero or skipped.
+     */
+    private fun startRestTimer(exerciseId: String? = null) {
+        runRestTimer(exerciseId, _uiState.value.restSeconds)
     }
 
     /**
@@ -408,6 +493,12 @@ class ActiveSessionViewModel @Inject constructor(
                 restingExerciseId = null
             )
         }
+        viewModelScope.launch {
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+            }
+        }
     }
 
     fun setRestDuration(seconds: Int) = updateUiState { it.copy(restSeconds = seconds) }
@@ -415,6 +506,11 @@ class ActiveSessionViewModel @Inject constructor(
     fun finishSession(onDone: () -> Unit) {
         viewModelScope.launch {
             updateUiState { it.copy(isFinishing = true) }
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey("${dayId}_active_exercise_id"))
+                prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+            }
             finishSessionUseCase(_uiState.value.sessionId, sessionStartTime)
             onDone()
         }
