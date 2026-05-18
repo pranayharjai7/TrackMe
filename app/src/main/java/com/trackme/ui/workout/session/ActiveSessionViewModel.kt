@@ -24,11 +24,20 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
+enum class ExerciseExecutionState {
+    IDLE,
+    ACTIVE_SET,
+    RESTING,
+    COMPLETED
+}
+
 data class ActiveSessionUiState(
     val sessionId: String = "",
     val exercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
     val loggedSets: List<SessionSet> = emptyList(),
     val loggedSetsByExercise: Map<String, List<SessionSet>> = emptyMap(),
+    val executionStates: Map<String, ExerciseExecutionState> = emptyMap(),
+    val activeExerciseId: String? = null,
     val restTimerRunning: Boolean = false,
     val restSeconds: Int = 90,
     val restSecondsRemaining: Int = 90,
@@ -87,19 +96,116 @@ class ActiveSessionViewModel @Inject constructor(
 
             launch {
                 observePlannedExercisesWithDetails(dayId).collect { withDetails ->
-                    _uiState.update { it.copy(exercises = withDetails) }
+                    _uiState.update { state ->
+                        val newExecutionStates = state.executionStates.toMutableMap()
+                        withDetails.forEach { (planned, _) ->
+                            if (!newExecutionStates.containsKey(planned.exerciseId)) {
+                                val sets = state.loggedSetsByExercise[planned.exerciseId].orEmpty()
+                                newExecutionStates[planned.exerciseId] = if (sets.size >= planned.targetSets) {
+                                    ExerciseExecutionState.COMPLETED
+                                } else {
+                                    ExerciseExecutionState.IDLE
+                                }
+                            }
+                        }
+                        state.copy(exercises = withDetails, executionStates = newExecutionStates)
+                    }
                 }
             }
             launch {
                 workoutRepository.getSessionSets(session.id).collect { sets ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        val grouped = sets.groupBy { it.exerciseId }
+                        val newExecutionStates = state.executionStates.toMutableMap()
+                        state.exercises.forEach { (planned, _) ->
+                            val loggedForEx = grouped[planned.exerciseId].orEmpty()
+                            // If we are IDLE but should be COMPLETED, update it.
+                            // But don't overwrite ACTIVE_SET or RESTING states unless target reached.
+                            if (loggedForEx.size >= planned.targetSets) {
+                                newExecutionStates[planned.exerciseId] = ExerciseExecutionState.COMPLETED
+                            } else if (newExecutionStates[planned.exerciseId] == ExerciseExecutionState.COMPLETED) {
+                                newExecutionStates[planned.exerciseId] = ExerciseExecutionState.IDLE
+                            }
+                        }
+                        state.copy(
                             loggedSets = sets,
-                            loggedSetsByExercise = sets.groupBy { set -> set.exerciseId },
+                            loggedSetsByExercise = grouped,
+                            executionStates = newExecutionStates
                         )
                     }
                 }
             }
+        }
+    }
+
+    fun startExercise(exerciseId: String) {
+        val currentState = _uiState.value.executionStates[exerciseId]
+        if (currentState == ExerciseExecutionState.ACTIVE_SET) return
+
+        _uiState.update { 
+            it.copy(
+                activeExerciseId = exerciseId,
+                executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.ACTIVE_SET)
+            )
+        }
+    }
+
+    fun cancelActiveSet(exerciseId: String) {
+        _uiState.update { 
+            val newState = if (it.activeExerciseId == exerciseId) null else it.activeExerciseId
+            it.copy(
+                activeExerciseId = newState,
+                executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.IDLE)
+            )
+        }
+    }
+
+    fun completeSet(
+        exerciseId: String,
+        weightKg: Float,
+        reps: Int,
+        durationSeconds: Int? = null,
+        distanceKm: Float? = null,
+        speedKmh: Float? = null,
+        inclinePercent: Float? = null,
+    ) {
+        val planned = plannedFor(exerciseId) ?: return
+        val loggedSets = _uiState.value.loggedSetsByExercise[exerciseId].orEmpty()
+        val nextSetNumber = loggedSets.size + 1
+
+        viewModelScope.launch {
+            logSetUseCase(
+                sessionId = _uiState.value.sessionId,
+                userId = userId,
+                exerciseId = exerciseId,
+                setNumber = nextSetNumber,
+                weightKg = weightKg,
+                reps = reps,
+                durationSeconds = durationSeconds,
+                distanceKm = distanceKm,
+                speedKmh = speedKmh,
+                inclinePercent = inclinePercent,
+            )
+
+            val isDone = nextSetNumber >= planned.targetSets
+            _uiState.update { state ->
+                val nextExecutionState = if (isDone) ExerciseExecutionState.COMPLETED else ExerciseExecutionState.RESTING
+                state.copy(
+                    executionStates = state.executionStates + (exerciseId to nextExecutionState),
+                    activeExerciseId = if (state.activeExerciseId == exerciseId) null else state.activeExerciseId
+                )
+            }
+
+            if (!isDone) {
+                startRestTimer(exerciseId)
+            }
+        }
+    }
+
+    fun skipRest(exerciseId: String) {
+        stopRestTimer()
+        _uiState.update { 
+            it.copy(executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.IDLE))
         }
     }
 
@@ -131,7 +237,7 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
-    private fun startRestTimer() {
+    private fun startRestTimer(exerciseId: String? = null) {
         // A single Job owns the timer so repeated set logs reset the countdown cleanly.
         restTimerJob?.cancel()
         val seconds = _uiState.value.restSeconds
@@ -141,7 +247,12 @@ class ActiveSessionViewModel @Inject constructor(
                 _uiState.update { it.copy(restSecondsRemaining = remaining) }
                 if (remaining > 0) delay(1_000)
             }
-            _uiState.update { it.copy(restTimerRunning = false) }
+            _uiState.update { state ->
+                val nextStates = if (exerciseId != null && state.executionStates[exerciseId] == ExerciseExecutionState.RESTING) {
+                    state.executionStates + (exerciseId to ExerciseExecutionState.IDLE)
+                } else state.executionStates
+                state.copy(restTimerRunning = false, executionStates = nextStates)
+            }
         }
     }
 

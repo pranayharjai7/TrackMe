@@ -59,6 +59,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Size
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,6 +97,7 @@ import com.trackme.ui.theme.Teal
 import com.trackme.ui.theme.Violet
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 enum class ActivitySessionState {
     STARTING,
@@ -121,24 +137,6 @@ fun ActiveSessionScreen(
         state.visualState(progress)
     }
 
-    val defaultActiveId = remember(state.exercises, state.loggedSetsByExercise) {
-        state.exercises.firstOrNull { (planned, _) ->
-            state.loggedSetsByExercise[planned.exerciseId].orEmpty().size < planned.targetSets
-        }?.first?.exerciseId ?: state.exercises.lastOrNull()?.first?.exerciseId
-    }
-    var activeExerciseId by rememberSaveable(dayId) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(defaultActiveId, state.loggedSetsByExercise) {
-        val activePlanned = state.exercises.firstOrNull { it.first.exerciseId == activeExerciseId }?.first
-        val activeIsDone = activePlanned != null &&
-            state.loggedSetsByExercise[activePlanned.exerciseId].orEmpty().size >= activePlanned.targetSets
-        if (activeExerciseId == null ||
-            state.exercises.none { it.first.exerciseId == activeExerciseId } ||
-            (activeIsDone && defaultActiveId != activeExerciseId)
-        ) {
-            activeExerciseId = defaultActiveId
-        }
-    }
 
     Box(Modifier.fillMaxSize()) {
         ReactiveMeshGradient(
@@ -177,24 +175,40 @@ fun ActiveSessionScreen(
 
             itemsIndexed(state.exercises, key = { _, item -> item.first.id }) { index, (planned, exercise) ->
                 val loggedSets = state.loggedSetsByExercise[planned.exerciseId].orEmpty()
-                val isDone = loggedSets.size >= planned.targetSets
-                val isCurrent = planned.exerciseId == activeExerciseId && !isDone
+                val executionState = state.executionStates[planned.exerciseId] ?: ExerciseExecutionState.IDLE
+                
+                var showSwitchConfirmation by remember { mutableStateOf(false) }
+                val haptic = LocalHapticFeedback.current
+
+                if (showSwitchConfirmation) {
+                    SwitchExerciseConfirmationDialog(
+                        onConfirm = {
+                            showSwitchConfirmation = false
+                            viewModel.cancelActiveSet(state.activeExerciseId ?: "")
+                            viewModel.startExercise(planned.exerciseId)
+                        },
+                        onDismiss = { showSwitchConfirmation = false }
+                    )
+                }
 
                 SessionExerciseCard(
                     index = index,
                     plannedExercise = planned,
                     exercise = exercise,
                     loggedSets = loggedSets,
-                    isCurrent = isCurrent,
-                    isDone = isDone,
+                    executionState = executionState,
                     inputStyle = state.inputStyle,
-                    onSelect = { activeExerciseId = planned.exerciseId },
-                    onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
-                    onTargetSetsChanged = { viewModel.updateTargetSets(planned.exerciseId, it) },
-                    onLogSet = { weight, reps, duration, distance, speed, incline ->
-                        viewModel.logSet(
+                    onStartExercise = {
+                        if (state.activeExerciseId != null && state.activeExerciseId != planned.exerciseId) {
+                            showSwitchConfirmation = true
+                        } else {
+                            viewModel.startExercise(planned.exerciseId)
+                        }
+                    },
+                    onCompleteSet = { weight, reps, duration, distance, speed, incline ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.completeSet(
                             planned.exerciseId,
-                            loggedSets.size + 1,
                             weight,
                             reps,
                             duration,
@@ -203,6 +217,10 @@ fun ActiveSessionScreen(
                             incline,
                         )
                     },
+                    onSkipRest = { viewModel.skipRest(planned.exerciseId) },
+                    onCancelActive = { viewModel.cancelActiveSet(planned.exerciseId) },
+                    onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
+                    onTargetSetsChanged = { viewModel.updateTargetSets(planned.exerciseId, it) },
                 )
             }
 
@@ -325,35 +343,40 @@ private fun SessionExerciseCard(
     plannedExercise: PlannedExercise,
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
-    isCurrent: Boolean,
-    isDone: Boolean,
+    executionState: ExerciseExecutionState,
     inputStyle: String,
-    onSelect: () -> Unit,
+    onStartExercise: () -> Unit,
+    onCompleteSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
+    onSkipRest: () -> Unit,
+    onCancelActive: () -> Unit,
     onExerciseClick: () -> Unit,
     onTargetSetsChanged: (Int) -> Unit,
-    onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
+    val isDone = executionState == ExerciseExecutionState.COMPLETED
+    val isActive = executionState == ExerciseExecutionState.ACTIVE_SET
+    
     val targetColor by animateColorAsState(
-        targetValue = when {
-            isDone -> Teal
-            isCurrent -> Coral
+        targetValue = when (executionState) {
+            ExerciseExecutionState.COMPLETED -> Teal
+            ExerciseExecutionState.ACTIVE_SET -> Coral
+            ExerciseExecutionState.RESTING -> Blue
             else -> Color.White.copy(alpha = 0.08f)
         },
         label = "cardAccent",
     )
+    
     val progress by animateFloatAsState(
         targetValue = (loggedSets.size / plannedExercise.targetSets.toFloat()).coerceIn(0f, 1f),
         label = "exerciseProgress",
     )
 
     GlassmorphicCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        containerColor = when {
-            isDone -> Teal.copy(alpha = 0.13f)
-            isCurrent -> Color.White.copy(alpha = 0.11f)
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = when (executionState) {
+            ExerciseExecutionState.COMPLETED -> Teal.copy(alpha = 0.13f)
+            ExerciseExecutionState.ACTIVE_SET -> Color.White.copy(alpha = 0.11f)
+            ExerciseExecutionState.RESTING -> Blue.copy(alpha = 0.1f)
             else -> Color.White.copy(alpha = 0.045f)
         },
         shape = RoundedCornerShape(24.dp),
@@ -361,8 +384,8 @@ private fun SessionExerciseCard(
         Column(
             Modifier
                 .border(
-                    width = if (isCurrent) 1.5.dp else 1.dp,
-                    color = if (isCurrent || isDone) targetColor.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.08f),
+                    width = if (isActive) 1.5.dp else 1.dp,
+                    color = if (isActive || isDone) targetColor.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.08f),
                     shape = RoundedCornerShape(24.dp),
                 )
                 .padding(16.dp),
@@ -373,7 +396,7 @@ private fun SessionExerciseCard(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(targetColor.copy(alpha = if (isDone || isCurrent) 0.92f else 0.55f)),
+                        .background(targetColor.copy(alpha = if (isDone || isActive) 0.92f else 0.55f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isDone) {
@@ -395,7 +418,7 @@ private fun SessionExerciseCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        StatusPill(isCurrent = isCurrent, isDone = isDone)
+                        ExecutionStatusPill(executionState)
                     }
                     Text(
                         exercise?.let { "${it.primaryMuscles.joinToString(", ")} | ${it.equipment}" }
@@ -418,52 +441,355 @@ private fun SessionExerciseCard(
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(CircleShape),
-                color = if (isDone) Teal else Coral,
+                color = when (executionState) {
+                    ExerciseExecutionState.COMPLETED -> Teal
+                    ExerciseExecutionState.RESTING -> Blue
+                    else -> Coral
+                },
                 trackColor = Color.White.copy(alpha = 0.12f),
             )
 
-            SetHistory(
-                loggedSets = loggedSets,
-                loggingType = loggingType,
-                targetSets = plannedExercise.targetSets,
-                onTargetSetsChanged = onTargetSetsChanged,
-            )
-
-            AnimatedVisibility(visible = isCurrent && !isDone) {
-                IntegratedSetLogger(
-                    plannedExercise = plannedExercise,
-                    exercise = exercise,
-                    loggedSets = loggedSets,
-                    inputStyle = inputStyle,
-                    onLogSet = onLogSet,
-                )
+            when (executionState) {
+                ExerciseExecutionState.IDLE -> {
+                    IdleExerciseUI(
+                        loggedSets = loggedSets,
+                        targetSets = plannedExercise.targetSets,
+                        loggingType = loggingType,
+                        onStart = onStartExercise,
+                        onTargetSetsChanged = onTargetSetsChanged
+                    )
+                }
+                ExerciseExecutionState.ACTIVE_SET -> {
+                    ActiveExerciseUI(
+                        plannedExercise = plannedExercise,
+                        exercise = exercise,
+                        loggedSets = loggedSets,
+                        inputStyle = inputStyle,
+                        onCompleteSet = onCompleteSet,
+                        onCancel = onCancelActive
+                    )
+                }
+                ExerciseExecutionState.RESTING -> {
+                    RestingExerciseUI(
+                        loggedSets = loggedSets,
+                        targetSets = plannedExercise.targetSets,
+                        onSkipRest = onSkipRest
+                    )
+                }
+                ExerciseExecutionState.COMPLETED -> {
+                    CompletedExerciseUI(loggedSets = loggedSets, loggingType = loggingType)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StatusPill(isCurrent: Boolean, isDone: Boolean) {
-    val (text, color) = when {
-        isDone -> "Done" to Teal
-        isCurrent -> "Now" to Coral
+private fun IdleExerciseUI(
+    loggedSets: List<SessionSet>,
+    targetSets: Int,
+    loggingType: LoggingType,
+    onStart: () -> Unit,
+    onTargetSetsChanged: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SetHistory(
+            loggedSets = loggedSets,
+            loggingType = loggingType,
+            targetSets = targetSets,
+            onTargetSetsChanged = onTargetSetsChanged,
+        )
+        
+        Button(
+            onClick = onStart,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Coral),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Start Set ${loggedSets.size + 1}", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun ActiveExerciseUI(
+    plannedExercise: PlannedExercise,
+    exercise: Exercise?,
+    loggedSets: List<SessionSet>,
+    inputStyle: String,
+    onCompleteSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
+    onCancel: () -> Unit
+) {
+    val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
+    
+    // Auto-logging for timed exercises
+    if (loggingType == LoggingType.TIMED) {
+        val targetSeconds = plannedExercise.targetDurationSeconds ?: 60
+        var secondsLeft by remember(plannedExercise.exerciseId, loggedSets.size) { mutableIntStateOf(targetSeconds) }
+        
+        LaunchedEffect(secondsLeft) {
+            if (secondsLeft > 0) {
+                delay(1000)
+                secondsLeft--
+            } else {
+                onCompleteSet(0f, 0, targetSeconds, null, null, null)
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.Black.copy(alpha = 0.22f))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Set ${loggedSets.size + 1} - Countdown",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                IconButton(onClick = onCancel, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Block, contentDescription = "Cancel", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Box(contentAlignment = Alignment.Center) {
+                ExerciseExecutionAnimation(loggingType = loggingType, showIcon = false)
+                Text(
+                    "%d:%02d".format(secondsLeft / 60, secondsLeft % 60),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            Button(
+                onClick = { onCompleteSet(0f, 0, targetSeconds - secondsLeft, null, null, null) },
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Coral),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text("Finish Early", fontWeight = FontWeight.ExtraBold)
+            }
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.Black.copy(alpha = 0.22f))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Set ${loggedSets.size + 1} in Progress",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                IconButton(onClick = onCancel, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Block, contentDescription = "Cancel", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                }
+            }
+
+            ExerciseExecutionAnimation(loggingType = loggingType)
+
+            IntegratedSetLogger(
+                plannedExercise = plannedExercise,
+                exercise = exercise,
+                loggedSets = loggedSets,
+                inputStyle = inputStyle,
+                onLogSet = onCompleteSet,
+                buttonLabel = "Complete Set ${loggedSets.size + 1}"
+            )
+        }
+    }
+}
+
+@Composable
+private fun RestingExerciseUI(
+    loggedSets: List<SessionSet>,
+    targetSets: Int,
+    onSkipRest: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Blue.copy(alpha = 0.15f))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(Icons.Default.Timer, contentDescription = null, tint = Blue, modifier = Modifier.size(32.dp))
+        Text("Resting...", color = Color.White, fontWeight = FontWeight.Bold)
+        Text(
+            "Nice work on Set ${loggedSets.size}! Get ready for Set ${loggedSets.size + 1}.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        OutlinedButton(
+            onClick = onSkipRest,
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Blue.copy(alpha = 0.5f)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Blue)
+        ) {
+            Text("Skip Rest", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CompletedExerciseUI(loggedSets: List<SessionSet>, loggingType: LoggingType) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Teal.copy(alpha = 0.1f))
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Teal, modifier = Modifier.size(32.dp))
+        Text("Exercise Completed!", color = Teal, fontWeight = FontWeight.ExtraBold)
+        Text(
+            "Total Volume: ${loggedSets.sumOf { (it.weightKg * it.reps).toDouble() }.toInt()} kg",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.6f)
+        )
+    }
+}
+
+@Composable
+private fun ExerciseExecutionAnimation(loggingType: LoggingType, showIcon: Boolean = true) {
+    val infiniteTransition = rememberInfiniteTransition(label = "exerciseAnim")
+    
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
+    val rotate by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing)
+        ),
+        label = "rotate"
+    )
+
+    Box(
+        modifier = Modifier.size(120.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2, size.height / 2)
+            val radius = size.minDimension / 2.2f
+            
+            // Background ring
+            drawCircle(
+                color = Color.White.copy(alpha = 0.05f),
+                radius = radius,
+                style = Stroke(width = 8.dp.toPx())
+            )
+            
+            // Accent ring
+            drawArc(
+                color = Coral,
+                startAngle = rotate,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round),
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+            )
+        }
+
+        if (showIcon) {
+            Icon(
+                imageVector = when (loggingType) {
+                    LoggingType.WEIGHTED_REPS, LoggingType.BODYWEIGHT_REPS -> Icons.Default.FitnessCenter
+                    LoggingType.TIMED -> Icons.Default.Timer
+                    else -> Icons.Default.PlayArrow
+                },
+                contentDescription = null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .graphicsLayer(scaleX = pulse, scaleY = pulse),
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExecutionStatusPill(state: ExerciseExecutionState) {
+    val (text, color) = when (state) {
+        ExerciseExecutionState.COMPLETED -> "Done" to Teal
+        ExerciseExecutionState.ACTIVE_SET -> "Active" to Coral
+        ExerciseExecutionState.RESTING -> "Rest" to Blue
         else -> "Next" to Color.White.copy(alpha = 0.28f)
     }
 
     Surface(
         shape = RoundedCornerShape(50),
-        color = color.copy(alpha = if (isCurrent || isDone) 0.22f else 0.16f),
-        border = BorderStroke(1.dp, color.copy(alpha = if (isCurrent || isDone) 0.55f else 0.2f)),
+        color = color.copy(alpha = if (state != ExerciseExecutionState.IDLE) 0.22f else 0.16f),
+        border = BorderStroke(1.dp, color.copy(alpha = if (state != ExerciseExecutionState.IDLE) 0.55f else 0.2f)),
     ) {
         Text(
             text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = if (isCurrent || isDone) color else Color.White.copy(alpha = 0.58f),
+            color = if (state != ExerciseExecutionState.IDLE) color else Color.White.copy(alpha = 0.58f),
             fontWeight = FontWeight.Bold,
         )
     }
 }
+
+@Composable
+private fun SwitchExerciseConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Switch Exercise?") },
+        text = { Text("You have an active set in progress. Starting a new exercise will cancel the current active set. Continue?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Confirm", color = Coral, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+            }
+        },
+        containerColor = Color(0xFF1A1C1E),
+        titleContentColor = Color.White,
+        textContentColor = Color.White.copy(alpha = 0.7f)
+    )
+}
+
 
 @Composable
 private fun SetHistory(
@@ -510,6 +836,7 @@ private fun IntegratedSetLogger(
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
     inputStyle: String,
+    buttonLabel: String = "Log Set",
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
@@ -817,7 +1144,7 @@ private fun IntegratedSetLogger(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Log ${loggingType.actionLabel()} $currentSetNumber", fontWeight = FontWeight.ExtraBold)
+                Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

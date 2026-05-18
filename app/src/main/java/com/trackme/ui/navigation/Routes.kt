@@ -1,6 +1,7 @@
 package com.trackme.ui.navigation
 
 sealed class Routes(val route: String) {
+    object Splash : Routes("splash")
     object Auth : Routes("auth")
     object Onboarding : Routes("onboarding")
     object Home : Routes("home")
