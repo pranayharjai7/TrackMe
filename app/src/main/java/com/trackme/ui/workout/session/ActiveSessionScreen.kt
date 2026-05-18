@@ -2,6 +2,7 @@ package com.trackme.ui.workout.session
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -407,7 +408,14 @@ private fun SessionExerciseCard(
     )
 
     GlassmorphicCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ),
         containerColor = when (executionState) {
             ExerciseExecutionState.COMPLETED -> Teal.copy(alpha = 0.13f)
             ExerciseExecutionState.ACTIVE_SET -> Color.White.copy(alpha = 0.11f)

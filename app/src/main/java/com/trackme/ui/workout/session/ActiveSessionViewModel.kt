@@ -32,6 +32,11 @@ enum class ExerciseExecutionState {
     COMPLETED
 }
 
+/**
+ * Representation of the screen's UI State.
+ * Added restingExerciseId to track exactly which exercise is resting.
+ * executionStates is now fully derived and kept read-only for the UI.
+ */
 data class ActiveSessionUiState(
     val sessionId: String = "",
     val exercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
@@ -39,6 +44,7 @@ data class ActiveSessionUiState(
     val loggedSetsByExercise: Map<String, List<SessionSet>> = emptyMap(),
     val executionStates: Map<String, ExerciseExecutionState> = emptyMap(),
     val activeExerciseId: String? = null,
+    val restingExerciseId: String? = null, // Tracks the currently resting exercise
     val restTimerRunning: Boolean = false,
     val restSeconds: Int = 90,
     val restSecondsRemaining: Int = 90,
@@ -51,10 +57,15 @@ data class ActiveSessionUiState(
  *
  * Architecture Layer: ViewModel (MVVM)
  *
- * Responsibilities:
- * - Start or resume today's in-progress session for the selected workout day.
- * - Expose planned exercises, exercise metadata, logged sets, and rest timer state.
- * - Delegate persistence and personal-record logic to domain use cases/repositories.
+ * State Machine & Completion Logic:
+ * The execution state of each exercise card is dynamically derived as a function of current data:
+ * UI State = f(completedSets, targetSets, activeExerciseId, restingExerciseId)
+ *
+ * Rules:
+ * 1. COMPLETED: If completedSets >= targetSets. Takes absolute precedence.
+ * 2. ACTIVE_SET: If exerciseId == activeExerciseId.
+ * 3. RESTING: If exerciseId == restingExerciseId.
+ * 4. IDLE: Default state.
  */
 @HiltViewModel
 class ActiveSessionViewModel @Inject constructor(
@@ -80,12 +91,14 @@ class ActiveSessionViewModel @Inject constructor(
     private var restTimerJob: Job? = null
 
     init {
+        // Collect user preference for logger input style
         viewModelScope.launch {
             dataStore.data.collect { prefs ->
-                _uiState.update { it.copy(inputStyle = prefs[PREF_INPUT_STYLE] ?: DEFAULT_INPUT_STYLE) }
+                updateUiState { it.copy(inputStyle = prefs[PREF_INPUT_STYLE] ?: DEFAULT_INPUT_STYLE) }
             }
         }
         
+        // Start or resume the today's active session, then observe exercises and logged sets flows.
         viewModelScope.launch {
             val session = try {
                 workoutRepository.getInProgressSessionForDay(userId, dayId, startOfTodayMillis())
@@ -94,45 +107,26 @@ class ActiveSessionViewModel @Inject constructor(
                 return@launch
             }
             sessionStartTime = session.date
-            _uiState.update { it.copy(sessionId = session.id) }
+            updateUiState { it.copy(sessionId = session.id) }
 
+            // Observe planned exercises. Any update here (such as changing target set counts)
+            // will publish to exercises list, triggering an automatic recomposition and execution state derivation.
             launch {
                 observePlannedExercisesWithDetails(dayId).collect { withDetails ->
-                    _uiState.update { state ->
-                        val newExecutionStates = state.executionStates.toMutableMap()
-                        withDetails.forEach { (planned, _) ->
-                            if (!newExecutionStates.containsKey(planned.exerciseId)) {
-                                val sets = state.loggedSetsByExercise[planned.exerciseId].orEmpty()
-                                newExecutionStates[planned.exerciseId] = if (sets.size >= planned.targetSets) {
-                                    ExerciseExecutionState.COMPLETED
-                                } else {
-                                    ExerciseExecutionState.IDLE
-                                }
-                            }
-                        }
-                        state.copy(exercises = withDetails, executionStates = newExecutionStates)
+                    updateUiState { state ->
+                        state.copy(exercises = withDetails)
                     }
                 }
             }
+
+            // Observe logged sets. Adding/removing/modifying sets emits here, immediately updating completed set counts
+            // and automatically recalculating the exercise execution state.
             launch {
                 workoutRepository.getSessionSets(session.id).collect { sets ->
-                    _uiState.update { state ->
-                        val grouped = sets.groupBy { it.exerciseId }
-                        val newExecutionStates = state.executionStates.toMutableMap()
-                        state.exercises.forEach { (planned, _) ->
-                            val loggedForEx = grouped[planned.exerciseId].orEmpty()
-                            // If we are IDLE but should be COMPLETED, update it.
-                            // But don't overwrite ACTIVE_SET or RESTING states unless target reached.
-                            if (loggedForEx.size >= planned.targetSets) {
-                                newExecutionStates[planned.exerciseId] = ExerciseExecutionState.COMPLETED
-                            } else if (newExecutionStates[planned.exerciseId] == ExerciseExecutionState.COMPLETED) {
-                                newExecutionStates[planned.exerciseId] = ExerciseExecutionState.IDLE
-                            }
-                        }
+                    updateUiState { state ->
                         state.copy(
                             loggedSets = sets,
-                            loggedSetsByExercise = grouped,
-                            executionStates = newExecutionStates
+                            loggedSetsByExercise = sets.groupBy { it.exerciseId }
                         )
                     }
                 }
@@ -140,28 +134,111 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
-    fun startExercise(exerciseId: String) {
-        val currentState = _uiState.value.executionStates[exerciseId]
-        if (currentState == ExerciseExecutionState.ACTIVE_SET) return
+    /**
+     * Centralized state update helper to ensure consistency.
+     * Ensures all state transitions recompute derived execution states dynamically
+     * and clears invalid active/resting state flags when an exercise is marked completed.
+     */
+    private fun updateUiState(updateBlock: (ActiveSessionUiState) -> ActiveSessionUiState) {
+        _uiState.update { currentState ->
+            val nextState = updateBlock(currentState)
+            
+            // Derive execution states based on target sets and logged sets
+            val derivedExecutionStates = deriveExecutionStates(
+                exercises = nextState.exercises,
+                loggedSetsByExercise = nextState.loggedSetsByExercise,
+                activeExerciseId = nextState.activeExerciseId,
+                restingExerciseId = nextState.restingExerciseId
+            )
+            
+            // Edge-case cleanup: If an exercise has reached its target sets (COMPLETED),
+            // it can no longer be in an ACTIVE_SET or RESTING state.
+            var finalActiveExerciseId = nextState.activeExerciseId
+            var finalRestingExerciseId = nextState.restingExerciseId
+            
+            derivedExecutionStates.forEach { (exerciseId, execState) ->
+                if (execState == ExerciseExecutionState.COMPLETED) {
+                    if (finalActiveExerciseId == exerciseId) {
+                        finalActiveExerciseId = null
+                    }
+                    if (finalRestingExerciseId == exerciseId) {
+                        finalRestingExerciseId = null
+                    }
+                }
+            }
+            
+            // Re-derive if the flags were updated during verification/cleanup
+            val finalExecutionStates = if (finalActiveExerciseId != nextState.activeExerciseId || finalRestingExerciseId != nextState.restingExerciseId) {
+                deriveExecutionStates(
+                    exercises = nextState.exercises,
+                    loggedSetsByExercise = nextState.loggedSetsByExercise,
+                    activeExerciseId = finalActiveExerciseId,
+                    restingExerciseId = finalRestingExerciseId
+                )
+            } else {
+                derivedExecutionStates
+            }
+            
+            nextState.copy(
+                activeExerciseId = finalActiveExerciseId,
+                restingExerciseId = finalRestingExerciseId,
+                executionStates = finalExecutionStates
+            )
+        }
+    }
 
-        _uiState.update { 
+    /**
+     * Determines the execution state of all exercises deterministically.
+     */
+    private fun deriveExecutionStates(
+        exercises: List<Pair<PlannedExercise, Exercise?>>,
+        loggedSetsByExercise: Map<String, List<SessionSet>>,
+        activeExerciseId: String?,
+        restingExerciseId: String?,
+    ): Map<String, ExerciseExecutionState> {
+        return exercises.associate { (planned, _) ->
+            val exerciseId = planned.exerciseId
+            val completedSets = loggedSetsByExercise[exerciseId]?.size ?: 0
+            val targetSets = planned.targetSets
+            val state = when {
+                completedSets >= targetSets -> ExerciseExecutionState.COMPLETED
+                exerciseId == activeExerciseId -> ExerciseExecutionState.ACTIVE_SET
+                exerciseId == restingExerciseId -> ExerciseExecutionState.RESTING
+                else -> ExerciseExecutionState.IDLE
+            }
+            exerciseId to state
+        }
+    }
+
+    /**
+     * Activates an exercise to perform a set. Cancels any rest period for that exercise.
+     */
+    fun startExercise(exerciseId: String) {
+        if (_uiState.value.activeExerciseId == exerciseId) return
+
+        updateUiState {
             it.copy(
                 activeExerciseId = exerciseId,
-                executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.ACTIVE_SET)
+                restingExerciseId = if (it.restingExerciseId == exerciseId) null else it.restingExerciseId
             )
         }
     }
 
+    /**
+     * Cancels active set logging for an exercise, returning it to IDLE.
+     */
     fun cancelActiveSet(exerciseId: String) {
-        _uiState.update { 
+        updateUiState {
             val newState = if (it.activeExerciseId == exerciseId) null else it.activeExerciseId
-            it.copy(
-                activeExerciseId = newState,
-                executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.IDLE)
-            )
+            it.copy(activeExerciseId = newState)
         }
     }
 
+    /**
+     * Logs the completed set. Transitions the state machine:
+     * - If completedSets >= targetSets: transition to COMPLETED.
+     * - Else: transition to RESTING and trigger the rest timer countdown.
+     */
     fun completeSet(
         exerciseId: String,
         weightKg: Float,
@@ -190,11 +267,10 @@ class ActiveSessionViewModel @Inject constructor(
             )
 
             val isDone = nextSetNumber >= planned.targetSets
-            _uiState.update { state ->
-                val nextExecutionState = if (isDone) ExerciseExecutionState.COMPLETED else ExerciseExecutionState.RESTING
+            updateUiState { state ->
                 state.copy(
-                    executionStates = state.executionStates + (exerciseId to nextExecutionState),
-                    activeExerciseId = if (state.activeExerciseId == exerciseId) null else state.activeExerciseId
+                    activeExerciseId = if (state.activeExerciseId == exerciseId) null else state.activeExerciseId,
+                    restingExerciseId = if (isDone) null else exerciseId
                 )
             }
 
@@ -204,13 +280,21 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Skips the rest timer for the given exercise, immediately transitioning it to IDLE.
+     */
     fun skipRest(exerciseId: String) {
         stopRestTimer()
-        _uiState.update { 
-            it.copy(executionStates = it.executionStates + (exerciseId to ExerciseExecutionState.IDLE))
+        updateUiState {
+            it.copy(
+                restingExerciseId = if (it.restingExerciseId == exerciseId) null else it.restingExerciseId
+            )
         }
     }
 
+    /**
+     * Logs a set manually (used in edit/logging sub-components).
+     */
     fun logSet(
         exerciseId: String,
         setNumber: Int,
@@ -221,7 +305,6 @@ class ActiveSessionViewModel @Inject constructor(
         speedKmh: Float? = null,
         inclinePercent: Float? = null,
     ) {
-        // Logging delegates to LogSetUseCase so PR updates and persistence stay in domain/data layers.
         viewModelScope.launch {
             logSetUseCase(
                 sessionId = _uiState.value.sessionId,
@@ -235,10 +318,13 @@ class ActiveSessionViewModel @Inject constructor(
                 speedKmh = speedKmh,
                 inclinePercent = inclinePercent,
             )
-            startRestTimer()
+            startRestTimer(exerciseId)
         }
     }
 
+    /**
+     * Edits a previously logged set's parameters.
+     */
     fun editSet(
         setId: String,
         exerciseId: String,
@@ -264,70 +350,81 @@ class ActiveSessionViewModel @Inject constructor(
                 inclinePercent = inclinePercent,
                 setId = setId,
             )
-            // No state transition or rest timer needed for edit
         }
     }
 
+    /**
+     * Optimistically deletes a logged set from the UI State and deletes it in the database.
+     * The dynamic derivation ensures that if completedSets drops below targetSets,
+     * the exercise state heals instantly (e.g. transitioning from COMPLETED back to IDLE).
+     */
     fun deleteSet(set: SessionSet) {
         viewModelScope.launch {
-            deleteSetUseCase(set)
-            
-            // Re-evaluate execution state immediately to update UI before sync finishes
-            val planned = plannedFor(set.exerciseId)
-            val loggedSets = _uiState.value.loggedSetsByExercise[set.exerciseId].orEmpty()
-            
-            if (planned != null) {
-                // Determine what the size will be after deletion
-                val newCount = maxOf(0, loggedSets.size - 1)
-                if (newCount < planned.targetSets) {
-                    _uiState.update { state ->
-                        val currentExState = state.executionStates[set.exerciseId]
-                        // If it was COMPLETED, we need to move it back to IDLE
-                        if (currentExState == ExerciseExecutionState.COMPLETED) {
-                            state.copy(executionStates = state.executionStates + (set.exerciseId to ExerciseExecutionState.IDLE))
-                        } else {
-                            state
-                        }
-                    }
-                }
+            updateUiState { state ->
+                val loggedForEx = state.loggedSetsByExercise[set.exerciseId].orEmpty()
+                val updatedSetsForEx = loggedForEx.filter { it.id != set.id }
+                val updatedGrouped = state.loggedSetsByExercise + (set.exerciseId to updatedSetsForEx)
+                val updatedLoggedSets = state.loggedSets.filter { it.id != set.id }
+                state.copy(
+                    loggedSets = updatedLoggedSets,
+                    loggedSetsByExercise = updatedGrouped
+                )
             }
+            
+            deleteSetUseCase(set)
         }
     }
 
+    /**
+     * Starts the global rest countdown. If an exerciseId is specified,
+     * it stays in the RESTING state until the countdown is zero or skipped.
+     */
     private fun startRestTimer(exerciseId: String? = null) {
-        // A single Job owns the timer so repeated set logs reset the countdown cleanly.
         restTimerJob?.cancel()
         val seconds = _uiState.value.restSeconds
-        _uiState.update { it.copy(restTimerRunning = true, restSecondsRemaining = seconds) }
+        updateUiState { it.copy(restTimerRunning = true, restSecondsRemaining = seconds) }
         restTimerJob = viewModelScope.launch {
             for (remaining in seconds downTo 0) {
-                _uiState.update { it.copy(restSecondsRemaining = remaining) }
+                updateUiState { it.copy(restSecondsRemaining = remaining) }
                 if (remaining > 0) delay(1_000)
             }
-            _uiState.update { state ->
-                val nextStates = if (exerciseId != null && state.executionStates[exerciseId] == ExerciseExecutionState.RESTING) {
-                    state.executionStates + (exerciseId to ExerciseExecutionState.IDLE)
-                } else state.executionStates
-                state.copy(restTimerRunning = false, executionStates = nextStates)
+            updateUiState { state ->
+                state.copy(
+                    restTimerRunning = false,
+                    restingExerciseId = if (exerciseId != null && state.restingExerciseId == exerciseId) null else state.restingExerciseId
+                )
             }
         }
     }
 
+    /**
+     * Stops the global rest timer and clears any resting exercise status.
+     */
     fun stopRestTimer() {
         restTimerJob?.cancel()
-        _uiState.update { it.copy(restTimerRunning = false) }
+        updateUiState {
+            it.copy(
+                restTimerRunning = false,
+                restingExerciseId = null
+            )
+        }
     }
 
-    fun setRestDuration(seconds: Int) = _uiState.update { it.copy(restSeconds = seconds) }
+    fun setRestDuration(seconds: Int) = updateUiState { it.copy(restSeconds = seconds) }
 
     fun finishSession(onDone: () -> Unit) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isFinishing = true) }
+            updateUiState { it.copy(isFinishing = true) }
             finishSessionUseCase(_uiState.value.sessionId, sessionStartTime)
             onDone()
         }
     }
 
+    /**
+     * Updates target set counts. Triggering this database update will cause
+     * observePlannedExercises flow to emit, immediately triggering updateUiState
+     * and re-evaluating the derived state logic.
+     */
     fun updateTargetSets(exerciseId: String, sets: Int) {
         viewModelScope.launch {
             val planned = _uiState.value.exercises.find { it.first.exerciseId == exerciseId }?.first
