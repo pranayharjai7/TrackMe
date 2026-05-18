@@ -1,6 +1,7 @@
 package com.trackme.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,7 +69,12 @@ fun HomeScreen(
             }
 
             item {
-                HeroActionCard(state, onStartSession, onResumeSession)
+                HeroActionCard(
+                    state = state,
+                    onStartSession = onStartSession,
+                    onResumeSession = onResumeSession,
+                    onRestartSession = viewModel::restartFinishedWorkout
+                )
             }
 
             if (state.weekStrip.isNotEmpty()) {
@@ -184,7 +190,8 @@ private fun GreetingHeader(state: HomeUiState) {
 private fun HeroActionCard(
     state: HomeUiState,
     onStartSession: (dayId: String) -> Unit,
-    onResumeSession: (dayId: String) -> Unit
+    onResumeSession: (dayId: String) -> Unit,
+    onRestartSession: (dayId: String) -> Unit,
 ) {
     GlassmorphicCard(
         modifier = Modifier
@@ -241,6 +248,23 @@ private fun HeroActionCard(
                     }
                     Spacer(Modifier.height(8.dp))
                     Text("Amazing job today. Your muscles are growing as we speak. See you tomorrow!", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+                    
+                    state.todayWorkoutDay?.let { day ->
+                        Spacer(Modifier.height(20.dp))
+                        OutlinedButton(
+                            onClick = { onRestartSession(day.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Restart / Resume Workout", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
             }
         }

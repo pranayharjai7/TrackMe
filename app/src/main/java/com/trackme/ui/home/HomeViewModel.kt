@@ -14,6 +14,7 @@ import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import com.trackme.utils.MILLIS_PER_DAY
 import com.trackme.utils.millisDaysAgo
 import com.trackme.utils.startOfLocalDayMillis
@@ -145,6 +146,24 @@ class HomeViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
+
+    fun restartFinishedWorkout(dayId: String) {
+        val status = supabase.auth.sessionStatus.value
+        val session = (status as? SessionStatus.Authenticated)?.session ?: return
+        val uid = session.user?.id.orEmpty()
+        if (uid.isEmpty()) return
+
+        viewModelScope.launch {
+            val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
+            val sessions = workoutRepository.getSessionsSince(uid, todayMidnight).first()
+            val finishedSession = sessions.firstOrNull {
+                startOfLocalDayMillis(it.date) == todayMidnight && it.dayId == dayId && it.durationMinutes > 0
+            }
+            if (finishedSession != null) {
+                workoutRepository.finishSession(finishedSession.id, 0)
+            }
+        }
+    }
 }
 
 /**
