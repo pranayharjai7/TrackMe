@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -122,6 +123,7 @@ private data class SessionProgress(
     val percent: Int = (fraction * 100).roundToInt().coerceIn(0, 100)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActiveSessionScreen(
     dayId: String,
@@ -166,7 +168,7 @@ fun ActiveSessionScreen(
             }
 
             if (state.restTimerRunning) {
-                item {
+                stickyHeader(key = "rest_timer_header") {
                     RestTimerCard(
                         secondsRemaining = state.restSecondsRemaining,
                         totalSeconds = state.restSeconds,
@@ -180,6 +182,7 @@ fun ActiveSessionScreen(
                 val executionState = state.executionStates[planned.exerciseId] ?: ExerciseExecutionState.IDLE
                 
                 var showSwitchConfirmation by remember { mutableStateOf(false) }
+                var showSkipRestConfirmation by remember { mutableStateOf(false) }
                 var setTargetToEdit by remember { mutableStateOf<SessionSet?>(null) }
                 val haptic = LocalHapticFeedback.current
 
@@ -191,6 +194,17 @@ fun ActiveSessionScreen(
                             viewModel.startExercise(planned.exerciseId)
                         },
                         onDismiss = { showSwitchConfirmation = false }
+                    )
+                }
+
+                if (showSkipRestConfirmation) {
+                    SkipRestConfirmationDialog(
+                        onConfirm = {
+                            showSkipRestConfirmation = false
+                            viewModel.stopRestTimer()
+                            viewModel.startExercise(planned.exerciseId)
+                        },
+                        onDismiss = { showSkipRestConfirmation = false }
                     )
                 }
 
@@ -233,6 +247,8 @@ fun ActiveSessionScreen(
                     onStartExercise = {
                         if (state.activeExerciseId != null && state.activeExerciseId != planned.exerciseId) {
                             showSwitchConfirmation = true
+                        } else if (state.restTimerRunning) {
+                            showSkipRestConfirmation = true
                         } else {
                             viewModel.startExercise(planned.exerciseId)
                         }
@@ -858,6 +874,28 @@ private fun SwitchExerciseConfirmationDialog(onConfirm: () -> Unit, onDismiss: (
     )
 }
 
+@Composable
+private fun SkipRestConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rest in Progress") },
+        text = { Text("You are currently resting. Starting this exercise will skip the rest timer. Continue?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Skip & Start", color = Coral, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Keep Resting", color = Color.White.copy(alpha = 0.6f))
+            }
+        },
+        containerColor = Color(0xFF1A1C1E),
+        titleContentColor = Color.White,
+        textContentColor = Color.White.copy(alpha = 0.7f)
+    )
+}
+
 
 @Composable
 private fun SetHistory(
@@ -942,15 +980,48 @@ private fun EditSetDialog(
         confirmButton = {},
         dismissButton = {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onDelete) {
-                    Text("Delete Set", color = Coral, fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Coral.copy(alpha = 0.8f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Coral),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Set",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Delete",
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.12f)),
+                ) {
+                    Text(
+                        "Cancel",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
         }
