@@ -108,7 +108,9 @@ class WorkoutRepositoryImpl @Inject constructor(
     }
 
     override suspend fun reorderExercises(exercises: List<PlannedExercise>) {
-        plannedExerciseDao.insertAll(exercises.map { it.toEntity(isSynced = false) })
+        val now = System.currentTimeMillis()
+        val updated = exercises.map { it.copy(updatedAt = now) }
+        plannedExerciseDao.insertAll(updated.map { it.toEntity(isSynced = false) })
         syncManager.enqueueImmediateSync()
     }
 
