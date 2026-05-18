@@ -68,9 +68,9 @@ fun WeeklyPlannerScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding(),
-                contentPadding = PaddingValues(top = 24.dp, bottom = 80.dp),
+                    .statusBarsPadding(),
+
+                contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
@@ -111,7 +111,7 @@ fun WeeklyPlannerScreen(
             onClick = viewModel::showNewPlanDialog,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 16.dp)
+                .padding(end = 16.dp, bottom = 116.dp)
                 .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
             containerColor = Violet.copy(alpha = 0.9f),
             contentColor = Color.White,

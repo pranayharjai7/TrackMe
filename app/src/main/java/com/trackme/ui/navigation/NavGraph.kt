@@ -77,7 +77,10 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Background)
-                    .padding(innerPadding),
+                    .padding(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = 0.dp
+                    ),
             ) {
                 composable(Routes.Splash.route) {
                     Box(

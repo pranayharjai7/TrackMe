@@ -54,7 +54,7 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .zIndex(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
         ) {
             if (state.isLoading) {
                 item {
