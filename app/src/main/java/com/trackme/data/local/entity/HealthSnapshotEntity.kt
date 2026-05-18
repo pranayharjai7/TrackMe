@@ -22,11 +22,15 @@ data class HealthSnapshotEntity(
     val steps: Long?,
     val activeCaloriesBurned: Float?,
     val heartRateAvg: Int?,
+    val hrvRmssd: Float?,
+    val restingHeartRate: Int?,
+    val sleepDurationMinutes: Int?,
+    val deepSleepMinutes: Int?,
     val updatedAt: Long,
     val isSynced: Boolean = false,
 ) {
-    fun toDomain() = HealthSnapshot(id, userId, date, weightKg, heightCm, bmi, steps, activeCaloriesBurned, heartRateAvg, updatedAt)
+    fun toDomain() = HealthSnapshot(id, userId, date, weightKg, heightCm, bmi, steps, activeCaloriesBurned, heartRateAvg, hrvRmssd, restingHeartRate, sleepDurationMinutes, deepSleepMinutes, updatedAt)
 }
 
 fun HealthSnapshot.toEntity(isSynced: Boolean = false) =
-    HealthSnapshotEntity(id, userId, date, weightKg, heightCm, bmi, steps, activeCaloriesBurned, heartRateAvg, updatedAt, isSynced)
+    HealthSnapshotEntity(id, userId, date, weightKg, heightCm, bmi, steps, activeCaloriesBurned, heartRateAvg, hrvRmssd, restingHeartRate, sleepDurationMinutes, deepSleepMinutes, updatedAt, isSynced)

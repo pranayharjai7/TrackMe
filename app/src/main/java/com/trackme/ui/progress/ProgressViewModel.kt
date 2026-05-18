@@ -2,13 +2,13 @@ package com.trackme.ui.progress
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackme.domain.analytics.ProgressAnalyticsEngine
+import com.trackme.domain.analytics.models.*
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.SessionSet
 import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
-import com.trackme.domain.usecase.GetMuscleVolumeUseCase
 import com.trackme.domain.usecase.GetPersonalRecordsUseCase
-import com.trackme.domain.usecase.MuscleVolume
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.utils.millisDaysAgo
 import com.trackme.utils.startOfLocalDayMillis
@@ -20,41 +20,25 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
-enum class ProgressState {
-    MOMENTUM, MAINTENANCE, RECOVERY, UNCHARTED
-}
-
-data class ProgressInsight(val title: String, val description: String)
-
 data class ProgressUiState(
-    val dashboardState: ProgressState = ProgressState.UNCHARTED,
-    val primaryInsight: ProgressInsight? = null,
+    val isLoading: Boolean = true,
+    val readinessScore: ReadinessScore? = null,
+    val oneRmProjections: List<OneRMProjection> = emptyList(),
+    val muscleFatigueMap: Map<String, MuscleFatigue> = emptyMap(),
+    val plateauAlerts: List<PlateauAlert> = emptyList(),
+    val matrixPosition: ConsistencyMatrixPosition? = null,
     val personalRecords: List<PersonalRecord> = emptyList(),
     val weightHistory: List<HealthSnapshot> = emptyList(),
-    val latestSnapshot: HealthSnapshot? = null,
-    val sessionVolumes: Map<Long, Int> = emptyMap(),
-    val muscleVolume: List<MuscleVolume> = emptyList(),
     val exerciseOptions: List<String> = emptyList(),
     val selectedExerciseId: String? = null,
-    val isLoading: Boolean = true,
 )
 
-/**
- * ViewModel responsible for progress analytics.
- *
- * Architecture Layer: ViewModel (MVVM)
- *
- * Responsibilities:
- * - Combine personal records, workout volume, muscle volume, and health snapshots.
- * - Derive progress dashboard state before data reaches the Compose UI.
- * - Expose selected-exercise strength history as a separate stream for charts.
- */
 @HiltViewModel
 class ProgressViewModel @Inject constructor(
     private val getPersonalRecords: GetPersonalRecordsUseCase,
     private val getHealthSnapshots: GetHealthSnapshotsUseCase,
-    private val getMuscleVolume: GetMuscleVolumeUseCase,
     private val workoutRepository: WorkoutRepository,
+    private val progressAnalyticsEngine: ProgressAnalyticsEngine,
     private val supabase: SupabaseClient,
 ) : ViewModel() {
 
@@ -66,41 +50,79 @@ class ProgressViewModel @Inject constructor(
         .filter { it.isNotEmpty() }
         .distinctUntilChanged()
         .flatMapLatest { uid ->
-            val thirtyDaysAgo = millisDaysAgo(30)
-            val fourWeeksAgo = millisDaysAgo(28)
+            // Pull raw data
+            val ninetyDaysAgo = millisDaysAgo(90)
             combine(
                 getPersonalRecords(uid),
-                getHealthSnapshots(uid, 30),
-                workoutRepository.getSetsSince(uid, thirtyDaysAgo),
-                getMuscleVolume(uid, fourWeeksAgo),
+                getHealthSnapshots(uid, 90),
+                workoutRepository.getSessionsSince(uid, ninetyDaysAgo),
+                workoutRepository.getSetsSince(uid, ninetyDaysAgo),
                 _selectedExerciseId,
-            ) { prs, snapshots, sets, muscleVol, selectedId ->
-                val volumeByDay = sets.groupBy { startOfLocalDayMillis(it.updatedAt) }
-                    .mapValues { (_, daySets) -> daySets.size }
+            ) { prs, snapshots, sessions, sets, selectedId ->
                 
-                val now = System.currentTimeMillis()
-                val fourteenDaysAgo = millisDaysAgo(14, now)
-                val recentSets = sets.filter { it.updatedAt >= fourteenDaysAgo }
-                val olderSets = sets.filter { it.updatedAt < fourteenDaysAgo }
-                val state = deriveProgressState(sets.size, recentSets.size, olderSets.size)
-                val insight = state.toInsight(recentSets.size, olderSets.size)
+                // Map to pure models
+                val healthMetricsData = snapshots.map {
+                    HealthMetricsData(
+                        dateMillis = it.date,
+                        hrvRmssd = it.hrvRmssd,
+                        restingHeartRate = it.restingHeartRate ?: it.heartRateAvg, // Fallback to avg if RHR is missing
+                        sleepDurationMinutes = it.sleepDurationMinutes,
+                        deepSleepMinutes = it.deepSleepMinutes
+                    )
+                }
+
+                val setsBySession = sets.filter { it.completed }.groupBy { it.sessionId }
+                
+                val workoutSessionAnalyticsData = sessions.map { session ->
+                    val sessionSets = setsBySession[session.id] ?: emptyList()
+                    val totalVolume = sessionSets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
+                    
+                    val exercises = sessionSets.map { set ->
+                        ExerciseAnalyticsData(
+                            exerciseId = set.exerciseId,
+                            name = set.exerciseId.replaceFirstChar { c -> c.uppercase() }, // Simple placeholder name format
+                            dateMillis = set.updatedAt,
+                            targetMuscles = emptyList(), // In reality we'd look up the Exercise dictionary here
+                            weightKg = set.weightKg,
+                            reps = set.reps,
+                            durationSeconds = set.durationSeconds
+                        )
+                    }
+
+                    WorkoutSessionAnalyticsData(
+                        sessionId = session.id,
+                        dateMillis = session.date,
+                        durationMinutes = session.durationMinutes,
+                        totalVolumeKg = totalVolume,
+                        exercises = exercises
+                    )
+                }
+
+                // Delegate heavy computing to the Engine (automatically runs on Dispatchers.Default)
+                val engineResult = progressAnalyticsEngine.computeAnalytics(
+                    userId = uid,
+                    workoutHistory = workoutSessionAnalyticsData,
+                    healthHistory = healthMetricsData
+                )
 
                 val options = prs.map { it.exerciseId }.distinct().sorted()
                 val effectiveSelectedId = selectedId ?: prs.maxByOrNull { it.maxWeightKg }?.exerciseId
+
                 ProgressUiState(
-                    dashboardState = state,
-                    primaryInsight = insight,
+                    isLoading = false,
+                    readinessScore = engineResult.readinessScore,
+                    oneRmProjections = engineResult.oneRmProjections,
+                    muscleFatigueMap = engineResult.muscleFatigueMap,
+                    plateauAlerts = engineResult.plateauAlerts,
+                    matrixPosition = engineResult.matrixPosition,
                     personalRecords = prs,
                     weightHistory = snapshots,
-                    latestSnapshot = snapshots.maxByOrNull { it.date },
-                    sessionVolumes = volumeByDay,
-                    muscleVolume = muscleVol,
                     exerciseOptions = options,
-                    selectedExerciseId = effectiveSelectedId,
-                    isLoading = false,
+                    selectedExerciseId = effectiveSelectedId
                 )
             }
         }
+        // Isolate UI from heavy downstream transformations
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProgressUiState())
 
@@ -123,42 +145,4 @@ class ProgressViewModel @Inject constructor(
     fun selectExercise(exerciseId: String) {
         _selectedExerciseId.value = exerciseId
     }
-}
-
-/**
- * Converts raw set counts into a UI dashboard state.
- *
- * Inputs:
- * - totalSets: all completed sets in the 30-day analysis window.
- * - recentSetCount: completed sets in the most recent 14 days.
- * - olderSetCount: completed sets in the previous part of the window.
- */
-private fun deriveProgressState(
-    totalSets: Int,
-    recentSetCount: Int,
-    olderSetCount: Int,
-): ProgressState = when {
-    totalSets < 10 -> ProgressState.UNCHARTED
-    recentSetCount > olderSetCount * 1.15 -> ProgressState.MOMENTUM
-    recentSetCount < olderSetCount * 0.75 -> ProgressState.RECOVERY
-    else -> ProgressState.MAINTENANCE
-}
-
-private fun ProgressState.toInsight(recentSetCount: Int, olderSetCount: Int): ProgressInsight = when (this) {
-    ProgressState.MOMENTUM -> ProgressInsight(
-        "Momentum Building",
-        "Your training volume is up ${(recentSetCount * 100f / olderSetCount.coerceAtLeast(1).toFloat()).toInt() - 100}% compared to the previous two weeks. Keep riding this wave!",
-    )
-    ProgressState.MAINTENANCE -> ProgressInsight(
-        "Steady Consistency",
-        "You're maintaining a solid baseline. Consistent effort is the key to long-term gains.",
-    )
-    ProgressState.RECOVERY -> ProgressInsight(
-        "Recovery Phase",
-        "Your volume has decreased recently. If you're resting, enjoy it. If not, it's time to get back on track.",
-    )
-    ProgressState.UNCHARTED -> ProgressInsight(
-        "Just Beginning",
-        "Log more workouts to unlock deep insights into your progress trajectory.",
-    )
 }

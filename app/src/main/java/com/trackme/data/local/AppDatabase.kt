@@ -30,7 +30,7 @@ import com.trackme.data.local.entity.*
         HealthMetricEntity::class,
         PendingDeletionEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -149,6 +149,15 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE health_snapshots ADD COLUMN heartRateAvg INTEGER")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE health_snapshots ADD COLUMN hrvRmssd REAL")
+                db.execSQL("ALTER TABLE health_snapshots ADD COLUMN restingHeartRate INTEGER")
+                db.execSQL("ALTER TABLE health_snapshots ADD COLUMN sleepDurationMinutes INTEGER")
+                db.execSQL("ALTER TABLE health_snapshots ADD COLUMN deepSleepMinutes INTEGER")
             }
         }
     }

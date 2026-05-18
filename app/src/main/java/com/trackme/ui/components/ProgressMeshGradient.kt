@@ -9,32 +9,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.trackme.ui.progress.ProgressState
 import com.trackme.ui.theme.*
 
 @Composable
 fun ProgressMeshGradient(
-    state: ProgressState,
+    readinessStatus: String?,
     modifier: Modifier = Modifier
 ) {
     val tiltState = rememberDeviceTilt()
 
-    // Determine colors based on state
-    // Aurora (Momentum), Twilight (Maintenance), Ember (Recovery), Dawn (Uncharted)
-    val colors = when (state) {
-        ProgressState.MOMENTUM -> listOf(
+    // Determine colors based on Readiness
+    val colors = when {
+        readinessStatus == "Optimal" -> listOf(
             Teal.copy(alpha = 0.5f), Color(0xFF00C853).copy(alpha = 0.4f), // Emerald-ish
             Blue.copy(alpha = 0.4f), Background
         )
-        ProgressState.MAINTENANCE -> listOf(
+        readinessStatus == "Good" -> listOf(
             Violet.copy(alpha = 0.5f), Blue.copy(alpha = 0.4f),
             Color(0xFF607D8B).copy(alpha = 0.3f), Background // Slate-ish
         )
-        ProgressState.RECOVERY -> listOf(
+        readinessStatus?.contains("Recovery") == true -> listOf(
             Coral.copy(alpha = 0.6f), Color(0xFFFF9800).copy(alpha = 0.4f), // Orange
             Violet.copy(alpha = 0.3f), Background
         )
-        ProgressState.UNCHARTED -> listOf(
+        else -> listOf(
             Color(0xFFF48FB1).copy(alpha = 0.4f), Color(0xFF81D4FA).copy(alpha = 0.4f), // Pink & Powder Blue
             Color.White.copy(alpha = 0.1f), Background
         )
