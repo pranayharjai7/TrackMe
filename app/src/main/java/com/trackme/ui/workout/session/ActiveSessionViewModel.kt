@@ -8,6 +8,7 @@ import com.trackme.domain.model.PlannedExercise
 import com.trackme.domain.model.SessionSet
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.domain.usecase.AddExerciseToDayUseCase
+import com.trackme.domain.usecase.DeleteSetUseCase
 import com.trackme.domain.usecase.FinishSessionUseCase
 import com.trackme.domain.usecase.LogSetUseCase
 import com.trackme.domain.usecase.ObservePlannedExercisesWithDetailsUseCase
@@ -60,6 +61,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val startSession: StartSessionUseCase,
     private val logSetUseCase: LogSetUseCase,
+    private val deleteSetUseCase: DeleteSetUseCase,
     private val finishSessionUseCase: FinishSessionUseCase,
     private val addExerciseToDay: AddExerciseToDayUseCase,
     private val observePlannedExercisesWithDetails: ObservePlannedExercisesWithDetailsUseCase,
@@ -234,6 +236,61 @@ class ActiveSessionViewModel @Inject constructor(
                 inclinePercent = inclinePercent,
             )
             startRestTimer()
+        }
+    }
+
+    fun editSet(
+        setId: String,
+        exerciseId: String,
+        setNumber: Int,
+        weightKg: Float,
+        reps: Int,
+        durationSeconds: Int? = null,
+        distanceKm: Float? = null,
+        speedKmh: Float? = null,
+        inclinePercent: Float? = null,
+    ) {
+        viewModelScope.launch {
+            logSetUseCase(
+                sessionId = _uiState.value.sessionId,
+                userId = userId,
+                exerciseId = exerciseId,
+                setNumber = setNumber,
+                weightKg = weightKg,
+                reps = reps,
+                durationSeconds = durationSeconds,
+                distanceKm = distanceKm,
+                speedKmh = speedKmh,
+                inclinePercent = inclinePercent,
+                setId = setId,
+            )
+            // No state transition or rest timer needed for edit
+        }
+    }
+
+    fun deleteSet(set: SessionSet) {
+        viewModelScope.launch {
+            deleteSetUseCase(set)
+            
+            // Re-evaluate execution state immediately to update UI before sync finishes
+            val planned = plannedFor(set.exerciseId)
+            val loggedSets = _uiState.value.loggedSetsByExercise[set.exerciseId].orEmpty()
+            
+            if (planned != null) {
+                // Determine what the size will be after deletion
+                val newCount = maxOf(0, loggedSets.size - 1)
+                if (newCount < planned.targetSets) {
+                    _uiState.update { state ->
+                        val currentExState = state.executionStates[set.exerciseId]
+                        // If it was COMPLETED, we need to move it back to IDLE
+                        if (currentExState == ExerciseExecutionState.COMPLETED) {
+                            state.copy(executionStates = state.executionStates + (set.exerciseId to ExerciseExecutionState.IDLE))
+                        } else {
+                            state
+                        }
+                    }
+                }
+            }
         }
     }
 

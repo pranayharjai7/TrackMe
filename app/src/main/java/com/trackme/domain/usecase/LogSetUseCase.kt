@@ -17,9 +17,10 @@ class LogSetUseCase @Inject constructor(private val repo: WorkoutRepository) {
         distanceKm: Float? = null,
         speedKmh: Float? = null,
         inclinePercent: Float? = null,
+        setId: String? = null,
     ): SessionSet {
         val set = SessionSet(
-            id = UUID.randomUUID().toString(),
+            id = setId ?: UUID.randomUUID().toString(),
             sessionId = sessionId,
             userId = userId,
             exerciseId = exerciseId,

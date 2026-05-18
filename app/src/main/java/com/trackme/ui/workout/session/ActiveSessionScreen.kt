@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -178,6 +179,7 @@ fun ActiveSessionScreen(
                 val executionState = state.executionStates[planned.exerciseId] ?: ExerciseExecutionState.IDLE
                 
                 var showSwitchConfirmation by remember { mutableStateOf(false) }
+                var setTargetToEdit by remember { mutableStateOf<SessionSet?>(null) }
                 val haptic = LocalHapticFeedback.current
 
                 if (showSwitchConfirmation) {
@@ -188,6 +190,35 @@ fun ActiveSessionScreen(
                             viewModel.startExercise(planned.exerciseId)
                         },
                         onDismiss = { showSwitchConfirmation = false }
+                    )
+                }
+
+                if (setTargetToEdit != null) {
+                    val set = setTargetToEdit!!
+                    EditSetDialog(
+                        set = set,
+                        plannedExercise = planned,
+                        exercise = exercise,
+                        inputStyle = state.inputStyle,
+                        onDismiss = { setTargetToEdit = null },
+                        onSave = { weight, reps, duration, distance, speed, incline ->
+                            viewModel.editSet(
+                                setId = set.id,
+                                exerciseId = planned.exerciseId,
+                                setNumber = set.setNumber,
+                                weightKg = weight,
+                                reps = reps,
+                                durationSeconds = duration,
+                                distanceKm = distance,
+                                speedKmh = speed,
+                                inclinePercent = incline
+                            )
+                            setTargetToEdit = null
+                        },
+                        onDelete = {
+                            viewModel.deleteSet(set)
+                            setTargetToEdit = null
+                        }
                     )
                 }
 
@@ -217,6 +248,8 @@ fun ActiveSessionScreen(
                             incline,
                         )
                     },
+                    onDeleteSet = { viewModel.deleteSet(it) },
+                    onEditSet = { set -> setTargetToEdit = set },
                     onSkipRest = { viewModel.skipRest(planned.exerciseId) },
                     onCancelActive = { viewModel.cancelActiveSet(planned.exerciseId) },
                     onExerciseClick = { exercise?.let { onExerciseClick(it.id) } },
@@ -347,6 +380,8 @@ private fun SessionExerciseCard(
     inputStyle: String,
     onStartExercise: () -> Unit,
     onCompleteSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
+    onDeleteSet: (SessionSet) -> Unit,
+    onEditSet: (SessionSet) -> Unit,
     onSkipRest: () -> Unit,
     onCancelActive: () -> Unit,
     onExerciseClick: () -> Unit,
@@ -456,7 +491,8 @@ private fun SessionExerciseCard(
                         targetSets = plannedExercise.targetSets,
                         loggingType = loggingType,
                         onStart = onStartExercise,
-                        onTargetSetsChanged = onTargetSetsChanged
+                        onTargetSetsChanged = onTargetSetsChanged,
+                        onEditSet = onEditSet,
                     )
                 }
                 ExerciseExecutionState.ACTIVE_SET -> {
@@ -477,7 +513,13 @@ private fun SessionExerciseCard(
                     )
                 }
                 ExerciseExecutionState.COMPLETED -> {
-                    CompletedExerciseUI(loggedSets = loggedSets, loggingType = loggingType)
+                    CompletedExerciseUI(
+                        loggedSets = loggedSets, 
+                        loggingType = loggingType,
+                        targetSets = plannedExercise.targetSets,
+                        onTargetSetsChanged = onTargetSetsChanged,
+                        onEditSet = onEditSet,
+                    )
                 }
             }
         }
@@ -490,7 +532,8 @@ private fun IdleExerciseUI(
     targetSets: Int,
     loggingType: LoggingType,
     onStart: () -> Unit,
-    onTargetSetsChanged: (Int) -> Unit
+    onTargetSetsChanged: (Int) -> Unit,
+    onEditSet: (SessionSet) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SetHistory(
@@ -498,6 +541,7 @@ private fun IdleExerciseUI(
             loggingType = loggingType,
             targetSets = targetSets,
             onTargetSetsChanged = onTargetSetsChanged,
+            onEditSet = onEditSet,
         )
         
         Button(
@@ -657,7 +701,13 @@ private fun RestingExerciseUI(
 }
 
 @Composable
-private fun CompletedExerciseUI(loggedSets: List<SessionSet>, loggingType: LoggingType) {
+private fun CompletedExerciseUI(
+    loggedSets: List<SessionSet>, 
+    loggingType: LoggingType,
+    targetSets: Int,
+    onTargetSetsChanged: (Int) -> Unit,
+    onEditSet: (SessionSet) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -665,7 +715,7 @@ private fun CompletedExerciseUI(loggedSets: List<SessionSet>, loggingType: Loggi
             .background(Teal.copy(alpha = 0.1f))
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Teal, modifier = Modifier.size(32.dp))
         Text("Exercise Completed!", color = Teal, fontWeight = FontWeight.ExtraBold)
@@ -673,6 +723,16 @@ private fun CompletedExerciseUI(loggedSets: List<SessionSet>, loggingType: Loggi
             "Total Volume: ${loggedSets.sumOf { (it.weightKg * it.reps).toDouble() }.toInt()} kg",
             style = MaterialTheme.typography.labelMedium,
             color = Color.White.copy(alpha = 0.6f)
+        )
+        
+        Spacer(Modifier.height(4.dp))
+        
+        SetHistory(
+            loggedSets = loggedSets,
+            loggingType = loggingType,
+            targetSets = targetSets,
+            onTargetSetsChanged = onTargetSetsChanged,
+            onEditSet = onEditSet,
         )
     }
 }
@@ -797,13 +857,29 @@ private fun SetHistory(
     loggingType: LoggingType,
     targetSets: Int,
     onTargetSetsChanged: (Int) -> Unit,
+    onEditSet: (SessionSet) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (loggedSets.isEmpty()) {
             Text("No sets logged yet", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.48f))
         } else {
+            Text(
+                "Tap a set to edit or delete",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.35f),
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
             loggedSets.forEachIndexed { index, set ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.15f))
+                        .clickable { onEditSet(set) }
+                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text("Set ${index + 1}", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.56f))
                     Text(setLabel(set, loggingType), style = MaterialTheme.typography.labelMedium, color = Teal, fontWeight = FontWeight.Bold)
                 }
@@ -831,16 +907,60 @@ private fun SetHistory(
 }
 
 @Composable
+private fun EditSetDialog(
+    set: SessionSet,
+    plannedExercise: PlannedExercise,
+    exercise: Exercise?,
+    inputStyle: String,
+    onDismiss: () -> Unit,
+    onSave: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
+    onDelete: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Background,
+        title = { Text("Edit Set ${set.setNumber}", color = Color.White) },
+        text = {
+            IntegratedSetLogger(
+                plannedExercise = plannedExercise,
+                exercise = exercise,
+                loggedSets = emptyList(), // Passing empty list so currentSetNumber logic doesn't matter (we use initialSetToEdit)
+                inputStyle = inputStyle,
+                buttonLabel = "Save Changes",
+                initialSetToEdit = set,
+                onLogSet = onSave
+            )
+        },
+        confirmButton = {},
+        dismissButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onDelete) {
+                    Text("Delete Set", color = Coral, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            }
+        }
+    )
+}
+
+@Composable
 private fun IntegratedSetLogger(
     plannedExercise: PlannedExercise,
     exercise: Exercise?,
     loggedSets: List<SessionSet>,
     inputStyle: String,
     buttonLabel: String = "Log Set",
+    initialSetToEdit: SessionSet? = null,
     onLogSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
 ) {
     val loggingType = exercise?.loggingType() ?: LoggingType.WEIGHTED_REPS
-    val currentSetNumber = loggedSets.size + 1
+    val currentSetNumber = initialSetToEdit?.setNumber ?: (loggedSets.size + 1)
 
     val wholeNumbers = remember { (0..300).toList() }
     val decimalWeightOptions = remember { listOf(0.0f, 0.25f, 0.5f, 0.75f) }
@@ -849,42 +969,42 @@ private fun IntegratedSetLogger(
     val minsList = remember { (0..120).toList() }
     val secsList = remember { (0..59).toList() }
 
-    val initialWeight = plannedExercise.targetWeightKg ?: loggedSets.lastOrNull()?.weightKg ?: 0f
-    var weightWhole by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialWeight.toInt()) }
-    var weightDecimal by remember(plannedExercise.exerciseId) {
+    val initialWeight = initialSetToEdit?.weightKg ?: plannedExercise.targetWeightKg ?: loggedSets.lastOrNull()?.weightKg ?: 0f
+    var weightWhole by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialWeight.toInt()) }
+    var weightDecimal by remember(plannedExercise.exerciseId, initialSetToEdit) {
         mutableFloatStateOf(decimalWeightOptions.minByOrNull { abs(it - (initialWeight - initialWeight.toInt())) } ?: 0f)
     }
-    var repsInput by remember(plannedExercise.exerciseId) {
-        mutableIntStateOf(plannedExercise.targetReps ?: loggedSets.lastOrNull()?.reps ?: 0)
+    var repsInput by remember(plannedExercise.exerciseId, initialSetToEdit) {
+        mutableIntStateOf(initialSetToEdit?.reps ?: plannedExercise.targetReps ?: loggedSets.lastOrNull()?.reps ?: 0)
     }
 
-    val initialDuration = plannedExercise.targetDurationSeconds ?: loggedSets.lastOrNull()?.durationSeconds ?: 0
-    var durationMin by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialDuration / 60) }
-    var durationSec by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialDuration % 60) }
+    val initialDuration = initialSetToEdit?.durationSeconds ?: plannedExercise.targetDurationSeconds ?: loggedSets.lastOrNull()?.durationSeconds ?: 0
+    var durationMin by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialDuration / 60) }
+    var durationSec by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialDuration % 60) }
 
-    val initialDistance = plannedExercise.targetDistanceKm ?: loggedSets.lastOrNull()?.distanceKm ?: 0f
-    var distanceWhole by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialDistance.toInt()) }
-    var distanceDecimal by remember(plannedExercise.exerciseId) {
+    val initialDistance = initialSetToEdit?.distanceKm ?: plannedExercise.targetDistanceKm ?: loggedSets.lastOrNull()?.distanceKm ?: 0f
+    var distanceWhole by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialDistance.toInt()) }
+    var distanceDecimal by remember(plannedExercise.exerciseId, initialSetToEdit) {
         mutableFloatStateOf(decimalTenths.minByOrNull { abs(it - (initialDistance - initialDistance.toInt())) } ?: 0f)
     }
 
-    val initialSpeed = plannedExercise.targetSpeedKmh ?: loggedSets.lastOrNull()?.speedKmh ?: 0f
-    var speedWhole by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialSpeed.toInt()) }
-    var speedDecimal by remember(plannedExercise.exerciseId) {
+    val initialSpeed = initialSetToEdit?.speedKmh ?: plannedExercise.targetSpeedKmh ?: loggedSets.lastOrNull()?.speedKmh ?: 0f
+    var speedWhole by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialSpeed.toInt()) }
+    var speedDecimal by remember(plannedExercise.exerciseId, initialSetToEdit) {
         mutableFloatStateOf(decimalTenths.minByOrNull { abs(it - (initialSpeed - initialSpeed.toInt())) } ?: 0f)
     }
 
-    val initialIncline = plannedExercise.targetIncline ?: loggedSets.lastOrNull()?.inclinePercent ?: 0f
-    var inclineWhole by remember(plannedExercise.exerciseId) { mutableIntStateOf(initialIncline.toInt()) }
-    var inclineDecimal by remember(plannedExercise.exerciseId) {
+    val initialIncline = initialSetToEdit?.inclinePercent ?: plannedExercise.targetIncline ?: loggedSets.lastOrNull()?.inclinePercent ?: 0f
+    var inclineWhole by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableIntStateOf(initialIncline.toInt()) }
+    var inclineDecimal by remember(plannedExercise.exerciseId, initialSetToEdit) {
         mutableFloatStateOf(decimalTenths.minByOrNull { abs(it - (initialIncline - initialIncline.toInt())) } ?: 0f)
     }
 
     val isTapToExpand = inputStyle == "TAP_EXPAND"
     val isHorizontal = inputStyle == "HORIZONTAL"
-    var isExpanded by remember(plannedExercise.exerciseId) { mutableStateOf(!isTapToExpand) }
-    LaunchedEffect(inputStyle, plannedExercise.exerciseId) {
-        isExpanded = inputStyle != "TAP_EXPAND"
+    var isExpanded by remember(plannedExercise.exerciseId, initialSetToEdit) { mutableStateOf(!isTapToExpand || initialSetToEdit != null) }
+    LaunchedEffect(inputStyle, plannedExercise.exerciseId, initialSetToEdit) {
+        isExpanded = inputStyle != "TAP_EXPAND" || initialSetToEdit != null
     }
 
     Surface(
