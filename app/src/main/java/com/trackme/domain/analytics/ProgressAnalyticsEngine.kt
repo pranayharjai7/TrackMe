@@ -6,6 +6,8 @@ import com.trackme.domain.analytics.performance.OneRMProjectionEngine
 import com.trackme.domain.analytics.performance.PlateauDetector
 import com.trackme.domain.analytics.recovery.ReadinessScoreCalculator
 import com.trackme.domain.analytics.trends.ConsistencyMatrixGenerator
+import com.trackme.domain.analytics.utils.ValidationUtils.isValid
+import com.trackme.domain.analytics.utils.ValidationUtils.deduplicateSets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -28,13 +30,20 @@ class ProgressAnalyticsEngine @Inject constructor(
     private val matrixGenerator: ConsistencyMatrixGenerator
 ) {
     
-    // In-memory cache variables.
-    // In a fully persistent implementation, these would be backed by Room AnalyticsSnapshotEntity
-    private var lastComputedSessionTimestamp: Long = -1L
+    // User-scoped composite cache state
+    data class CacheKey(
+        val userId: String,
+        val latestWorkoutTimestamp: Long,
+        val latestHealthTimestamp: Long,
+        val workoutSize: Int,
+        val healthSize: Int
+    )
+
+    private var lastCacheKey: CacheKey? = null
     private var cachedResult: EngineAnalyticsResult? = null
 
     /**
-     * Recomputes analytics ONLY if the newest session timestamp has changed.
+     * Recomputes analytics ONLY if the user-scoped CacheKey has changed.
      * Runs strictly on Dispatchers.Default for CPU performance.
      */
     suspend fun computeAnalytics(
@@ -44,42 +53,71 @@ class ProgressAnalyticsEngine @Inject constructor(
         forceRecompute: Boolean = false
     ): EngineAnalyticsResult = withContext(Dispatchers.Default) {
         
-        val latestSessionTime = workoutHistory.maxOfOrNull { it.dateMillis } ?: 0L
+        // 1. Sanitize Workouts & Health points using our validation and deduplication utilities
+        val validatedWorkouts = workoutHistory
+            .filter { it.isValid() }
+            .map { session ->
+                session.copy(
+                    exercises = session.exercises
+                        .filter { it.isValid() }
+                        .deduplicateSets()
+                )
+            }
+            .filter { it.exercises.isNotEmpty() }
 
-        // Return cached result if nothing has changed
-        if (!forceRecompute && cachedResult != null && latestSessionTime == lastComputedSessionTimestamp) {
+        val validatedHealth = healthHistory.filter { it.dateMillis > 0 }
+
+        val latestWorkoutTime = validatedWorkouts.maxOfOrNull { it.dateMillis } ?: 0L
+        val latestHealthTime = validatedHealth.maxOfOrNull { it.dateMillis } ?: 0L
+
+        val currentKey = CacheKey(
+            userId = userId,
+            latestWorkoutTimestamp = latestWorkoutTime,
+            latestHealthTimestamp = latestHealthTime,
+            workoutSize = validatedWorkouts.size,
+            healthSize = validatedHealth.size
+        )
+
+        // Return user-scoped cached result if nothing has changed
+        if (!forceRecompute && cachedResult != null && currentKey == lastCacheKey) {
             return@withContext cachedResult!!
         }
 
-        // 1. Calculate Readiness
+        // 2. Calculate Readiness
         val todayStart = com.trackme.utils.startOfLocalDayMillis(System.currentTimeMillis())
-        val historicalHealth = healthHistory.filter { it.dateMillis < todayStart }
-        val todayHealth = healthHistory.firstOrNull { it.dateMillis == todayStart }
+        val historicalHealth = validatedHealth.filter { it.dateMillis < todayStart }
+        val todayHealth = validatedHealth.firstOrNull { it.dateMillis == todayStart }
         val readiness = readinessCalculator.calculate(historicalHealth, todayHealth)
 
-        // 2. Flatten exercise history for performance modules
-        val allExercises = workoutHistory.flatMap { it.exercises }
+        // 3. Flatten exercise history for performance modules
+        val allExercises = validatedWorkouts.flatMap { it.exercises }
 
-        // 3. Calculate 1RM Projections for major lifts
-        // Let's assume we want to project major compounds. Here we extract unique names to process top ones.
+        // 4. Calculate 1RM Projections for major lifts
         val topExercises = allExercises
             .groupBy { it.exerciseId }
             .mapValues { it.value.first().name }
             .toList()
-            .take(5) // Limit to 5 for performance. Real app would let user select these.
+            .take(5) // Limit to top 5 for dashboard responsiveness
 
         val projections = topExercises.mapNotNull { (id, name) ->
-            oneRMEngine.calculateProjection(allExercises, id, name)
+            // Enforce sufficiency guard: 1RM calculation requires at least 3 distinct training days
+            val exerciseHistory = allExercises.filter { it.exerciseId == id }
+            val distinctDays = exerciseHistory.map { it.dateMillis / (24 * 60 * 60 * 1000L) }.distinct().size
+            if (distinctDays >= 3) {
+                oneRMEngine.calculateProjection(allExercises, id, name)
+            } else {
+                null
+            }
         }
 
-        // 4. Calculate Muscle Fatigue Heatmap
-        val fatigueMap = fatigueCalculator.calculate(workoutHistory)
+        // 5. Calculate Muscle Fatigue Heatmap
+        val fatigueMap = fatigueCalculator.calculate(validatedWorkouts)
 
-        // 5. Detect Plateaus
+        // 6. Detect Plateaus
         val plateaus = plateauDetector.detectPlateaus(allExercises)
 
-        // 6. Generate Consistency Matrix
-        val matrixPosition = matrixGenerator.generate(workoutHistory)
+        // 7. Generate Consistency Matrix
+        val matrixPosition = matrixGenerator.generate(validatedWorkouts)
 
         val result = EngineAnalyticsResult(
             readinessScore = readiness,
@@ -91,7 +129,7 @@ class ProgressAnalyticsEngine @Inject constructor(
 
         // Update Cache
         cachedResult = result
-        lastComputedSessionTimestamp = latestSessionTime
+        lastCacheKey = currentKey
 
         result
     }

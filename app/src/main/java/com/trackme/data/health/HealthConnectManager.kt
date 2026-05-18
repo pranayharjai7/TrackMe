@@ -47,8 +47,16 @@ class HealthConnectManager @Inject constructor(
     }
 
     val requiredPermissions: Set<String>
-        get() = availableRecordTypes().map { HealthPermission.getReadPermission(it) }.toSet() +
-            availableMedicalReadPermissions()
+        get() = setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(HeartRateRecord::class),
+            HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+            HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+            HealthPermission.getReadPermission(SleepSessionRecord::class),
+            HealthPermission.getReadPermission(WeightRecord::class),
+            HealthPermission.getReadPermission(HeightRecord::class)
+        )
 
     fun getSdkStatus(): HcSdkStatus = when (HealthConnectClient.getSdkStatus(context)) {
         HealthConnectClient.SDK_AVAILABLE -> HcSdkStatus.AVAILABLE

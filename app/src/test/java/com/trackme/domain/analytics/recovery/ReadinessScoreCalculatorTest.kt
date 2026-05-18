@@ -56,4 +56,17 @@ class ReadinessScoreCalculatorTest {
         assertTrue("Should flag missing data", result.debug?.missingDataFlags?.contains("Missing HRV data") == true)
         assertTrue("Should flag missing data", result.debug?.missingDataFlags?.contains("Missing RHR data") == true)
     }
+
+    @Test
+    fun `rebalances weights when sleep is missing`() {
+        val history = List(10) { HealthMetricsData(0L, 50f, 65, 420, 100) }
+        // Sleep is missing today, but HRV and RHR are present and improved
+        val today = HealthMetricsData(0L, 60f, 60, null, null)
+
+        val result = calculator.calculate(history, today)
+
+        // The improved HRV/RHR should have higher influence due to redistribution
+        assertTrue("Redistribution should elevate score beyond default weight boundaries", result.score >= 85)
+        assertTrue(result.debug?.missingDataFlags?.contains("Missing Sleep data") == true)
+    }
 }

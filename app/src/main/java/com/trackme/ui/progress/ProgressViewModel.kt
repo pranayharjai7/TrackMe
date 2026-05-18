@@ -79,6 +79,7 @@ class ProgressViewModel @Inject constructor(
                     
                     val exercises = sessionSets.map { set ->
                         ExerciseAnalyticsData(
+                            setId = set.id,
                             exerciseId = set.exerciseId,
                             name = set.exerciseId.replaceFirstChar { c -> c.uppercase() }, // Simple placeholder name format
                             dateMillis = set.updatedAt,

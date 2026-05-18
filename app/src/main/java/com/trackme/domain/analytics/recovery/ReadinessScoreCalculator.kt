@@ -48,72 +48,67 @@ class ReadinessScoreCalculator {
 
         // 2. Compute Deviations
         var hrvDeviation = 0f
+        var hasHrv = false
         if (baselineHrv != null && todayMetric.hrvRmssd != null && todayMetric.hrvRmssd > 0) {
-            // Higher HRV is generally better. 
-            // Deviation = (Today - Baseline) / Baseline
             hrvDeviation = (todayMetric.hrvRmssd - baselineHrv) / baselineHrv
+            hasHrv = true
         } else {
             missingFlags.add("Missing HRV data")
         }
 
         var rhrDeviation = 0f
+        var hasRhr = false
         if (baselineRhr != null && todayMetric.restingHeartRate != null && todayMetric.restingHeartRate > 0) {
-            // Lower RHR is better. Negative deviation is good.
-            // Deviation = (Baseline - Today) / Baseline
             rhrDeviation = (baselineRhr - todayMetric.restingHeartRate) / baselineRhr
+            hasRhr = true
         } else {
             missingFlags.add("Missing RHR data")
         }
 
-        // 3. Compute Sleep Penalty
         var sleepPenalty = 0f
-        if (todayMetric.sleepDurationMinutes != null) {
+        var hasSleep = false
+        if (todayMetric.sleepDurationMinutes != null && todayMetric.sleepDurationMinutes > 0) {
             val sleepHours = todayMetric.sleepDurationMinutes / 60f
             if (sleepHours < 6.0f) {
-                // Penalty linear from 6 hrs down to 0 hrs. Max 30% penalty.
                 sleepPenalty = ((6.0f - sleepHours) / 6.0f) * 0.3f
             } else if (sleepHours >= 7.5f) {
-                // Bonus for great sleep
                 sleepPenalty = -0.1f 
             }
+            hasSleep = true
         } else {
             missingFlags.add("Missing Sleep data")
-            // If missing sleep, we don't penalize, we just adjust weights later or assume ok.
         }
 
-        // 4. Weighting
-        // Base score is 80 (assumes generally ready unless metrics drag it down or push it up)
-        var baseScore = 80f
+        // 3. Dynamic Weight Redistribution
+        val baselineWeights = mutableMapOf<String, Float>()
+        if (hasHrv) baselineWeights["HRV"] = 0.40f
+        if (hasRhr) baselineWeights["RHR"] = 0.30f
+        if (hasSleep) baselineWeights["Sleep"] = 0.30f
 
-        // HRV deviation usually ranges from -0.3 (bad) to +0.3 (good)
-        // Let's cap the influence to +/- 20 points
-        val hrvImpact = (hrvDeviation * 100f).coerceIn(-20f, 20f)
-        
-        // RHR deviation usually ranges from -0.15 (bad) to +0.15 (good)
-        // Let's cap influence to +/- 15 points
-        val rhrImpact = (rhrDeviation * 100f).coerceIn(-15f, 15f)
-
-        // Sleep penalty is 0 to 0.30 -> up to -30 points
-        val sleepImpact = -(sleepPenalty * 100f)
-
-        // Adjust base score based on available data
-        if (missingFlags.contains("Missing HRV data") && missingFlags.contains("Missing RHR data")) {
-            // Totally blind on heart metrics, just base on sleep
-            baseScore = 70f + sleepImpact
-        } else {
-            // We have some heart metrics
-            val hrvWeight = if (missingFlags.contains("Missing HRV data")) 0f else 1f
-            val rhrWeight = if (missingFlags.contains("Missing RHR data")) 0f else 1f
-            
-            // Normalize weights if one is missing
-            val totalWeight = hrvWeight + rhrWeight
-            val hrvFinalImpact = if (totalWeight > 0) hrvImpact * (2f / totalWeight) * hrvWeight else 0f
-            val rhrFinalImpact = if (totalWeight > 0) rhrImpact * (2f / totalWeight) * rhrWeight else 0f
-
-            baseScore = baseScore + hrvFinalImpact + rhrFinalImpact + sleepImpact
+        val totalAvailableWeight = baselineWeights.values.sum()
+        if (totalAvailableWeight == 0f) {
+            return ReadinessScore(
+                score = 0,
+                status = "Insufficient Data",
+                debug = ReadinessScoreDebug(0f, 0f, 0f, missingFlags)
+            )
         }
 
-        val finalScore = baseScore.toInt().coerceIn(0, 100)
+        // Normalize weights to sum to 1.0
+        val normalizedWeights = baselineWeights.mapValues { it.value / totalAvailableWeight }
+
+        // Compute normalized impacts scaled to a standard 0-100 range
+        val rawHrvImpact = (hrvDeviation * 100f).coerceIn(-20f, 20f)
+        val rawRhrImpact = (rhrDeviation * 100f).coerceIn(-15f, 15f)
+        val rawSleepImpact = -(sleepPenalty * 100f)
+
+        // Apply redistributed weights
+        val hrvImpact = if (hasHrv) rawHrvImpact * (normalizedWeights["HRV"] ?: 0f) / 0.40f else 0f
+        val rhrImpact = if (hasRhr) rawRhrImpact * (normalizedWeights["RHR"] ?: 0f) / 0.30f else 0f
+        val sleepImpact = if (hasSleep) rawSleepImpact * (normalizedWeights["Sleep"] ?: 0f) / 0.30f else 0f
+
+        val baseScore = 80f
+        val finalScore = (baseScore + hrvImpact + rhrImpact + sleepImpact).toInt().coerceIn(0, 100)
 
         val status = when {
             finalScore >= 85 -> "Optimal"

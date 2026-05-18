@@ -15,6 +15,7 @@ data class HealthMetricsData(
  * Pure data model representing a single exercise's execution within a session.
  */
 data class ExerciseAnalyticsData(
+    val setId: String,
     val exerciseId: String,
     val name: String,
     val dateMillis: Long,
