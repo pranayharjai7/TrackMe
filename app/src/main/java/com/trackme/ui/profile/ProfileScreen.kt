@@ -45,6 +45,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomPadding = 96.dp + navBarPadding + 24.dp
     var showSignOutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -61,7 +63,7 @@ fun ProfileScreen(
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
-                .padding(top = 24.dp, bottom = 120.dp),
+                .padding(top = 24.dp, bottom = bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {

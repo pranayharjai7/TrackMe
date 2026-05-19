@@ -39,6 +39,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomPadding = 96.dp + navBarPadding + 24.dp
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Dynamic Background
@@ -55,7 +57,7 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .zIndex(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = bottomPadding),
         ) {
             if (state.isLoading) {
                 item {

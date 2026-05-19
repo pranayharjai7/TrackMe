@@ -37,6 +37,8 @@ fun WeeklyPlannerScreen(
     viewModel: WeeklyPlannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomPadding = 96.dp + navBarPadding + 24.dp
 
     var showAddDayDialog by remember { mutableStateOf(false) }
     var pendingDayOfWeek by remember { mutableStateOf<DayOfWeek?>(null) }
@@ -70,7 +72,7 @@ fun WeeklyPlannerScreen(
                     .fillMaxSize()
                     .statusBarsPadding(),
 
-                contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
+                contentPadding = PaddingValues(top = 24.dp, bottom = bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
@@ -111,7 +113,7 @@ fun WeeklyPlannerScreen(
             onClick = viewModel::showNewPlanDialog,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 116.dp)
+                .padding(end = 16.dp, bottom = bottomPadding)
                 .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
             containerColor = Violet.copy(alpha = 0.9f),
             contentColor = Color.White,

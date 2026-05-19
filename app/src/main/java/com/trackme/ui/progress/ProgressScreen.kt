@@ -49,6 +49,8 @@ import java.util.*
 @Composable
 fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomPadding = 96.dp + navBarPadding + 24.dp
     
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf(
@@ -64,7 +66,7 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp, start = 20.dp, end = 20.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = bottomPadding, start = 20.dp, end = 20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             item {
