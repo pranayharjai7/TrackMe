@@ -79,7 +79,8 @@ fun WeeklyPlannerScreen(
                     PlannerHeroHeader(
                         planName = state.activePlan?.name ?: "My Routine",
                         activeDaysCount = state.days.size,
-                        onShare = viewModel::prepareRoutineForSharing
+                        onShare = viewModel::prepareRoutineForSharing,
+                        onCreatePlan = viewModel::showNewPlanDialog
                     )
                 }
 
@@ -106,20 +107,6 @@ fun WeeklyPlannerScreen(
                     )
                 }
             }
-        }
-
-        // FAB for new routine
-        FloatingActionButton(
-            onClick = viewModel::showNewPlanDialog,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = bottomPadding)
-                .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-            containerColor = Violet.copy(alpha = 0.9f),
-            contentColor = Color.White,
-            shape = CircleShape
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "New Routine")
         }
     }
 
@@ -215,7 +202,12 @@ fun WeeklyPlannerScreen(
     }
 }
 @Composable
-private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, onShare: () -> Unit) {
+private fun PlannerHeroHeader(
+    planName: String,
+    activeDaysCount: Int,
+    onShare: () -> Unit,
+    onCreatePlan: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -250,14 +242,31 @@ private fun PlannerHeroHeader(planName: String, activeDaysCount: Int, onShare: (
             }
         }
         
-        IconButton(
-            onClick = onShare,
-            modifier = Modifier
-                .size(48.dp)
-                .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Share, contentDescription = "Share Routine", tint = Color.White)
+            // New Plan / Create Plan Button
+            IconButton(
+                onClick = onCreatePlan,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Violet.copy(alpha = 0.2f), CircleShape)
+                    .border(1.dp, Violet.copy(alpha = 0.4f), CircleShape)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "New Routine", tint = Color.White)
+            }
+
+            // Share Button
+            IconButton(
+                onClick = onShare,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+            ) {
+                Icon(Icons.Default.Share, contentDescription = "Share Routine", tint = Color.White)
+            }
         }
     }
 }
