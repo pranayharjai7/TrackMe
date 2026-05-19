@@ -34,7 +34,7 @@ import com.trackme.data.local.entity.*
         DailyHealthAnalyticsEntity::class,
         BodyStateSnapshotEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -240,6 +240,102 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_body_state_snapshots_user ON body_state_snapshots(userId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_body_state_snapshots_sync ON body_state_snapshots(isSynced)")
+            }
+        }
+
+        /**
+         * MIGRATION_9_10
+         *
+         * Fixes schema mismatches on older devices that ran MIGRATION_8_9.
+         * All four tables created in that migration share two bugs:
+         *   1. Custom index names (idx_...) instead of Room's auto-generated
+         *      format (index_<tableName>_<column>)
+         *   2. isSynced declared with DEFAULT 0 in SQL — Room expects no SQL
+         *      default (it manages Kotlin defaults in code)
+         *
+         * All four tables are analytics/cache tables derived from workout
+         * history, so dropping and recreating them causes no data loss.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+
+                // ── muscle_weekly_analytics ──────────────────────────────
+                db.execSQL("DROP TABLE IF EXISTS muscle_weekly_analytics")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS muscle_weekly_analytics (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "muscleGroup TEXT NOT NULL, " +
+                    "weekOffset INTEGER NOT NULL, " +
+                    "weeklyStimulus REAL NOT NULL, " +
+                    "growthIndex REAL NOT NULL, " +
+                    "fatigue REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_muscle_weekly_analytics_userId` ON muscle_weekly_analytics(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_muscle_weekly_analytics_isSynced` ON muscle_weekly_analytics(isSynced)")
+
+                // ── exercise_progress_snapshots ──────────────────────────
+                db.execSQL("DROP TABLE IF EXISTS exercise_progress_snapshots")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS exercise_progress_snapshots (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "exerciseId TEXT NOT NULL, " +
+                    "exerciseName TEXT NOT NULL, " +
+                    "current1RM REAL NOT NULL, " +
+                    "projected1RM30Days REAL NOT NULL, " +
+                    "projected1RM90Days REAL NOT NULL, " +
+                    "projected1RM365Days REAL NOT NULL, " +
+                    "isPlateaued INTEGER NOT NULL, " +
+                    "improvementPercentage REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_progress_snapshots_userId` ON exercise_progress_snapshots(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_progress_snapshots_isSynced` ON exercise_progress_snapshots(isSynced)")
+
+                // ── daily_health_analytics ───────────────────────────────
+                db.execSQL("DROP TABLE IF EXISTS daily_health_analytics")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS daily_health_analytics (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "dateMillis INTEGER NOT NULL, " +
+                    "bmr REAL NOT NULL, " +
+                    "caloriesSteps REAL NOT NULL, " +
+                    "caloriesActive REAL NOT NULL, " +
+                    "caloriesLifting REAL NOT NULL, " +
+                    "caloriesTDEE REAL NOT NULL, " +
+                    "steps INTEGER NOT NULL, " +
+                    "weightKg REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_health_analytics_userId` ON daily_health_analytics(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_health_analytics_isSynced` ON daily_health_analytics(isSynced)")
+
+                // ── body_state_snapshots ─────────────────────────────────
+                db.execSQL("DROP TABLE IF EXISTS body_state_snapshots")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS body_state_snapshots (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "consistencyScore REAL NOT NULL, " +
+                    "readinessScore INTEGER NOT NULL, " +
+                    "muscleBalancePushPull REAL NOT NULL, " +
+                    "muscleBalanceQuadHam REAL NOT NULL, " +
+                    "muscleBalanceUpperLower REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_body_state_snapshots_userId` ON body_state_snapshots(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_body_state_snapshots_isSynced` ON body_state_snapshots(isSynced)")
             }
         }
     }
