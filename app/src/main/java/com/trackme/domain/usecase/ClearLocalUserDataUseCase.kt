@@ -1,13 +1,6 @@
 package com.trackme.domain.usecase
 
-import com.trackme.data.local.dao.HealthMetricDao
-import com.trackme.data.local.dao.HealthSnapshotDao
-import com.trackme.data.local.dao.PersonalRecordDao
-import com.trackme.data.local.dao.PlannedExerciseDao
-import com.trackme.data.local.dao.SessionSetDao
-import com.trackme.data.local.dao.WorkoutDayDao
-import com.trackme.data.local.dao.WorkoutPlanDao
-import com.trackme.data.local.dao.WorkoutSessionDao
+import com.trackme.data.local.dao.*
 import com.trackme.sync.SyncManager
 import javax.inject.Inject
 
@@ -30,9 +23,16 @@ class ClearLocalUserDataUseCase @Inject constructor(
     private val personalRecordDao: PersonalRecordDao,
     private val healthSnapshotDao: HealthSnapshotDao,
     private val healthMetricDao: HealthMetricDao,
+    private val muscleWeeklyAnalyticsDao: MuscleWeeklyAnalyticsDao,
+    private val exerciseProgressSnapshotDao: ExerciseProgressSnapshotDao,
+    private val dailyHealthAnalyticsDao: DailyHealthAnalyticsDao,
+    private val bodyStateSnapshotDao: BodyStateSnapshotDao,
     private val syncManager: SyncManager,
 ) {
     suspend operator fun invoke() {
+        // Run initial sync to flush any pending offline local writes to remote db before wiping the database.
+        syncManager.runInitialSync()
+
         // Cancel sync first so a queued worker cannot restore the previous user's data.
         syncManager.cancelAllSync()
 
@@ -44,5 +44,9 @@ class ClearLocalUserDataUseCase @Inject constructor(
         personalRecordDao.deleteAll()
         healthSnapshotDao.deleteAll()
         healthMetricDao.deleteAll()
+        muscleWeeklyAnalyticsDao.deleteAll()
+        exerciseProgressSnapshotDao.deleteAll()
+        dailyHealthAnalyticsDao.deleteAll()
+        bodyStateSnapshotDao.deleteAll()
     }
 }

@@ -37,6 +37,7 @@ data class ProfileUiState(
     val fitnessGoal: String = DEFAULT_FITNESS_GOAL,
     val inputStyle: String = DEFAULT_INPUT_STYLE,
     val dashboardState: ProfileDashboardState = ProfileDashboardState.COSMOS,
+    val isSigningOut: Boolean = false,
 )
 
 /**
@@ -160,9 +161,16 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut(onDone: () -> Unit) {
         viewModelScope.launch {
-            clearLocalUserData()
-            supabase.auth.signOut()
-            onDone()
+            _uiState.update { it.copy(isSigningOut = true) }
+            try {
+                clearLocalUserData()
+                supabase.auth.signOut()
+            } catch (e: Exception) {
+                // Gracefully catch exceptions so that sign out always completes and the user isn't stuck
+            } finally {
+                _uiState.update { it.copy(isSigningOut = false) }
+                onDone()
+            }
         }
     }
 }

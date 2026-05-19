@@ -9,6 +9,9 @@ interface BodyStateSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: BodyStateSnapshotEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<BodyStateSnapshotEntity>)
+
     @Query("SELECT * FROM body_state_snapshots WHERE userId = :userId AND deletedAt IS NULL LIMIT 1")
     fun getForUser(userId: String): Flow<BodyStateSnapshotEntity?>
 

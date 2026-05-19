@@ -34,4 +34,5 @@ interface WorkoutRepository {
     fun getSetsSince(userId: String, fromDate: Long): Flow<List<SessionSet>>
     suspend fun getInProgressSession(userId: String, todayStart: Long): WorkoutSession?
     suspend fun getInProgressSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSession?
+    suspend fun getLatestSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSession?
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
@@ -108,6 +109,65 @@ fun ProfileScreen(
                 Text("Sign Out", fontWeight = FontWeight.Bold)
             }
         }
+
+        if (state.isSigningOut) {
+            val themeColor = when (state.dashboardState) {
+                ProfileDashboardState.TITAN -> Coral
+                ProfileDashboardState.BREEZE -> Teal
+                ProfileDashboardState.VELOCITY -> Color(0xFF64DD17)
+                ProfileDashboardState.COSMOS -> Violet
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable(enabled = false) {}, // blocks all interaction with the underlying UI
+                contentAlignment = Alignment.Center
+            ) {
+                GlassmorphicCard(
+                    modifier = Modifier
+                        .padding(horizontal = 32.dp)
+                        .fillMaxWidth(0.85f),
+                    containerColor = Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 36.dp, horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = themeColor,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Signing Out...",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp
+                            )
+                            Text(
+                                text = "Safely synchronizing your training progress to the cloud...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontWeight = FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showSignOutDialog) {
@@ -117,7 +177,10 @@ fun ProfileScreen(
             text = { Text("Your training data is safe in the cloud. We'll be here when you return.") },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.signOut(onSignOut) },
+                    onClick = {
+                        showSignOutDialog = false
+                        viewModel.signOut(onSignOut)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Coral, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("Sign Out") }

@@ -53,6 +53,7 @@ data class ActiveSessionUiState(
     val restSecondsRemaining: Int = 90,
     val isFinishing: Boolean = false,
     val inputStyle: String = DEFAULT_INPUT_STYLE,
+    val isCompleted: Boolean = false,
 )
 
 /**
@@ -104,13 +105,14 @@ class ActiveSessionViewModel @Inject constructor(
         // Start or resume the today's active session, then observe exercises and logged sets flows.
         viewModelScope.launch {
             val session = try {
-                workoutRepository.getInProgressSessionForDay(userId, dayId, startOfTodayMillis())
+                workoutRepository.getLatestSessionForDay(userId, dayId, startOfTodayMillis())
                     ?: startSession(userId, dayId)
             } catch (e: Exception) {
                 return@launch
             }
             sessionStartTime = session.date
-            updateUiState { it.copy(sessionId = session.id) }
+            val isCompleted = session.durationMinutes > 0
+            updateUiState { it.copy(sessionId = session.id, isCompleted = isCompleted) }
 
             // Restore persistent active exercise / rest timer state
             try {
@@ -182,7 +184,8 @@ class ActiveSessionViewModel @Inject constructor(
                 exercises = nextState.exercises,
                 loggedSetsByExercise = nextState.loggedSetsByExercise,
                 activeExerciseId = nextState.activeExerciseId,
-                restingExerciseId = nextState.restingExerciseId
+                restingExerciseId = nextState.restingExerciseId,
+                isCompleted = nextState.isCompleted
             )
             
             // Edge-case cleanup: If an exercise has reached its target sets (COMPLETED),
@@ -207,7 +210,8 @@ class ActiveSessionViewModel @Inject constructor(
                     exercises = nextState.exercises,
                     loggedSetsByExercise = nextState.loggedSetsByExercise,
                     activeExerciseId = finalActiveExerciseId,
-                    restingExerciseId = finalRestingExerciseId
+                    restingExerciseId = finalRestingExerciseId,
+                    isCompleted = nextState.isCompleted
                 )
             } else {
                 derivedExecutionStates
@@ -229,12 +233,14 @@ class ActiveSessionViewModel @Inject constructor(
         loggedSetsByExercise: Map<String, List<SessionSet>>,
         activeExerciseId: String?,
         restingExerciseId: String?,
+        isCompleted: Boolean,
     ): Map<String, ExerciseExecutionState> {
         return exercises.associate { (planned, _) ->
             val exerciseId = planned.exerciseId
             val completedSets = loggedSetsByExercise[exerciseId]?.size ?: 0
             val targetSets = planned.targetSets
             val state = when {
+                isCompleted -> ExerciseExecutionState.COMPLETED
                 completedSets >= targetSets -> ExerciseExecutionState.COMPLETED
                 exerciseId == activeExerciseId -> ExerciseExecutionState.ACTIVE_SET
                 exerciseId == restingExerciseId -> ExerciseExecutionState.RESTING

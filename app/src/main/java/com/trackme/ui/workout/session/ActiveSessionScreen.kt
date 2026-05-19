@@ -244,6 +244,7 @@ fun ActiveSessionScreen(
                     loggedSets = loggedSets,
                     executionState = executionState,
                     inputStyle = state.inputStyle,
+                    isCompleted = state.isCompleted,
                     onStartExercise = {
                         if (state.activeExerciseId != null && state.activeExerciseId != planned.exerciseId) {
                             showSwitchConfirmation = true
@@ -278,8 +279,10 @@ fun ActiveSessionScreen(
                 SessionActionsCard(
                     progress = progress,
                     isFinishing = state.isFinishing,
+                    isCompleted = state.isCompleted,
                     onAddExercise = onAddExercise,
                     onFinish = { viewModel.finishSession(onSessionFinished) },
+                    onBack = onBack,
                 )
             }
         }
@@ -395,6 +398,7 @@ private fun SessionExerciseCard(
     loggedSets: List<SessionSet>,
     executionState: ExerciseExecutionState,
     inputStyle: String,
+    isCompleted: Boolean,
     onStartExercise: () -> Unit,
     onCompleteSet: (weightKg: Float, reps: Int, durationSeconds: Int?, distanceKm: Float?, speedKmh: Float?, inclinePercent: Float?) -> Unit,
     onDeleteSet: (SessionSet) -> Unit,
@@ -543,6 +547,7 @@ private fun SessionExerciseCard(
                         targetSets = plannedExercise.targetSets,
                         onTargetSetsChanged = onTargetSetsChanged,
                         onEditSet = onEditSet,
+                        isCompleted = isCompleted,
                     )
                 }
             }
@@ -731,6 +736,7 @@ private fun CompletedExerciseUI(
     targetSets: Int,
     onTargetSetsChanged: (Int) -> Unit,
     onEditSet: (SessionSet) -> Unit,
+    isCompleted: Boolean,
 ) {
     Column(
         modifier = Modifier
@@ -757,6 +763,7 @@ private fun CompletedExerciseUI(
             targetSets = targetSets,
             onTargetSetsChanged = onTargetSetsChanged,
             onEditSet = onEditSet,
+            isCompleted = isCompleted,
         )
     }
 }
@@ -904,25 +911,34 @@ private fun SetHistory(
     targetSets: Int,
     onTargetSetsChanged: (Int) -> Unit,
     onEditSet: (SessionSet) -> Unit,
+    isCompleted: Boolean = false,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (loggedSets.isEmpty()) {
             Text("No sets logged yet", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.48f))
         } else {
-            Text(
-                "Tap a set to edit or delete",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.35f),
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
+            if (!isCompleted) {
+                Text(
+                    "Tap a set to edit or delete",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
             loggedSets.forEachIndexed { index, set ->
+                val rowModifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.15f))
+                
+                val finalModifier = if (isCompleted) {
+                    rowModifier
+                } else {
+                    rowModifier.clickable { onEditSet(set) }
+                }
+                
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.15f))
-                        .clickable { onEditSet(set) }
-                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                    modifier = finalModifier.padding(vertical = 8.dp, horizontal = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -932,22 +948,33 @@ private fun SetHistory(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "${loggedSets.size}/$targetSets sets",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.weight(1f),
-            )
-            AssistChip(
-                onClick = { if (targetSets > maxOf(loggedSets.size, 1)) onTargetSetsChanged(targetSets - 1) },
-                enabled = targetSets > maxOf(loggedSets.size, 1),
-                label = { Text("- Set") },
-            )
-            AssistChip(
-                onClick = { onTargetSetsChanged(targetSets + 1) },
-                label = { Text("+ Set") },
-            )
+        if (isCompleted) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${loggedSets.size} sets completed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${loggedSets.size}/$targetSets sets",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.weight(1f),
+                )
+                AssistChip(
+                    onClick = { if (targetSets > maxOf(loggedSets.size, 1)) onTargetSetsChanged(targetSets - 1) },
+                    enabled = targetSets > maxOf(loggedSets.size, 1),
+                    label = { Text("- Set") },
+                )
+                AssistChip(
+                    onClick = { onTargetSetsChanged(targetSets + 1) },
+                    label = { Text("+ Set") },
+                )
+            }
         }
     }
 }
@@ -1381,41 +1408,58 @@ private fun LoggerPicker(
 private fun SessionActionsCard(
     progress: SessionProgress,
     isFinishing: Boolean,
+    isCompleted: Boolean,
     onAddExercise: () -> Unit,
     onFinish: () -> Unit,
+    onBack: () -> Unit,
 ) {
     GlassmorphicCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = onAddExercise,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Add")
-                }
+            if (isCompleted) {
                 Button(
-                    onClick = onFinish,
-                    enabled = !isFinishing,
+                    onClick = onBack,
                     modifier = Modifier
-                        .weight(1.35f)
+                        .fillMaxWidth()
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Finish Workout", fontWeight = FontWeight.Bold)
+                    Text("Go Back to Home", fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = onAddExercise,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add")
+                    }
+                    Button(
+                        onClick = onFinish,
+                        enabled = !isFinishing,
+                        modifier = Modifier
+                            .weight(1.35f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Finish Workout", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             Text(
-                "${progress.completedSets} sets logged so far",
+                if (isCompleted) "Workout session completed!" else "${progress.completedSets} sets logged so far",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.58f),
             )

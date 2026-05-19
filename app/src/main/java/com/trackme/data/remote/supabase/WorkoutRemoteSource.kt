@@ -35,9 +35,23 @@ class WorkoutRemoteSource @Inject constructor(
         )
     }
 
+    suspend fun upsertPlans(entities: List<WorkoutPlanEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_WORKOUT_PLANS].upsert(
+            entities.map { WorkoutPlanDto(it.id, it.userId, it.name, it.isActive, it.createdAt, it.updatedAt, it.deletedAt) }
+        )
+    }
+
     suspend fun upsertDay(entity: WorkoutDayEntity) {
         supabase.postgrest[TABLE_WORKOUT_DAYS].upsert(
             WorkoutDayDto(entity.id, entity.planId, entity.userId, entity.dayOfWeek, entity.name, entity.updatedAt, entity.deletedAt)
+        )
+    }
+
+    suspend fun upsertDays(entities: List<WorkoutDayEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_WORKOUT_DAYS].upsert(
+            entities.map { WorkoutDayDto(it.id, it.planId, it.userId, it.dayOfWeek, it.name, it.updatedAt, it.deletedAt) }
         )
     }
 
@@ -53,9 +67,31 @@ class WorkoutRemoteSource @Inject constructor(
         )
     }
 
+    suspend fun upsertPlannedExercises(entities: List<PlannedExerciseEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_PLANNED_EXERCISES].upsert(
+            entities.map { entity ->
+                PlannedExerciseDto(
+                    entity.id, entity.dayId, entity.userId, entity.exerciseId,
+                    entity.orderIndex, entity.updatedAt, entity.deletedAt,
+                    entity.targetSets, entity.targetReps, entity.targetWeightKg,
+                    entity.targetDurationSeconds, entity.targetDistanceKm,
+                    entity.targetSpeedKmh, entity.targetIncline,
+                )
+            }
+        )
+    }
+
     suspend fun upsertSession(entity: WorkoutSessionEntity) {
         supabase.postgrest[TABLE_WORKOUT_SESSIONS].upsert(
             WorkoutSessionDto(entity.id, entity.userId, entity.dayId, entity.date, entity.durationMinutes, entity.notes, entity.updatedAt, entity.deletedAt)
+        )
+    }
+
+    suspend fun upsertSessions(entities: List<WorkoutSessionEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_WORKOUT_SESSIONS].upsert(
+            entities.map { WorkoutSessionDto(it.id, it.userId, it.dayId, it.date, it.durationMinutes, it.notes, it.updatedAt, it.deletedAt) }
         )
     }
 
@@ -65,20 +101,49 @@ class WorkoutRemoteSource @Inject constructor(
         )
     }
 
+    suspend fun upsertSets(entities: List<SessionSetEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_SESSION_SETS].upsert(
+            entities.map { entity ->
+                SessionSetDto(entity.id, entity.sessionId, entity.userId, entity.exerciseId, entity.setNumber, entity.weightKg, entity.reps, entity.completed, entity.updatedAt, entity.deletedAt, entity.durationSeconds, entity.distanceKm, entity.speedKmh, entity.inclinePercent)
+            }
+        )
+    }
+
     suspend fun upsertMuscleWeeklyAnalytics(entity: MuscleWeeklyAnalyticsEntity) {
         supabase.postgrest[TABLE_MUSCLE_WEEKLY_ANALYTICS].upsert(entity.toDto())
+    }
+
+    suspend fun upsertMuscleWeeklyAnalytics(entities: List<MuscleWeeklyAnalyticsEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_MUSCLE_WEEKLY_ANALYTICS].upsert(entities.map { it.toDto() })
     }
 
     suspend fun upsertExerciseProgressSnapshot(entity: ExerciseProgressSnapshotEntity) {
         supabase.postgrest[TABLE_EXERCISE_PROGRESS_SNAPSHOTS].upsert(entity.toDto())
     }
 
+    suspend fun upsertExerciseProgressSnapshots(entities: List<ExerciseProgressSnapshotEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_EXERCISE_PROGRESS_SNAPSHOTS].upsert(entities.map { it.toDto() })
+    }
+
     suspend fun upsertDailyHealthAnalytics(entity: DailyHealthAnalyticsEntity) {
         supabase.postgrest[TABLE_DAILY_HEALTH_ANALYTICS].upsert(entity.toDto())
     }
 
+    suspend fun upsertDailyHealthAnalytics(entities: List<DailyHealthAnalyticsEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_DAILY_HEALTH_ANALYTICS].upsert(entities.map { it.toDto() })
+    }
+
     suspend fun upsertBodyStateSnapshot(entity: BodyStateSnapshotEntity) {
         supabase.postgrest[TABLE_BODY_STATE_SNAPSHOTS].upsert(entity.toDto())
+    }
+
+    suspend fun upsertBodyStateSnapshots(entities: List<BodyStateSnapshotEntity>) {
+        if (entities.isEmpty()) return
+        supabase.postgrest[TABLE_BODY_STATE_SNAPSHOTS].upsert(entities.map { it.toDto() })
     }
 
     suspend fun fetchPlans(userId: String): List<WorkoutPlanEntity> =

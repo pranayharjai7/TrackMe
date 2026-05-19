@@ -43,11 +43,11 @@ class AuthViewModel @Inject constructor(
         runAuthRequest(
             fallbackError = "Sign in failed",
             onSuccess = {
-                syncManager.enqueueImmediateSync()
                 onSuccess(false)
             },
         ) {
             signInWithEmailImpl(supabase, email.trim(), password)
+            syncManager.runInitialSync()
         }
     }
 
@@ -70,11 +70,11 @@ class AuthViewModel @Inject constructor(
         runAuthRequest(
             fallbackError = "Google sign in failed",
             onSuccess = {
-                syncManager.enqueueImmediateSync()
                 onSuccess(false)
             },
         ) {
             signInWithGoogleIdTokenImpl(supabase, idToken)
+            syncManager.runInitialSync()
         }
     }
 

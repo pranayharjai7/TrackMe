@@ -252,4 +252,80 @@ class ActiveSessionViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun `completed session retrieved from repository marks all exercises completed and sets isCompleted true`() = runTest {
+        val workoutRepository = mockk<WorkoutRepository>(relaxed = true)
+        val startSession = mockk<StartSessionUseCase>()
+        val logSet = mockk<LogSetUseCase>(relaxed = true)
+        val deleteSet = mockk<DeleteSetUseCase>(relaxed = true)
+        val finishSession = mockk<FinishSessionUseCase>(relaxed = true)
+        val addExerciseToDay = mockk<AddExerciseToDayUseCase>(relaxed = true)
+        val observePlannedExercises = mockk<ObservePlannedExercisesWithDetailsUseCase>()
+        val supabase = mockk<SupabaseClient>(relaxed = true)
+        val dataStore = mockk<DataStore<Preferences>>(relaxed = true)
+
+        val completedSession = WorkoutSession(
+            id = "completed_session_id",
+            userId = "user1",
+            dayId = "day1",
+            date = 1000L,
+            durationMinutes = 45, // Completed!
+            notes = "",
+            updatedAt = 1000L,
+        )
+
+        coEvery { workoutRepository.getLatestSessionForDay(any(), any(), any()) } returns completedSession
+        every { observePlannedExercises(any()) } returns flowOf(
+            listOf(
+                PlannedExercise(
+                    id = "planned1",
+                    dayId = "day1",
+                    userId = "user1",
+                    exerciseId = "ex1",
+                    orderIndex = 0,
+                    updatedAt = 1000L,
+                    targetSets = 3,
+                    targetReps = 10,
+                    targetWeightKg = 60f
+                ) to Exercise(
+                    id = "ex1",
+                    name = "Squat",
+                    category = "Strength",
+                    primaryMuscles = listOf("Quads"),
+                    secondaryMuscles = emptyList(),
+                    equipment = "Barbell",
+                    instructions = emptyList(),
+                    gifUrl = "",
+                    youtubeQuery = ""
+                )
+            )
+        )
+        every { workoutRepository.getSessionSets(any()) } returns flowOf(emptyList())
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        val savedState = androidx.lifecycle.SavedStateHandle(mapOf("dayId" to "day1"))
+        val vm = ActiveSessionViewModel(
+            workoutRepository = workoutRepository,
+            startSession = startSession,
+            logSetUseCase = logSet,
+            deleteSetUseCase = deleteSet,
+            finishSessionUseCase = finishSession,
+            addExerciseToDay = addExerciseToDay,
+            observePlannedExercisesWithDetails = observePlannedExercises,
+            supabase = supabase,
+            dataStore = dataStore,
+            savedStateHandle = savedState,
+        )
+
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.exercises.isEmpty()) {
+                state = awaitItem()
+            }
+            assertTrue(state.isCompleted)
+            assertEquals(ExerciseExecutionState.COMPLETED, state.executionStates["ex1"])
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

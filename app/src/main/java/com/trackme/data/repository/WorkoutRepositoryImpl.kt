@@ -180,6 +180,9 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun getInProgressSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSession? =
         workoutSessionDao.getInProgressSessionForDay(userId, dayId, todayStart)?.toDomain()
 
+    override suspend fun getLatestSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSession? =
+        workoutSessionDao.getLatestSessionForDay(userId, dayId, todayStart)?.toDomain()
+
     /**
      * Applies a local soft delete and tries to immediately push the tombstone.
      *

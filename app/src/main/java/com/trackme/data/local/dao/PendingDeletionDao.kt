@@ -13,4 +13,7 @@ interface PendingDeletionDao {
 
     @Query("DELETE FROM pending_deletions WHERE entityId = :entityId")
     suspend fun deleteById(entityId: String)
+
+    @Query("DELETE FROM pending_deletions WHERE entityId IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
