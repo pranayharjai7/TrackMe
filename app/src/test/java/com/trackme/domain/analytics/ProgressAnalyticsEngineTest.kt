@@ -7,6 +7,14 @@ import com.trackme.domain.analytics.performance.OneRMProjectionEngine
 import com.trackme.domain.analytics.performance.PlateauDetector
 import com.trackme.domain.analytics.recovery.ReadinessScoreCalculator
 import com.trackme.domain.analytics.trends.ConsistencyMatrixGenerator
+import io.mockk.mockk
+import com.trackme.domain.repository.ExerciseRepository
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import com.trackme.data.local.dao.MuscleWeeklyAnalyticsDao
+import com.trackme.data.local.dao.ExerciseProgressSnapshotDao
+import com.trackme.data.local.dao.DailyHealthAnalyticsDao
+import com.trackme.data.local.dao.BodyStateSnapshotDao
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
@@ -19,8 +27,18 @@ class ProgressAnalyticsEngineTest {
     private val fatigue = MuscleFatigueCalculator()
     private val plateau = PlateauDetector()
     private val matrix = ConsistencyMatrixGenerator()
+    private val exerciseRepository = mockk<ExerciseRepository>(relaxed = true)
+    private val dataStore = mockk<DataStore<Preferences>>(relaxed = true)
+    private val muscleWeeklyAnalyticsDao = mockk<MuscleWeeklyAnalyticsDao>(relaxed = true)
+    private val exerciseProgressSnapshotDao = mockk<ExerciseProgressSnapshotDao>(relaxed = true)
+    private val dailyHealthAnalyticsDao = mockk<DailyHealthAnalyticsDao>(relaxed = true)
+    private val bodyStateSnapshotDao = mockk<BodyStateSnapshotDao>(relaxed = true)
 
-    private val engine = ProgressAnalyticsEngine(readiness, oneRM, fatigue, plateau, matrix)
+    private val engine = ProgressAnalyticsEngine(
+        readiness, oneRM, fatigue, plateau, matrix,
+        exerciseRepository, dataStore,
+        muscleWeeklyAnalyticsDao, exerciseProgressSnapshotDao, dailyHealthAnalyticsDao, bodyStateSnapshotDao
+    )
 
     @Test
     fun `caching scopes results strictly per user`() = runBlocking {

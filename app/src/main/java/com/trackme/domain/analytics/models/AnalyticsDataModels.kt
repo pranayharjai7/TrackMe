@@ -8,7 +8,11 @@ data class HealthMetricsData(
     val hrvRmssd: Float?,
     val restingHeartRate: Int?,
     val sleepDurationMinutes: Int?,
-    val deepSleepMinutes: Int?
+    val deepSleepMinutes: Int?,
+    val weightKg: Float? = null,
+    val heightCm: Float? = null,
+    val steps: Long? = null,
+    val activeCaloriesBurned: Float? = null
 )
 
 /**

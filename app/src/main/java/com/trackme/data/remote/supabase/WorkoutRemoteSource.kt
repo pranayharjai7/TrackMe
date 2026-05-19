@@ -65,6 +65,22 @@ class WorkoutRemoteSource @Inject constructor(
         )
     }
 
+    suspend fun upsertMuscleWeeklyAnalytics(entity: MuscleWeeklyAnalyticsEntity) {
+        supabase.postgrest[TABLE_MUSCLE_WEEKLY_ANALYTICS].upsert(entity.toDto())
+    }
+
+    suspend fun upsertExerciseProgressSnapshot(entity: ExerciseProgressSnapshotEntity) {
+        supabase.postgrest[TABLE_EXERCISE_PROGRESS_SNAPSHOTS].upsert(entity.toDto())
+    }
+
+    suspend fun upsertDailyHealthAnalytics(entity: DailyHealthAnalyticsEntity) {
+        supabase.postgrest[TABLE_DAILY_HEALTH_ANALYTICS].upsert(entity.toDto())
+    }
+
+    suspend fun upsertBodyStateSnapshot(entity: BodyStateSnapshotEntity) {
+        supabase.postgrest[TABLE_BODY_STATE_SNAPSHOTS].upsert(entity.toDto())
+    }
+
     suspend fun fetchPlans(userId: String): List<WorkoutPlanEntity> =
         supabase.postgrest[TABLE_WORKOUT_PLANS]
             .select { filter { eq("user_id", userId) } }
@@ -95,6 +111,30 @@ class WorkoutRemoteSource @Inject constructor(
             .decodeList<SessionSetDto>()
             .map { SessionSetEntity(it.id, it.sessionId, it.userId, it.exerciseId, it.setNumber, it.weightKg, it.reps, it.completed, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, durationSeconds = it.durationSeconds, distanceKm = it.distanceKm, speedKmh = it.speedKmh, inclinePercent = it.inclinePercent) }
 
+    suspend fun fetchMuscleWeeklyAnalytics(userId: String): List<MuscleWeeklyAnalyticsEntity> =
+        supabase.postgrest[TABLE_MUSCLE_WEEKLY_ANALYTICS]
+            .select { filter { eq("user_id", userId) } }
+            .decodeList<MuscleWeeklyAnalyticsDto>()
+            .map { it.toEntity() }
+
+    suspend fun fetchExerciseProgressSnapshots(userId: String): List<ExerciseProgressSnapshotEntity> =
+        supabase.postgrest[TABLE_EXERCISE_PROGRESS_SNAPSHOTS]
+            .select { filter { eq("user_id", userId) } }
+            .decodeList<ExerciseProgressSnapshotDto>()
+            .map { it.toEntity() }
+
+    suspend fun fetchDailyHealthAnalytics(userId: String): List<DailyHealthAnalyticsEntity> =
+        supabase.postgrest[TABLE_DAILY_HEALTH_ANALYTICS]
+            .select { filter { eq("user_id", userId) } }
+            .decodeList<DailyHealthAnalyticsDto>()
+            .map { it.toEntity() }
+
+    suspend fun fetchBodyStateSnapshots(userId: String): List<BodyStateSnapshotEntity> =
+        supabase.postgrest[TABLE_BODY_STATE_SNAPSHOTS]
+            .select { filter { eq("user_id", userId) } }
+            .decodeList<BodyStateSnapshotDto>()
+            .map { it.toEntity() }
+
     suspend fun markDeleted(table: String, entityId: String, userId: String, deletedAt: Long) {
         supabase.postgrest[table].update(DeletionPatch(deletedAt, deletedAt)) {
             filter {
@@ -110,5 +150,9 @@ class WorkoutRemoteSource @Inject constructor(
         const val TABLE_PLANNED_EXERCISES = "planned_exercises"
         const val TABLE_WORKOUT_SESSIONS = "workout_sessions"
         const val TABLE_SESSION_SETS = "session_sets"
+        const val TABLE_MUSCLE_WEEKLY_ANALYTICS = "muscle_weekly_analytics"
+        const val TABLE_EXERCISE_PROGRESS_SNAPSHOTS = "exercise_progress_snapshots"
+        const val TABLE_DAILY_HEALTH_ANALYTICS = "daily_health_analytics"
+        const val TABLE_BODY_STATE_SNAPSHOTS = "body_state_snapshots"
     }
 }

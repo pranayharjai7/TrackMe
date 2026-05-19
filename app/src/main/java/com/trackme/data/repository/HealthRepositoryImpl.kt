@@ -32,14 +32,28 @@ class HealthRepositoryImpl @Inject constructor(
 ) : HealthRepository {
 
     override suspend fun syncFromHealthConnect(userId: String) = withContext(Dispatchers.IO) {
-        val snapshots = runCatching { healthConnectManager.readLast30Days(userId) }
+        val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 30) }
             .getOrElse { emptyList() }
 
         if (snapshots.isNotEmpty()) {
             healthSnapshotDao.insertAll(snapshots)
         }
 
-        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId) }
+        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 30) }
+            .getOrElse { emptyList() }
+
+        healthMetricDao.replaceForUser(userId, metrics)
+    }
+
+    override suspend fun syncFromHealthConnectBootstrap(userId: String) = withContext(Dispatchers.IO) {
+        val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 90) }
+            .getOrElse { emptyList() }
+
+        if (snapshots.isNotEmpty()) {
+            healthSnapshotDao.insertAll(snapshots)
+        }
+
+        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 90) }
             .getOrElse { emptyList() }
 
         healthMetricDao.replaceForUser(userId, metrics)

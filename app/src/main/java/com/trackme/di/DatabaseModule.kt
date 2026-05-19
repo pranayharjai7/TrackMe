@@ -42,6 +42,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
                 AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -56,6 +57,10 @@ object DatabaseModule {
     @Provides fun provideHealthSnapshotDao(db: AppDatabase): HealthSnapshotDao = db.healthSnapshotDao()
     @Provides fun provideHealthMetricDao(db: AppDatabase): HealthMetricDao = db.healthMetricDao()
     @Provides fun providePendingDeletionDao(db: AppDatabase): PendingDeletionDao = db.pendingDeletionDao()
+    @Provides fun provideMuscleWeeklyAnalyticsDao(db: AppDatabase): MuscleWeeklyAnalyticsDao = db.muscleWeeklyAnalyticsDao()
+    @Provides fun provideExerciseProgressSnapshotDao(db: AppDatabase): ExerciseProgressSnapshotDao = db.exerciseProgressSnapshotDao()
+    @Provides fun provideDailyHealthAnalyticsDao(db: AppDatabase): DailyHealthAnalyticsDao = db.dailyHealthAnalyticsDao()
+    @Provides fun provideBodyStateSnapshotDao(db: AppDatabase): BodyStateSnapshotDao = db.bodyStateSnapshotDao()
 
     @Provides
     @Singleton

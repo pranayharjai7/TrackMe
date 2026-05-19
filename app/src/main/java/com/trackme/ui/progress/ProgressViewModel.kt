@@ -1,5 +1,9 @@
 package com.trackme.ui.progress
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackme.domain.analytics.ProgressAnalyticsEngine
@@ -7,6 +11,7 @@ import com.trackme.domain.analytics.models.*
 import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.SessionSet
+import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
 import com.trackme.domain.usecase.GetPersonalRecordsUseCase
 import com.trackme.domain.repository.WorkoutRepository
@@ -18,6 +23,7 @@ import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ProgressUiState(
@@ -31,6 +37,7 @@ data class ProgressUiState(
     val weightHistory: List<HealthSnapshot> = emptyList(),
     val exerciseOptions: List<String> = emptyList(),
     val selectedExerciseId: String? = null,
+    val fullAnalytics: FullProgressAnalytics? = null,
 )
 
 @HiltViewModel
@@ -40,10 +47,36 @@ class ProgressViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val progressAnalyticsEngine: ProgressAnalyticsEngine,
     private val supabase: SupabaseClient,
+    private val healthRepository: HealthRepository,
+    private val dataStore: DataStore<Preferences>,
 ) : ViewModel() {
 
     private val _userId = MutableStateFlow(supabase.auth.currentSessionOrNull()?.user?.id ?: "")
     private val _selectedExerciseId = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            _userId.collect { uid ->
+                if (uid.isNotEmpty()) {
+                    val isBootstrapped = dataStore.data.map { it[booleanPreferencesKey("health_connect_bootstrapped")] ?: false }.first()
+                    if (!isBootstrapped) {
+                        try {
+                            healthRepository.syncFromHealthConnectBootstrap(uid)
+                            dataStore.edit { it[booleanPreferencesKey("health_connect_bootstrapped")] = true }
+                        } catch (e: Exception) {
+                            // Suppress bootstrap errors
+                        }
+                    } else {
+                        try {
+                            healthRepository.syncFromHealthConnect(uid)
+                        } catch (e: Exception) {
+                            // Suppress sync errors
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<ProgressUiState> = _userId
@@ -67,7 +100,11 @@ class ProgressViewModel @Inject constructor(
                         hrvRmssd = it.hrvRmssd,
                         restingHeartRate = it.restingHeartRate ?: it.heartRateAvg, // Fallback to avg if RHR is missing
                         sleepDurationMinutes = it.sleepDurationMinutes,
-                        deepSleepMinutes = it.deepSleepMinutes
+                        deepSleepMinutes = it.deepSleepMinutes,
+                        weightKg = it.weightKg,
+                        heightCm = it.heightCm,
+                        steps = it.steps,
+                        activeCaloriesBurned = it.activeCaloriesBurned
                     )
                 }
 
@@ -99,11 +136,17 @@ class ProgressViewModel @Inject constructor(
                     )
                 }
 
+                val maxSnapshotsUpdatedAt = snapshots.maxOfOrNull { it.updatedAt } ?: 0L
+                val maxSessionsUpdatedAt = sessions.maxOfOrNull { it.updatedAt } ?: 0L
+                val maxSetsUpdatedAt = sets.maxOfOrNull { it.updatedAt } ?: 0L
+                val latestDataUpdateTime = maxOf(maxSnapshotsUpdatedAt, maxSessionsUpdatedAt, maxSetsUpdatedAt)
+
                 // Delegate heavy computing to the Engine (automatically runs on Dispatchers.Default)
                 val engineResult = progressAnalyticsEngine.computeAnalytics(
                     userId = uid,
                     workoutHistory = workoutSessionAnalyticsData,
-                    healthHistory = healthMetricsData
+                    healthHistory = healthMetricsData,
+                    latestDataUpdateTime = latestDataUpdateTime
                 )
 
                 val options = prs.map { it.exerciseId }.distinct().sorted()
@@ -119,7 +162,8 @@ class ProgressViewModel @Inject constructor(
                     personalRecords = prs,
                     weightHistory = snapshots,
                     exerciseOptions = options,
-                    selectedExerciseId = effectiveSelectedId
+                    selectedExerciseId = effectiveSelectedId,
+                    fullAnalytics = engineResult.fullAnalytics
                 )
             }
         }

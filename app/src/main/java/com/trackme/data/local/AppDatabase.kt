@@ -29,8 +29,12 @@ import com.trackme.data.local.entity.*
         HealthSnapshotEntity::class,
         HealthMetricEntity::class,
         PendingDeletionEntity::class,
+        MuscleWeeklyAnalyticsEntity::class,
+        ExerciseProgressSnapshotEntity::class,
+        DailyHealthAnalyticsEntity::class,
+        BodyStateSnapshotEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -44,6 +48,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun healthSnapshotDao(): HealthSnapshotDao
     abstract fun healthMetricDao(): HealthMetricDao
     abstract fun pendingDeletionDao(): PendingDeletionDao
+    abstract fun muscleWeeklyAnalyticsDao(): MuscleWeeklyAnalyticsDao
+    abstract fun exerciseProgressSnapshotDao(): ExerciseProgressSnapshotDao
+    abstract fun dailyHealthAnalyticsDao(): DailyHealthAnalyticsDao
+    abstract fun bodyStateSnapshotDao(): BodyStateSnapshotDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -158,6 +166,80 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE health_snapshots ADD COLUMN restingHeartRate INTEGER")
                 db.execSQL("ALTER TABLE health_snapshots ADD COLUMN sleepDurationMinutes INTEGER")
                 db.execSQL("ALTER TABLE health_snapshots ADD COLUMN deepSleepMinutes INTEGER")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS muscle_weekly_analytics (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "muscleGroup TEXT NOT NULL, " +
+                    "weekOffset INTEGER NOT NULL, " +
+                    "weeklyStimulus REAL NOT NULL, " +
+                    "growthIndex REAL NOT NULL, " +
+                    "fatigue REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL DEFAULT 0, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_muscle_weekly_analytics_user ON muscle_weekly_analytics(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_muscle_weekly_analytics_sync ON muscle_weekly_analytics(isSynced)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS exercise_progress_snapshots (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "exerciseId TEXT NOT NULL, " +
+                    "exerciseName TEXT NOT NULL, " +
+                    "current1RM REAL NOT NULL, " +
+                    "projected1RM30Days REAL NOT NULL, " +
+                    "projected1RM90Days REAL NOT NULL, " +
+                    "projected1RM365Days REAL NOT NULL, " +
+                    "isPlateaued INTEGER NOT NULL, " +
+                    "improvementPercentage REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL DEFAULT 0, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_exercise_progress_snapshots_user ON exercise_progress_snapshots(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_exercise_progress_snapshots_sync ON exercise_progress_snapshots(isSynced)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS daily_health_analytics (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "dateMillis INTEGER NOT NULL, " +
+                    "bmr REAL NOT NULL, " +
+                    "caloriesSteps REAL NOT NULL, " +
+                    "caloriesActive REAL NOT NULL, " +
+                    "caloriesLifting REAL NOT NULL, " +
+                    "caloriesTDEE REAL NOT NULL, " +
+                    "steps INTEGER NOT NULL, " +
+                    "weightKg REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL DEFAULT 0, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_daily_health_analytics_user ON daily_health_analytics(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_daily_health_analytics_sync ON daily_health_analytics(isSynced)")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS body_state_snapshots (" +
+                    "id TEXT NOT NULL PRIMARY KEY, " +
+                    "userId TEXT NOT NULL, " +
+                    "consistencyScore REAL NOT NULL, " +
+                    "readinessScore INTEGER NOT NULL, " +
+                    "muscleBalancePushPull REAL NOT NULL, " +
+                    "muscleBalanceQuadHam REAL NOT NULL, " +
+                    "muscleBalanceUpperLower REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isSynced INTEGER NOT NULL DEFAULT 0, " +
+                    "deletedAt INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_body_state_snapshots_user ON body_state_snapshots(userId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_body_state_snapshots_sync ON body_state_snapshots(isSynced)")
             }
         }
     }

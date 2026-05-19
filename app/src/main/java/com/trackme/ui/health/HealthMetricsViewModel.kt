@@ -7,6 +7,7 @@ import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthMetricsUseCase
 import com.trackme.utils.startOfTodayMillis
+import com.trackme.utils.startOfLocalDayMillis
 import com.trackme.utils.todayBoundsMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
@@ -84,7 +85,7 @@ class HealthMetricsViewModel @Inject constructor(
      */
     private fun HealthSnapshot.toTodayMetrics(): List<HealthMetric> {
         val todayStart = startOfTodayMillis()
-        if (date != todayStart) return emptyList()
+        if (startOfLocalDayMillis(date) != todayStart) return emptyList()
         return listOfNotNull(
             steps?.let {
                 HealthMetric(
@@ -115,6 +116,57 @@ class HealthMetricsViewModel @Inject constructor(
                     primaryValue = it.toString(),
                     primaryUnit = "bpm",
                     details = emptyList(),
+                    sourceApp = "Health Connect daily snapshot",
+                    rawData = null,
+                    updatedAt = updatedAt,
+                )
+            },
+            restingHeartRate?.let {
+                HealthMetric(
+                    id = "${id}_rhr_snapshot",
+                    userId = userId,
+                    category = "Vitals",
+                    recordType = "RestingHeartRateRecord",
+                    displayName = "Resting heart rate",
+                    startTime = date,
+                    endTime = null,
+                    primaryValue = it.toString(),
+                    primaryUnit = "bpm",
+                    details = listOf("Resting heart rate: $it bpm"),
+                    sourceApp = "Health Connect daily snapshot",
+                    rawData = null,
+                    updatedAt = updatedAt,
+                )
+            },
+            hrvRmssd?.let {
+                HealthMetric(
+                    id = "${id}_hrv_snapshot",
+                    userId = userId,
+                    category = "Vitals",
+                    recordType = "HeartRateVariabilityRmssdRecord",
+                    displayName = "Heart rate variability",
+                    startTime = date,
+                    endTime = null,
+                    primaryValue = "%.1f".format(it),
+                    primaryUnit = "ms",
+                    details = listOf("RMSSD: %.1f ms".format(it)),
+                    sourceApp = "Health Connect daily snapshot",
+                    rawData = null,
+                    updatedAt = updatedAt,
+                )
+            },
+            sleepDurationMinutes?.let {
+                HealthMetric(
+                    id = "${id}_sleep_snapshot",
+                    userId = userId,
+                    category = "Sleep",
+                    recordType = "SleepSessionRecord",
+                    displayName = "Sleep session",
+                    startTime = date,
+                    endTime = null,
+                    primaryValue = it.toString(),
+                    primaryUnit = "min",
+                    details = listOf("Sleep duration: $it min"),
                     sourceApp = "Health Connect daily snapshot",
                     rawData = null,
                     updatedAt = updatedAt,

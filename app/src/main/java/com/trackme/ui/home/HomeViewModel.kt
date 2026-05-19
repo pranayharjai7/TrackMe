@@ -6,6 +6,7 @@ import com.trackme.domain.model.HealthSnapshot
 import com.trackme.domain.model.PersonalRecord
 import com.trackme.domain.model.WorkoutDay
 import com.trackme.domain.repository.WorkoutRepository
+import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
 import com.trackme.domain.usecase.GetTodayWorkoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,6 +63,7 @@ class HomeViewModel @Inject constructor(
     private val getTodayWorkout: GetTodayWorkoutUseCase,
     private val workoutRepository: WorkoutRepository,
     private val getHealthSnapshots: GetHealthSnapshotsUseCase,
+    private val healthRepository: HealthRepository,
     private val supabase: SupabaseClient,
 ) : ViewModel() {
 
@@ -78,6 +80,10 @@ class HomeViewModel @Inject constructor(
 
             val uid = session.user?.id.orEmpty()
             if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
+
+            viewModelScope.launch {
+                runCatching { healthRepository.syncFromHealthConnect(uid) }
+            }
 
             val thirtyDaysAgo = millisDaysAgo(30)
             val displayName = session.user

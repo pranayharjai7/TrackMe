@@ -55,7 +55,8 @@ class HealthConnectManager @Inject constructor(
             HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
             HealthPermission.getReadPermission(SleepSessionRecord::class),
             HealthPermission.getReadPermission(WeightRecord::class),
-            HealthPermission.getReadPermission(HeightRecord::class)
+            HealthPermission.getReadPermission(HeightRecord::class),
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class)
         )
 
     fun getSdkStatus(): HcSdkStatus = when (HealthConnectClient.getSdkStatus(context)) {
@@ -71,14 +72,14 @@ class HealthConnectManager @Inject constructor(
         return c.permissionController.getGrantedPermissions().containsAll(requiredPermissions)
     }
 
-    suspend fun readLast30Days(userId: String): List<HealthSnapshotEntity> {
+    suspend fun readLast30Days(userId: String, days: Int = 30): List<HealthSnapshotEntity> {
         val c = client ?: return emptyList()
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
         val today = now.atZone(zone).toLocalDate()
         
         val snapshots = coroutineScope {
-            (0..30).map { i ->
+            (0..days).map { i ->
                 async {
                     val day = today.minusDays(i.toLong())
                     val startOfDay = day.atStartOfDay(zone).toInstant()
@@ -97,8 +98,11 @@ class HealthConnectManager @Inject constructor(
                         c.aggregate(AggregateRequest(setOf(HeartRateRecord.BPM_AVG), timeRange))[HeartRateRecord.BPM_AVG]?.toInt()
                     }
 
-                    val restingHeartRate = safeAggregate {
-                        c.aggregate(AggregateRequest(setOf(RestingHeartRateRecord.BPM_MIN), timeRange))[RestingHeartRateRecord.BPM_MIN]?.toInt()
+                    val restingHeartRate = safeFetch {
+                        val records = c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, timeRange)).records
+                        if (records.isNotEmpty()) {
+                            records.map { it.beatsPerMinute }.average().toInt()
+                        } else null
                     }
 
                     val sleepDuration = safeFetch {
@@ -151,11 +155,11 @@ class HealthConnectManager @Inject constructor(
         return snapshots
     }
 
-    suspend fun readDetailedMetricsLast30Days(userId: String): List<HealthMetricEntity> {
+    suspend fun readDetailedMetricsLast30Days(userId: String, days: Int = 30): List<HealthMetricEntity> {
         val c = client ?: return emptyList()
         val zone = ZoneId.systemDefault()
         val today = Instant.now().atZone(zone).toLocalDate()
-        val start = today.minusDays(30).atStartOfDay(zone).toInstant()
+        val start = today.minusDays(days.toLong()).atStartOfDay(zone).toInstant()
         val end = today.plusDays(1).atStartOfDay(zone).toInstant()
         val timeRange = TimeRangeFilter.between(start, end)
         val updatedAt = System.currentTimeMillis()

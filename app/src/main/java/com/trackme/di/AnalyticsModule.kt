@@ -1,5 +1,11 @@
 package com.trackme.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import com.trackme.data.local.dao.MuscleWeeklyAnalyticsDao
+import com.trackme.data.local.dao.ExerciseProgressSnapshotDao
+import com.trackme.data.local.dao.DailyHealthAnalyticsDao
+import com.trackme.data.local.dao.BodyStateSnapshotDao
 import com.trackme.domain.analytics.ProgressAnalyticsEngine
 import com.trackme.domain.analytics.muscle.MuscleFatigueCalculator
 import com.trackme.domain.analytics.performance.OneRMProjectionEngine
@@ -43,14 +49,26 @@ object AnalyticsModule {
         oneRMEngine: OneRMProjectionEngine,
         fatigueCalculator: MuscleFatigueCalculator,
         plateauDetector: PlateauDetector,
-        matrixGenerator: ConsistencyMatrixGenerator
+        matrixGenerator: ConsistencyMatrixGenerator,
+        exerciseRepository: com.trackme.domain.repository.ExerciseRepository,
+        dataStore: DataStore<Preferences>,
+        muscleWeeklyAnalyticsDao: MuscleWeeklyAnalyticsDao,
+        exerciseProgressSnapshotDao: ExerciseProgressSnapshotDao,
+        dailyHealthAnalyticsDao: DailyHealthAnalyticsDao,
+        bodyStateSnapshotDao: BodyStateSnapshotDao
     ): ProgressAnalyticsEngine {
         return ProgressAnalyticsEngine(
             readinessCalculator,
             oneRMEngine,
             fatigueCalculator,
             plateauDetector,
-            matrixGenerator
+            matrixGenerator,
+            exerciseRepository,
+            dataStore,
+            muscleWeeklyAnalyticsDao,
+            exerciseProgressSnapshotDao,
+            dailyHealthAnalyticsDao,
+            bodyStateSnapshotDao
         )
     }
 }

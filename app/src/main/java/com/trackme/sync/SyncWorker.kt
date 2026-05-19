@@ -10,6 +10,10 @@ import com.trackme.data.local.dao.SessionSetDao
 import com.trackme.data.local.dao.WorkoutDayDao
 import com.trackme.data.local.dao.WorkoutPlanDao
 import com.trackme.data.local.dao.WorkoutSessionDao
+import com.trackme.data.local.dao.MuscleWeeklyAnalyticsDao
+import com.trackme.data.local.dao.ExerciseProgressSnapshotDao
+import com.trackme.data.local.dao.DailyHealthAnalyticsDao
+import com.trackme.data.local.dao.BodyStateSnapshotDao
 import com.trackme.data.local.entity.PendingDeletionEntity
 import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import dagger.assisted.Assisted
@@ -37,6 +41,10 @@ class SyncWorker @AssistedInject constructor(
     private val workoutSessionDao: WorkoutSessionDao,
     private val sessionSetDao: SessionSetDao,
     private val pendingDeletionDao: PendingDeletionDao,
+    private val muscleWeeklyAnalyticsDao: MuscleWeeklyAnalyticsDao,
+    private val exerciseProgressSnapshotDao: ExerciseProgressSnapshotDao,
+    private val dailyHealthAnalyticsDao: DailyHealthAnalyticsDao,
+    private val bodyStateSnapshotDao: BodyStateSnapshotDao,
     private val remoteSource: WorkoutRemoteSource,
     private val supabase: SupabaseClient,
 ) : CoroutineWorker(context, params) {
@@ -58,7 +66,55 @@ class SyncWorker @AssistedInject constructor(
         mergePlannedExercises(userId, failedPending)
         mergeSessions(userId)
         mergeSets(userId, failedPending)
+        mergeMuscleWeeklyAnalytics(userId)
+        mergeExerciseProgressSnapshots(userId)
+        mergeDailyHealthAnalytics(userId)
+        mergeBodyStateSnapshots(userId)
     }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
+
+    private suspend fun mergeMuscleWeeklyAnalytics(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchMuscleWeeklyAnalytics(userId).associateBy { it.id },
+        localMap = muscleWeeklyAnalyticsDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { muscleWeeklyAnalyticsDao.insert(it) },
+        upsertRemote = { remoteSource.upsertMuscleWeeklyAnalytics(it) },
+        markSynced = { muscleWeeklyAnalyticsDao.markSynced(it) },
+    )
+
+    private suspend fun mergeExerciseProgressSnapshots(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchExerciseProgressSnapshots(userId).associateBy { it.id },
+        localMap = exerciseProgressSnapshotDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { exerciseProgressSnapshotDao.insert(it) },
+        upsertRemote = { remoteSource.upsertExerciseProgressSnapshot(it) },
+        markSynced = { exerciseProgressSnapshotDao.markSynced(it) },
+    )
+
+    private suspend fun mergeDailyHealthAnalytics(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchDailyHealthAnalytics(userId).associateBy { it.id },
+        localMap = dailyHealthAnalyticsDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { dailyHealthAnalyticsDao.insert(it) },
+        upsertRemote = { remoteSource.upsertDailyHealthAnalytics(it) },
+        markSynced = { dailyHealthAnalyticsDao.markSynced(it) },
+    )
+
+    private suspend fun mergeBodyStateSnapshots(userId: String) = mergeLastWriteWins(
+        remoteMap = remoteSource.fetchBodyStateSnapshots(userId).associateBy { it.id },
+        localMap = bodyStateSnapshotDao.getAllForSync(userId).associateBy { it.id },
+        entityId = { it.id },
+        updatedAt = { it.updatedAt },
+        isSynced = { it.isSynced },
+        insertLocal = { bodyStateSnapshotDao.insert(it) },
+        upsertRemote = { remoteSource.upsertBodyStateSnapshot(it) },
+        markSynced = { bodyStateSnapshotDao.markSynced(it) },
+    )
 
     private suspend fun mergePlans(userId: String) = mergeLastWriteWins(
         remoteMap = remoteSource.fetchPlans(userId).associateBy { it.id },
