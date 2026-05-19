@@ -104,8 +104,8 @@ class HomeViewModel @Inject constructor(
                 workoutRepository.getPersonalRecords(uid),
                 workoutRepository.getSessionsSince(uid, thirtyDaysAgo),
                 getHealthSnapshots(uid, 30),
-                weekStripFlow,
-            ) { today, prs, sessions, snapshots, weekStrip ->
+                combine(weekStripFlow, workoutRepository.getSetsSince(uid, thirtyDaysAgo)) { ws, sets -> ws to sets }
+            ) { today, prs, sessions, snapshots, (weekStrip, sets) ->
                 val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
                 val completedDayIdsToday = sessions
                     .filter { startOfLocalDayMillis(it.date) == todayMidnight && it.durationMinutes > 0 }
@@ -129,8 +129,13 @@ class HomeViewModel @Inject constructor(
                     else -> HomeDashboardState.REST_RECOVERY
                 }
                 
+                // Calculate today's volume and lifting calories
+                val todaySets = sets.filter { it.updatedAt >= todayMidnight }
+                val todayVolumeKg = todaySets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
+                val liftingCalories = todayVolumeKg * 0.04f
+
                 val latestSnapshot = snapshots.maxByOrNull { it.date }
-                val healthInsight = latestSnapshot?.toHealthInsight(dashboardState)
+                val healthInsight = latestSnapshot?.toHealthInsight(dashboardState, liftingCalories)
 
                 HomeUiState(
                     isLoading = false,
@@ -194,7 +199,7 @@ internal fun calculateStreak(sortedMidnights: List<Long>, nowMs: Long): Int {
     return streak
 }
 
-private fun HealthSnapshot.toHealthInsight(dashboardState: HomeDashboardState): HealthInsight =
+private fun HealthSnapshot.toHealthInsight(dashboardState: HomeDashboardState, liftingCalories: Float): HealthInsight =
     if (dashboardState == HomeDashboardState.REST_RECOVERY) {
         val steps = steps ?: 0L
         HealthInsight(
@@ -203,7 +208,18 @@ private fun HealthSnapshot.toHealthInsight(dashboardState: HomeDashboardState): 
             score = (steps / 100).toInt().coerceIn(0, 100),
         )
     } else {
-        val calories = activeCaloriesBurned ?: 0f
+        val activeBurned = activeCaloriesBurned
+        val stepsVal = steps ?: 0L
+        val weight = weightKg ?: 75f
+        val stepsCalories = stepsVal * weight * 0.0005f
+        
+        val baseActiveCalories = if (activeBurned != null && activeBurned > 0f) {
+            activeBurned
+        } else {
+            stepsCalories
+        }
+        
+        val calories = baseActiveCalories + liftingCalories
         HealthInsight(
             title = "Active Energy",
             description = "You've burned ${calories.toInt()} kcal today. Fuel your body for the workout!",

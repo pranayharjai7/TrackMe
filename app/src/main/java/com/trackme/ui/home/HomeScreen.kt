@@ -360,7 +360,7 @@ private fun RadialHealthSnapshotCard(insight: HealthInsight) {
                     .border(4.dp, if (insight.score > 70) Teal else if (insight.score > 30) Color(0xFFFFD700) else Coral, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("${insight.score}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("${insight.score}%", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             }
             Spacer(Modifier.width(20.dp))
             Column {
