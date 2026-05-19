@@ -2,6 +2,7 @@ package com.trackme.ui.workout.planner
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -71,7 +72,6 @@ fun WeeklyPlannerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding(),
-
                 contentPadding = PaddingValues(top = 24.dp, bottom = bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -84,27 +84,97 @@ fun WeeklyPlannerScreen(
                     )
                 }
 
-                items(DayOfWeek.entries, key = { it.name }) { dow ->
-                    val day = state.days.firstOrNull { it.dayOfWeek == dow }
-                    val count = day?.let { state.exerciseCounts[it.id] } ?: 0
-                    GlassDayCard(
-                        dayOfWeek = dow,
-                        workoutDay = day,
-                        exerciseCount = count,
-                        onClick = {
-                            if (day != null) {
-                                onEditDay(day.id)
-                            } else {
-                                pendingDayOfWeek = dow
-                                newDayName = dow.name.lowercase().replaceFirstChar { it.uppercase() } + " Workout"
-                                showAddDayDialog = true
-                            }
+                // Mon & Tue
+                item {
+                    DayPairRow(
+                        dow1 = DayOfWeek.MON,
+                        dow2 = DayOfWeek.TUE,
+                        state = state,
+                        onEditDay = onEditDay,
+                        onAddDay = { dow, defaultName ->
+                            pendingDayOfWeek = dow
+                            newDayName = defaultName
+                            showAddDayDialog = true
                         },
-                        onDelete = if (day != null) ({
+                        onDeleteDay = { day ->
                             pendingDeleteDay = day
                             showDeleteDialog = true
-                        }) else null,
+                        }
                     )
+                }
+
+                // Wed & Thu
+                item {
+                    DayPairRow(
+                        dow1 = DayOfWeek.WED,
+                        dow2 = DayOfWeek.THU,
+                        state = state,
+                        onEditDay = onEditDay,
+                        onAddDay = { dow, defaultName ->
+                            pendingDayOfWeek = dow
+                            newDayName = defaultName
+                            showAddDayDialog = true
+                        },
+                        onDeleteDay = { day ->
+                            pendingDeleteDay = day
+                            showDeleteDialog = true
+                        }
+                    )
+                }
+
+                // Fri & Sat
+                item {
+                    DayPairRow(
+                        dow1 = DayOfWeek.FRI,
+                        dow2 = DayOfWeek.SAT,
+                        state = state,
+                        onEditDay = onEditDay,
+                        onAddDay = { dow, defaultName ->
+                            pendingDayOfWeek = dow
+                            newDayName = defaultName
+                            showAddDayDialog = true
+                        },
+                        onDeleteDay = { day ->
+                            pendingDeleteDay = day
+                            showDeleteDialog = true
+                        }
+                    )
+                }
+
+                // Sun & Summary
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        val sunDow = DayOfWeek.SUN
+                        val sunDay = state.days.find { it.dayOfWeek == sunDow }
+                        val sunCount = state.exerciseCounts[sunDay?.id] ?: 0
+                        Box(modifier = Modifier.weight(1f)) {
+                            GlassDayCard(
+                                dayOfWeek = sunDow,
+                                workoutDay = sunDay,
+                                exerciseCount = sunCount,
+                                onClick = {
+                                    if (sunDay != null) {
+                                        onEditDay(sunDay.id)
+                                    } else {
+                                        pendingDayOfWeek = sunDow
+                                        newDayName = sunDow.name.lowercase().replaceFirstChar { it.uppercase() } + " Workout"
+                                        showAddDayDialog = true
+                                    }
+                                },
+                                onDelete = if (sunDay != null) ({
+                                    pendingDeleteDay = sunDay
+                                    showDeleteDialog = true
+                                }) else null
+                            )
+                        }
+
+                        Box(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -270,6 +340,58 @@ private fun PlannerHeroHeader(
         }
     }
 }
+@Composable
+private fun DayPairRow(
+    dow1: DayOfWeek,
+    dow2: DayOfWeek,
+    state: WeeklyPlannerUiState,
+    onEditDay: (String) -> Unit,
+    onAddDay: (DayOfWeek, String) -> Unit,
+    onDeleteDay: (WorkoutDay) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        val day1 = state.days.find { it.dayOfWeek == dow1 }
+        val count1 = state.exerciseCounts[day1?.id] ?: 0
+        Box(modifier = Modifier.weight(1f)) {
+            GlassDayCard(
+                dayOfWeek = dow1,
+                workoutDay = day1,
+                exerciseCount = count1,
+                onClick = {
+                    if (day1 != null) {
+                        onEditDay(day1.id)
+                    } else {
+                        onAddDay(dow1, dow1.name.lowercase().replaceFirstChar { it.uppercase() } + " Workout")
+                    }
+                },
+                onDelete = if (day1 != null) ({ onDeleteDay(day1) }) else null
+            )
+        }
+
+        val day2 = state.days.find { it.dayOfWeek == dow2 }
+        val count2 = state.exerciseCounts[day2?.id] ?: 0
+        Box(modifier = Modifier.weight(1f)) {
+            GlassDayCard(
+                dayOfWeek = dow2,
+                workoutDay = day2,
+                exerciseCount = count2,
+                onClick = {
+                    if (day2 != null) {
+                        onEditDay(day2.id)
+                    } else {
+                        onAddDay(dow2, dow2.name.lowercase().replaceFirstChar { it.uppercase() } + " Workout")
+                    }
+                },
+                onDelete = if (day2 != null) ({ onDeleteDay(day2) }) else null
+            )
+        }
+    }
+}
 
 @Composable
 private fun GlassDayCard(
@@ -278,76 +400,103 @@ private fun GlassDayCard(
     exerciseCount: Int,
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
-    val dayLabel = dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
+    val dayLabel = dayOfWeek.name.substring(0, 3).uppercase()
     
     GlassmorphicCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        shape = RoundedCornerShape(24.dp)
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Card(
-            onClick = onClick,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth(),
+        Column(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Icon / Avatar indicating day state
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(if (workoutDay != null) Violet.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (workoutDay != null) {
-                        Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = Violet)
-                    } else {
-                        Text("🛌", style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-
-                Spacer(Modifier.width(16.dp))
-
-                // Titles
-                Column(Modifier.weight(1f)) {
-                    Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = if (workoutDay != null) Violet else Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
-                    Text(
-                        workoutDay?.name ?: "Rest Day",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (workoutDay != null) Color.White else Color.White.copy(alpha = 0.6f),
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (workoutDay != null && exerciseCount > 0) {
-                        Text(
-                            "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                    } else if (workoutDay != null) {
-                        Text(
-                            "Tap to add exercises",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Coral,
-                        )
-                    }
-                }
-
-                // Delete Action
+            // Top row: Day abbreviation (MON, TUE) & Action (Delete icon / status icon)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = dayLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (workoutDay != null) Violet else Color.White.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Bold
+                )
+                
                 if (workoutDay != null && onDelete != null) {
-                    IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(24.dp)
+                    ) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Delete day",
-                            tint = Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.size(20.dp),
+                            tint = Color.White.copy(alpha = 0.35f),
+                            modifier = Modifier.size(16.dp)
                         )
                     }
+                } else if (workoutDay == null) {
+                    Text("🛌", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Middle section: Workout Name
+            Text(
+                text = workoutDay?.name ?: "Rest Day",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (workoutDay != null) Color.White else Color.White.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                modifier = Modifier.height(44.dp)
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Bottom section: Stats or Action Call
+            if (workoutDay != null) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (exerciseCount > 0) Violet.copy(alpha = 0.15f) else Coral.copy(alpha = 0.15f),
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Text(
+                        text = if (exerciseCount > 0) {
+                            "$exerciseCount Exercise${if (exerciseCount == 1) "" else "s"}"
+                        } else {
+                            "Add Exercises"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (exerciseCount > 0) Color.White.copy(alpha = 0.9f) else Coral,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White.copy(alpha = 0.05f),
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Text(
+                        text = "Recover",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun EmptyPlanState(onCreatePlan: () -> Unit, modifier: Modifier = Modifier) {

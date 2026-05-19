@@ -41,7 +41,7 @@ class ExerciseSearchViewModelTest {
             gifUrl = "",
             youtubeQuery = "bench press tutorial",
         )
-        every { searchUseCase(any()) } returns flowOf(listOf(fakeExercise))
+        every { searchUseCase(any(), any()) } returns flowOf(listOf(fakeExercise))
         viewModel = ExerciseSearchViewModel(
             searchUseCase,
             addExerciseToDay,

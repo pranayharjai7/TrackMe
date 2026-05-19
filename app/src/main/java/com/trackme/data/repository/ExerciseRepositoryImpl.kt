@@ -33,8 +33,8 @@ class ExerciseRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun search(query: String): Flow<List<Exercise>> =
-        exerciseDao.search(query).map { list -> list.map { it.toDomain() } }
+    override fun search(query: String, limit: Int): Flow<List<Exercise>> =
+        exerciseDao.search(query, limit).map { list -> list.map { it.toDomain() } }
 
     override fun getByMuscle(muscle: String): Flow<List<Exercise>> =
         exerciseDao.getByMuscle(muscle).map { list -> list.map { it.toDomain() } }

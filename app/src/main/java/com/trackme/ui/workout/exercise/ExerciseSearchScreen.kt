@@ -3,6 +3,7 @@ package com.trackme.ui.workout.exercise
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,6 +32,23 @@ fun ExerciseSearchScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var queryText by remember { mutableStateOf("") }
     val addingForDay = viewModel.dayId.isNotEmpty()
+
+    val lazyListState = rememberLazyListState()
+
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = lazyListState.layoutInfo
+            val totalItemsCount = layoutInfo.totalItemsCount
+            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 5
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            viewModel.loadNextPage()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.addedEvent.collect { onBack() }
@@ -81,7 +99,10 @@ fun ExerciseSearchScreen(
                 shape = RoundedCornerShape(20.dp),
             )
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                state = lazyListState,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(state.results, key = { it.id }) { exercise ->
                     ExerciseListItem(
                         exercise = exercise,
@@ -89,6 +110,23 @@ fun ExerciseSearchScreen(
                         onAdd = { viewModel.onExerciseSelectedForAdd(exercise) },
                         onInfo = { onExerciseClick(exercise.id) },
                     )
+                }
+
+                if (state.isLoadingMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = Violet,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -8,6 +8,6 @@ import javax.inject.Inject
 class SearchExercisesUseCase @Inject constructor(
     private val repository: ExerciseRepository,
 ) {
-    operator fun invoke(query: String): Flow<List<Exercise>> =
-        repository.search(query.trim())
+    operator fun invoke(query: String, limit: Int): Flow<List<Exercise>> =
+        repository.search(query.trim(), limit)
 }

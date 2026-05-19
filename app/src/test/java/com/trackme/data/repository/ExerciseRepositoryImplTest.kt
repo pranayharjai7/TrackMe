@@ -51,11 +51,11 @@ class ExerciseRepositoryImplTest {
 
     @Test
     fun `search returns mapped domain models`() = runTest {
-        every { dao.search("bench") } returns flowOf(
+        every { dao.search("bench", any()) } returns flowOf(
             listOf(fakeEntity("bench-press", "Bench Press"))
         )
 
-        repo.search("bench").test {
+        repo.search("bench", 30).test {
             val result = awaitItem()
             assertEquals(1, result.size)
             assertEquals("Bench Press", result[0].name)

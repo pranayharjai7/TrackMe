@@ -20,6 +20,7 @@ data class ExerciseSearchUiState(
     val results: List<Exercise> = emptyList(),
     val isAdding: Boolean = false,
     val pendingExercise: Exercise? = null,
+    val isLoadingMore: Boolean = false,
 )
 
 @HiltViewModel
@@ -33,18 +34,36 @@ class ExerciseSearchViewModel @Inject constructor(
 
     val dayId: String = savedStateHandle["dayId"] ?: ""
     private val _query = MutableStateFlow("")
+    private val _limit = MutableStateFlow(30)
+    private val _isLoadingMore = MutableStateFlow(false)
     private val _pendingExercise = MutableStateFlow<Exercise?>(null)
     private val _added = MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 1)
     val addedEvent: SharedFlow<Unit> = _added
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val uiState: StateFlow<ExerciseSearchUiState> = combine(
-        _query.debounce(300).flatMapLatest { query -> searchExercises(query) },
+        combine(_query.debounce(300), _limit) { query, limit -> query to limit }
+            .flatMapLatest { (query, limit) ->
+                searchExercises(query, limit).onEach { _isLoadingMore.value = false }
+            },
         _pendingExercise,
-    ) { results, pending -> ExerciseSearchUiState(results = results, pendingExercise = pending) }
+        _isLoadingMore,
+    ) { results, pending, loading ->
+        ExerciseSearchUiState(results = results, pendingExercise = pending, isLoadingMore = loading)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ExerciseSearchUiState())
 
-    fun onQueryChange(query: String) { _query.value = query }
+    fun onQueryChange(query: String) {
+        _isLoadingMore.value = true
+        _query.value = query
+        _limit.value = 30
+    }
+
+    fun loadNextPage() {
+        if (_isLoadingMore.value) return
+        _isLoadingMore.value = true
+        _limit.value = _limit.value + 30
+    }
 
     fun onExerciseSelectedForAdd(exercise: Exercise) {
         _pendingExercise.value = exercise

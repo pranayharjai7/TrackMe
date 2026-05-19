@@ -9,8 +9,8 @@ interface ExerciseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(exercises: List<ExerciseEntity>)
 
-    @Query("SELECT * FROM exercises WHERE name LIKE '%' || :query || '%' OR primaryMuscles LIKE '%' || :query || '%' ORDER BY name LIMIT 100")
-    fun search(query: String): Flow<List<ExerciseEntity>>
+    @Query("SELECT * FROM exercises WHERE name LIKE '%' || :query || '%' OR primaryMuscles LIKE '%' || :query || '%' ORDER BY name LIMIT :limit")
+    fun search(query: String, limit: Int): Flow<List<ExerciseEntity>>
 
     @Query("SELECT * FROM exercises WHERE primaryMuscles LIKE '%' || :muscle || '%' OR secondaryMuscles LIKE '%' || :muscle || '%' ORDER BY name LIMIT 100")
     fun getByMuscle(muscle: String): Flow<List<ExerciseEntity>>
