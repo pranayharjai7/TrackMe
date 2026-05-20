@@ -17,9 +17,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -77,7 +79,7 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Background)
+                        .background(Color.Transparent)
                         .padding(vertical = 8.dp)
                 ) {
                     TabSelector(
@@ -1453,20 +1455,28 @@ fun StrengthForecastChartCard(
 
     var expanded by remember { mutableStateOf(false) }
 
+    val blurRadius by animateDpAsState(
+        targetValue = if (expanded) 10.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300),
+        label = "DropdownBlur"
+    )
+
     GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(24.dp)) {
-            Text(
-                "Strength Forecast",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Interactive regression chart plotting estimated 1RM (Epley).",
-                style = MaterialTheme.typography.bodySmall,
-                color = OnSurfaceMuted
-            )
+            Column(modifier = Modifier.blur(blurRadius)) {
+                Text(
+                    "Strength Forecast",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Interactive regression chart plotting estimated 1RM (Epley).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnSurfaceMuted
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
 
@@ -1491,11 +1501,48 @@ fun StrengthForecastChartCard(
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = SurfaceVariant,
                     modifier = Modifier
                         .heightIn(max = 240.dp)
-                        .background(SurfaceVariant)
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .shadow(
+                            elevation = 16.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            clip = false,
+                            ambientColor = Color.Black,
+                            spotColor = Color.Black
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                 ) {
+                    if (exerciseOptions.size > 4) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 6.dp, start = 14.dp, end = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SwapVert,
+                                contentDescription = null,
+                                tint = OnSurfaceMuted,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Scroll for more exercises",
+                                color = OnSurfaceMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(bottom = 4.dp),
+                            color = Color.White.copy(alpha = 0.05f)
+                        )
+                    }
+
                     exerciseOptions.forEach { option ->
                         val isSelected = option == selectedExerciseId || (selectedExerciseId == null && option == activeProjection?.exerciseId)
                         DropdownMenuItem(
@@ -1523,83 +1570,89 @@ fun StrengthForecastChartCard(
 
             Spacer(Modifier.height(24.dp))
 
-            if (activeProjection != null) {
-                InteractiveLineChart(historyPoints = activeProjection.historyPoints)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .blur(blurRadius)
+            ) {
+                if (activeProjection != null) {
+                    InteractiveLineChart(historyPoints = activeProjection.historyPoints)
 
-                Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = String.format(Locale.US, "%.1f kg", activeProjection.current1RM),
-                            fontSize = 28.sp,
-                            color = Teal,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = "CURRENT ESTIMATED 1RM",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = OnSurfaceMuted,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                Spacer(Modifier.height(16.dp))
-
-                val projectionsList = listOf(
-                    Pair("30 Days Forecast", activeProjection.projected30Days),
-                    Pair("90 Days Forecast", activeProjection.projected90Days),
-                    Pair("365 Days Forecast", activeProjection.projected365Days)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    projectionsList.forEach { (label, value) ->
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(label, color = OnSurfaceMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
                             Text(
-                                text = value,
-                                color = if (value.contains("kg")) Teal else Coral,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
+                                text = String.format(Locale.US, "%.1f kg", activeProjection.current1RM),
+                                fontSize = 28.sp,
+                                color = Teal,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "CURRENT ESTIMATED 1RM",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = OnSurfaceMuted,
+                                letterSpacing = 0.5.sp
                             )
                         }
-                        if (label != "365 Days Forecast") {
-                            Spacer(Modifier.width(8.dp))
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    Spacer(Modifier.height(16.dp))
+
+                    val projectionsList = listOf(
+                        Pair("30 Days Forecast", activeProjection.projected30Days),
+                        Pair("90 Days Forecast", activeProjection.projected90Days),
+                        Pair("365 Days Forecast", activeProjection.projected365Days)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        projectionsList.forEach { (label, value) ->
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(label, color = OnSurfaceMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = value,
+                                    color = if (value.contains("kg")) Teal else Coral,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            if (label != "365 Days Forecast") {
+                                Spacer(Modifier.width(8.dp))
+                            }
                         }
                     }
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Log lifting sets for this exercise to compute trajectory forecasts.",
-                        color = OnSurfaceMuted,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Log lifting sets for this exercise to compute trajectory forecasts.",
+                            color = OnSurfaceMuted,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
@@ -1941,7 +1994,7 @@ fun InteractiveWeeklyVolumeCard(weeklyVolume: List<Pair<String, Float>>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp),
+                    .height(130.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -1984,15 +2037,22 @@ fun InteractiveWeeklyVolumeCard(weeklyVolume: List<Pair<String, Float>>) {
                         Spacer(Modifier.height(6.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.5f)
-                                .fillMaxHeight(animatedHeightRatio.coerceIn(0.05f, 1f))
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(
-                                    Brush.verticalGradient(
-                                        if (isSelected) listOf(Teal, Color.White) else listOf(Teal, Violet)
+                                .height(80.dp)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.4f)
+                                    .fillMaxHeight(animatedHeightRatio.coerceIn(0.05f, 1f))
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(
+                                        Brush.verticalGradient(
+                                            if (isSelected) listOf(Teal, Color.White) else listOf(Teal, Violet)
+                                        )
                                     )
-                                )
-                        )
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = week,
@@ -2044,8 +2104,14 @@ fun TabSelector(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Surface.copy(alpha = 0.95f))
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(16.dp),
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .background(Surface)
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
