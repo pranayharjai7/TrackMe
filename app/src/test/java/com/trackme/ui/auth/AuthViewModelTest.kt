@@ -1,6 +1,7 @@
 package com.trackme.ui.auth
 
 import app.cash.turbine.test
+import com.trackme.data.auth.SessionManager
 import com.trackme.sync.SyncManager
 import io.github.jan.supabase.SupabaseClient
 import io.mockk.mockk
@@ -17,16 +18,19 @@ class AuthViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val supabase = mockk<SupabaseClient>(relaxed = true)
     private val syncManager = mockk<SyncManager>(relaxed = true)
+    private val sessionManager = mockk<SessionManager>(relaxed = true)
     private lateinit var viewModel: AuthViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = AuthViewModel(supabase, syncManager)
+        viewModel = AuthViewModel(supabase, syncManager, sessionManager)
     }
 
     @After
-    fun tearDown() { Dispatchers.resetMain() }
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `initial state is idle`() = runTest {

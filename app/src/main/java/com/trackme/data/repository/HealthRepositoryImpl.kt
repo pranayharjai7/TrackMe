@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,48 +33,56 @@ class HealthRepositoryImpl @Inject constructor(
     private val healthMetricDao: HealthMetricDao,
 ) : HealthRepository {
 
-    override suspend fun syncFromHealthConnect(userId: String) = withContext(Dispatchers.IO) {
-        val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 30) }
-            .getOrElse { emptyList() }
+    private val syncMutex = Mutex()
 
-        if (snapshots.isNotEmpty()) {
-            healthSnapshotDao.insertAll(snapshots)
-        }
+    override suspend fun syncFromHealthConnect(userId: String) = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 30) }
+                .getOrElse { emptyList() }
 
-        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 30) }
-            .getOrElse { emptyList() }
+            if (snapshots.isNotEmpty()) {
+                healthSnapshotDao.insertAll(snapshots)
+            }
 
-        healthMetricDao.replaceForUser(userId, metrics)
-    }
+            val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 30) }
+                .getOrElse { emptyList() }
 
-    override suspend fun syncFromHealthConnectForDate(userId: String, date: java.time.LocalDate) = withContext(Dispatchers.IO) {
-        val snapshot = runCatching { healthConnectManager.readDate(userId, date) }
-            .getOrNull()
-
-        if (snapshot != null) {
-            healthSnapshotDao.insertAll(listOf(snapshot))
-        }
-
-        val metrics = runCatching { healthConnectManager.readDetailedMetricsForDate(userId, date) }
-            .getOrElse { emptyList() }
-
-        if (metrics.isNotEmpty()) {
-            healthMetricDao.insertAll(metrics)
+            healthMetricDao.replaceForUser(userId, metrics)
         }
     }
 
-    override suspend fun syncFromHealthConnectBootstrap(userId: String) = withContext(Dispatchers.IO) {
-        val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 90) }
-            .getOrElse { emptyList() }
+    override suspend fun syncFromHealthConnectForDate(userId: String, date: java.time.LocalDate) = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val snapshot = runCatching { healthConnectManager.readDate(userId, date) }
+                .getOrNull()
 
-        if (snapshots.isNotEmpty()) {
-            healthSnapshotDao.insertAll(snapshots)
+            if (snapshot != null) {
+                healthSnapshotDao.insertAll(listOf(snapshot))
+            }
+
+            val metrics = runCatching { healthConnectManager.readDetailedMetricsForDate(userId, date) }
+                .getOrElse { emptyList() }
+
+            if (metrics.isNotEmpty()) {
+                healthMetricDao.insertAll(metrics)
+            }
         }
+    }
 
-        val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 90) }
-            .getOrElse { emptyList() }
+    override suspend fun syncFromHealthConnectBootstrap(userId: String) = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 90) }
+                .getOrElse { emptyList() }
 
-        healthMetricDao.replaceForUser(userId, metrics)
+            if (snapshots.isNotEmpty()) {
+                healthSnapshotDao.insertAll(snapshots)
+            }
+
+            val metrics = runCatching { healthConnectManager.readDetailedMetricsLast30Days(userId, 90) }
+                .getOrElse { emptyList() }
+
+            healthMetricDao.replaceForUser(userId, metrics)
+        }
     }
 
     override fun getSnapshots(userId: String, fromDate: Long): Flow<List<HealthSnapshot>> =

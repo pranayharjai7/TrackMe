@@ -7,14 +7,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import com.trackme.ui.navigation.TrackMeNavGraph
-import com.trackme.ui.theme.TrackMeTheme
+import com.trackme.data.auth.SessionManager
+import com.trackme.data.auth.SessionState
 import com.trackme.domain.usecase.SeedExercisesUseCase
 import com.trackme.sync.SyncManager
+import com.trackme.ui.components.SyncingLogoutOverlay
+import com.trackme.ui.components.TerminatedOverlay
+import com.trackme.ui.navigation.TrackMeNavGraph
+import com.trackme.ui.theme.TrackMeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,12 +34,14 @@ import javax.inject.Inject
  * - Configure system bars and Compose content.
  * - Seed bundled exercise data at startup.
  * - Schedule sync when the process enters foreground.
+ * - Orchestrate background session heartbeat loop and render forced logout overlays.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var seedExercises: SeedExercisesUseCase
     @Inject lateinit var syncManager: SyncManager
+    @Inject lateinit var sessionManager: SessionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,11 +55,24 @@ class MainActivity : ComponentActivity() {
             override fun onStart(owner: LifecycleOwner) {
                 syncManager.enqueueImmediateSync()
                 syncManager.schedulePeriodicSync()
+                sessionManager.startHeartbeat()
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                sessionManager.stopHeartbeat()
             }
         })
         setContent {
             TrackMeTheme {
+                val sessionState by sessionManager.sessionState.collectAsState()
+
                 TrackMeNavGraph()
+
+                when (sessionState) {
+                    is SessionState.SyncingBeforeLogout -> SyncingLogoutOverlay()
+                    is SessionState.Terminated -> TerminatedOverlay()
+                    else -> { /* No overlays required for normal Active or LoggedOut states */ }
+                }
             }
         }
     }

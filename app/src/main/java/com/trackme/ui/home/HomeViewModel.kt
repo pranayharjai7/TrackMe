@@ -77,6 +77,28 @@ class HomeViewModel @Inject constructor(
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     private val _visibleMonth = MutableStateFlow(YearMonth.now())
 
+    init {
+        // Perform an initial broad sync when the user is first authenticated
+        viewModelScope.launch {
+            supabase.auth.sessionStatus
+                .mapNotNull { (it as? SessionStatus.Authenticated)?.session?.user?.id }
+                .distinctUntilChanged()
+                .collect { uid ->
+                    runCatching { healthRepository.syncFromHealthConnect(uid) }
+                }
+        }
+
+        // Perform a targeted sync whenever the selected date changes
+        viewModelScope.launch {
+            _selectedDate.collect { date ->
+                val uid = (supabase.auth.sessionStatus.value as? SessionStatus.Authenticated)?.session?.user?.id
+                if (!uid.isNullOrEmpty()) {
+                    runCatching { healthRepository.syncFromHealthConnectForDate(uid, date) }
+                }
+            }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
         supabase.auth.sessionStatus
@@ -95,13 +117,6 @@ class HomeViewModel @Inject constructor(
 
         val uid = session.user?.id.orEmpty()
         if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
-
-        viewModelScope.launch {
-            runCatching { 
-                healthRepository.syncFromHealthConnect(uid)
-                healthRepository.syncFromHealthConnectForDate(uid, selectedDate)
-            }
-        }
 
         val thirtyDaysAgo = millisDaysAgo(30)
         val oneYearAgo = millisDaysAgo(365)

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:background="#121314"
+    android:padding="8dp">
+
+    <!-- Status Icon/Animation Placeholder -->
+    <ImageView
+        android:id="@+id/iv_status_icon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_centerVertical="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="8dp"
+        android:src="@android:drawable/ic_media_play"
+        android:contentDescription="Status Icon"
+        android:tint="#FF5722"/>
+
+    <!-- Workout info section -->
+    <LinearLayout
+        android:id="@+id/ll_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toEndOf="@id/iv_status_icon"
+        android:layout_toStartOf="@id/ll_actions"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tv_workout_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Workout Session"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/tv_exercise_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Bench Press · Set 2/4"
+            android:textColor="#B0BEC5"
+            android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+    </LinearLayout>
+
+    <!-- Actions right-aligned -->
+    <LinearLayout
+        android:id="@+id/ll_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:layout_marginEnd="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Start Set Button -->
+        <Button
+            android:id="@+id/btn_collapsed_start"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:backgroundTint="#009688"
+            android:text="Start"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="12dp"
+            android:visibility="visible"/>
+
+        <!-- Complete Set Button -->
+        <Button
+            android:id="@+id/btn_collapsed_complete"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:backgroundTint="#FF5722"
+            android:text="Complete"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="12dp"
+            android:visibility="gone"/>
+
+        <!-- Skip Rest Button -->
+        <Button
+            android:id="@+id/btn_collapsed_skip_rest"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:backgroundTint="#2196F3"
+            android:text="Skip Rest"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="12dp"
+            android:visibility="gone"/>
+
+        <!-- Next Exercise Button -->
+        <Button
+            android:id="@+id/btn_collapsed_next_exercise"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:backgroundTint="#009688"
+            android:text="Next Ex"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="12dp"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+</RelativeLayout>

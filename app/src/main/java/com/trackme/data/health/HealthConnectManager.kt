@@ -69,7 +69,9 @@ class HealthConnectManager @Inject constructor(
 
     suspend fun hasPermissions(): Boolean {
         val c = client ?: return false
-        return c.permissionController.getGrantedPermissions().containsAll(requiredPermissions)
+        return runCatching {
+            c.permissionController.getGrantedPermissions().containsAll(requiredPermissions)
+        }.getOrDefault(false)
     }
 
     suspend fun readLast30Days(userId: String, days: Int = 30): List<HealthSnapshotEntity> {
@@ -78,78 +80,83 @@ class HealthConnectManager @Inject constructor(
         val now = Instant.now()
         val today = now.atZone(zone).toLocalDate()
         
-        val snapshots = coroutineScope {
-            (0..days).map { i ->
-                async {
-                    val day = today.minusDays(i.toLong())
-                    val startOfDay = day.atStartOfDay(zone).toInstant()
-                    val endOfDay = day.plusDays(1).atStartOfDay(zone).toInstant()
-                    val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
+        val snapshots = mutableListOf<HealthSnapshotEntity>()
+        // Process in chunks of 5 to avoid aggressive parallel requests that trigger rate limits
+        (0..days).chunked(5).forEach { chunk ->
+            coroutineScope {
+                val deferreds = chunk.map { i ->
+                    async {
+                        val day = today.minusDays(i.toLong())
+                        val startOfDay = day.atStartOfDay(zone).toInstant()
+                        val endOfDay = day.plusDays(1).atStartOfDay(zone).toInstant()
+                        val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
 
-                    val steps = safeAggregate {
-                        c.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), timeRange))[StepsRecord.COUNT_TOTAL]
-                    }
+                        val steps = safeAggregate {
+                            c.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), timeRange))[StepsRecord.COUNT_TOTAL]
+                        }
 
-                    val activeCalories = safeAggregate {
-                        c.aggregate(AggregateRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), timeRange))[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
-                    }
+                        val activeCalories = safeAggregate {
+                            c.aggregate(AggregateRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), timeRange))[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                        }
 
-                    val heartRateAvg = safeAggregate {
-                        c.aggregate(AggregateRequest(setOf(HeartRateRecord.BPM_AVG), timeRange))[HeartRateRecord.BPM_AVG]?.toInt()
-                    }
+                        val heartRateAvg = safeAggregate {
+                            c.aggregate(AggregateRequest(setOf(HeartRateRecord.BPM_AVG), timeRange))[HeartRateRecord.BPM_AVG]?.toInt()
+                        }
 
-                    val restingHeartRate = safeFetch {
-                        val records = c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, timeRange)).records
-                        if (records.isNotEmpty()) {
-                            records.map { it.beatsPerMinute }.average().toInt()
+                        val restingHeartRate = safeFetch {
+                            val records = c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, timeRange)).records
+                            if (records.isNotEmpty()) {
+                                records.map { it.beatsPerMinute }.average().toInt()
+                            } else null
+                        }
+
+                        val sleepDuration = safeFetch {
+                            val records = c.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange)).records
+                            if (records.isNotEmpty()) {
+                                records.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }.toInt()
+                            } else null
+                        }
+
+                        val hrv = safeFetch {
+                            val records = c.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, timeRange)).records
+                            if (records.isNotEmpty()) {
+                                records.map { it.heartRateVariabilityMillis }.average().toFloat()
+                            } else null
+                        }
+
+                        val weight = safeFetch {
+                            c.readRecords(ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.weight?.inKilograms
+                        }
+
+                        val height = safeFetch {
+                            c.readRecords(ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.height?.inMeters
+                        }
+
+                        val bmi = if (weight != null && height != null && height > 0) {
+                            weight / (height * height)
                         } else null
+
+                        HealthSnapshotEntity(
+                            id = "${userId}_${day}",
+                            userId = userId,
+                            date = startOfDay.toEpochMilli(),
+                            weightKg = weight?.toFloat(),
+                            heightCm = height?.let { (it * 100.0).toFloat() },
+                            bmi = bmi?.toFloat(),
+                            steps = steps,
+                            activeCaloriesBurned = activeCalories?.toFloat(),
+                            heartRateAvg = heartRateAvg,
+                            hrvRmssd = hrv,
+                            restingHeartRate = restingHeartRate,
+                            sleepDurationMinutes = sleepDuration,
+                            deepSleepMinutes = null,
+                            updatedAt = System.currentTimeMillis(),
+                            isSynced = false,
+                        )
                     }
-
-                    val sleepDuration = safeFetch {
-                        val records = c.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange)).records
-                        if (records.isNotEmpty()) {
-                            records.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }.toInt()
-                        } else null
-                    }
-
-                    val hrv = safeFetch {
-                        val records = c.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, timeRange)).records
-                        if (records.isNotEmpty()) {
-                            records.map { it.heartRateVariabilityMillis }.average().toFloat()
-                        } else null
-                    }
-
-                    val weight = safeFetch {
-                        c.readRecords(ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.weight?.inKilograms
-                    }
-
-                    val height = safeFetch {
-                        c.readRecords(ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.height?.inMeters
-                    }
-
-                    val bmi = if (weight != null && height != null && height > 0) {
-                        weight / (height * height)
-                    } else null
-
-                    HealthSnapshotEntity(
-                        id = "${userId}_${day}",
-                        userId = userId,
-                        date = startOfDay.toEpochMilli(),
-                        weightKg = weight?.toFloat(),
-                        heightCm = height?.let { (it * 100.0).toFloat() },
-                        bmi = bmi?.toFloat(),
-                        steps = steps,
-                        activeCaloriesBurned = activeCalories?.toFloat(),
-                        heartRateAvg = heartRateAvg,
-                        hrvRmssd = hrv,
-                        restingHeartRate = restingHeartRate,
-                        sleepDurationMinutes = sleepDuration,
-                        deepSleepMinutes = null,
-                        updatedAt = System.currentTimeMillis(),
-                        isSynced = false,
-                    )
                 }
-            }.awaitAll()
+                snapshots.addAll(deferreds.awaitAll())
+            }
         }
         
         return snapshots

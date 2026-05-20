@@ -2,9 +2,11 @@ package com.trackme.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trackme.data.auth.SessionManager
 import com.trackme.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,6 +30,7 @@ data class AuthUiState(
 class AuthViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val syncManager: SyncManager,
+    private val sessionManager: SessionManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -47,6 +50,7 @@ class AuthViewModel @Inject constructor(
             },
         ) {
             signInWithEmailImpl(supabase, email.trim(), password)
+            sessionManager.registerCurrentSession()
             syncManager.runInitialSync()
         }
     }
@@ -63,6 +67,9 @@ class AuthViewModel @Inject constructor(
             onSuccess = { onSuccess(true) },
         ) {
             signUpWithEmailImpl(supabase, email.trim(), password)
+            if (supabase.auth.currentSessionOrNull() != null) {
+                sessionManager.registerCurrentSession()
+            }
         }
     }
 
@@ -74,6 +81,7 @@ class AuthViewModel @Inject constructor(
             },
         ) {
             signInWithGoogleIdTokenImpl(supabase, idToken)
+            sessionManager.registerCurrentSession()
             syncManager.runInitialSync()
         }
     }
