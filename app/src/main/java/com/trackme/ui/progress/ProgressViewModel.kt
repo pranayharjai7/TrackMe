@@ -15,6 +15,8 @@ import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
 import com.trackme.domain.usecase.GetPersonalRecordsUseCase
 import com.trackme.domain.repository.WorkoutRepository
+import com.trackme.domain.repository.ExerciseRepository
+import com.trackme.domain.model.WorkoutSession
 import com.trackme.utils.millisDaysAgo
 import com.trackme.utils.startOfLocalDayMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +42,14 @@ data class ProgressUiState(
     val fullAnalytics: FullProgressAnalytics? = null,
 )
 
+private data class RawProgressData(
+    val prs: List<PersonalRecord>,
+    val snapshots: List<HealthSnapshot>,
+    val sessions: List<WorkoutSession>,
+    val sets: List<SessionSet>,
+    val selectedId: String?,
+)
+
 @HiltViewModel
 class ProgressViewModel @Inject constructor(
     private val getPersonalRecords: GetPersonalRecordsUseCase,
@@ -49,6 +59,7 @@ class ProgressViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val healthRepository: HealthRepository,
     private val dataStore: DataStore<Preferences>,
+    private val exerciseRepository: ExerciseRepository,
 ) : ViewModel() {
 
     private val _userId = MutableStateFlow(supabase.auth.currentSessionOrNull()?.user?.id ?: "")
@@ -92,6 +103,17 @@ class ProgressViewModel @Inject constructor(
                 workoutRepository.getSetsSince(uid, ninetyDaysAgo),
                 _selectedExerciseId,
             ) { prs, snapshots, sessions, sets, selectedId ->
+                RawProgressData(prs, snapshots, sessions, sets, selectedId)
+            }.mapLatest { raw ->
+                val prs = raw.prs
+                val snapshots = raw.snapshots
+                val sessions = raw.sessions
+                val sets = raw.sets
+                val selectedId = raw.selectedId
+
+                // Fetch exercise metadata
+                val exerciseIds = sets.map { it.exerciseId }.distinct()
+                val exercisesMap = exerciseRepository.getByIds(exerciseIds)
                 
                 // Map to pure models
                 val healthMetricsData = snapshots.map {
@@ -115,12 +137,13 @@ class ProgressViewModel @Inject constructor(
                     val totalVolume = sessionSets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
                     
                     val exercises = sessionSets.map { set ->
+                        val exerciseObj = exercisesMap[set.exerciseId]
                         ExerciseAnalyticsData(
                             setId = set.id,
                             exerciseId = set.exerciseId,
-                            name = set.exerciseId.replaceFirstChar { c -> c.uppercase() }, // Simple placeholder name format
+                            name = exerciseObj?.name ?: set.exerciseId.replaceFirstChar { c -> c.uppercase() },
                             dateMillis = set.updatedAt,
-                            targetMuscles = emptyList(), // In reality we'd look up the Exercise dictionary here
+                            targetMuscles = exerciseObj?.primaryMuscles ?: emptyList(),
                             weightKg = set.weightKg,
                             reps = set.reps,
                             durationSeconds = set.durationSeconds

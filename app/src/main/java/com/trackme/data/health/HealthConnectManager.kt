@@ -155,6 +155,99 @@ class HealthConnectManager @Inject constructor(
         return snapshots
     }
 
+    suspend fun readDate(userId: String, date: java.time.LocalDate): HealthSnapshotEntity? {
+        val c = client ?: return null
+        val zone = ZoneId.systemDefault()
+        val startOfDay = date.atStartOfDay(zone).toInstant()
+        val endOfDay = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
+
+        val steps = safeAggregate {
+            c.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), timeRange))[StepsRecord.COUNT_TOTAL]
+        }
+
+        val activeCalories = safeAggregate {
+            c.aggregate(AggregateRequest(setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL), timeRange))[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+        }
+
+        val heartRateAvg = safeAggregate {
+            c.aggregate(AggregateRequest(setOf(HeartRateRecord.BPM_AVG), timeRange))[HeartRateRecord.BPM_AVG]?.toInt()
+        }
+
+        val restingHeartRate = safeFetch {
+            val records = c.readRecords(ReadRecordsRequest(RestingHeartRateRecord::class, timeRange)).records
+            if (records.isNotEmpty()) {
+                records.map { it.beatsPerMinute }.average().toInt()
+            } else null
+        }
+
+        val sleepDuration = safeFetch {
+            val records = c.readRecords(ReadRecordsRequest(SleepSessionRecord::class, timeRange)).records
+            if (records.isNotEmpty()) {
+                records.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }.toInt()
+            } else null
+        }
+
+        val hrv = safeFetch {
+            val records = c.readRecords(ReadRecordsRequest(HeartRateVariabilityRmssdRecord::class, timeRange)).records
+            if (records.isNotEmpty()) {
+                records.map { it.heartRateVariabilityMillis }.average().toFloat()
+            } else null
+        }
+
+        val weight = safeFetch {
+            c.readRecords(ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.weight?.inKilograms
+        }
+
+        val height = safeFetch {
+            c.readRecords(ReadRecordsRequest(HeightRecord::class, TimeRangeFilter.before(endOfDay), ascendingOrder = false, pageSize = 1)).records.firstOrNull()?.height?.inMeters
+        }
+
+        val bmi = if (weight != null && height != null && height > 0) {
+            weight / (height * height)
+        } else null
+
+        return HealthSnapshotEntity(
+            id = "${userId}_${date}",
+            userId = userId,
+            date = startOfDay.toEpochMilli(),
+            weightKg = weight?.toFloat(),
+            heightCm = height?.let { (it * 100.0).toFloat() },
+            bmi = bmi?.toFloat(),
+            steps = steps,
+            activeCaloriesBurned = activeCalories?.toFloat(),
+            heartRateAvg = heartRateAvg,
+            hrvRmssd = hrv,
+            restingHeartRate = restingHeartRate,
+            sleepDurationMinutes = sleepDuration,
+            deepSleepMinutes = null,
+            updatedAt = System.currentTimeMillis(),
+            isSynced = false,
+        )
+    }
+
+    suspend fun readDetailedMetricsForDate(userId: String, date: java.time.LocalDate): List<HealthMetricEntity> {
+        val c = client ?: return emptyList()
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val timeRange = TimeRangeFilter.between(start, end)
+        val updatedAt = System.currentTimeMillis()
+
+        val healthMetrics = mutableListOf<HealthMetricEntity>()
+        
+        availableRecordTypes().forEach { recordType ->
+            runCatching {
+                val records = c.readRecordsSafely(recordType, timeRange)
+                healthMetrics += records.mapNotNull { record -> 
+                    HealthMetricMapper.toEntity(userId, record, updatedAt) 
+                }
+            }
+        }
+
+        return healthMetrics
+    }
+
     suspend fun readDetailedMetricsLast30Days(userId: String, days: Int = 30): List<HealthMetricEntity> {
         val c = client ?: return emptyList()
         val zone = ZoneId.systemDefault()

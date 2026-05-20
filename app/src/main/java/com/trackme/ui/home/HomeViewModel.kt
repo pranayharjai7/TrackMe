@@ -8,7 +8,7 @@ import com.trackme.domain.model.WorkoutDay
 import com.trackme.domain.repository.WorkoutRepository
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
-import com.trackme.domain.usecase.GetTodayWorkoutUseCase
+import com.trackme.domain.usecase.GetWorkoutForDateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.SessionStatus
@@ -19,6 +19,10 @@ import kotlinx.coroutines.launch
 import com.trackme.utils.MILLIS_PER_DAY
 import com.trackme.utils.millisDaysAgo
 import com.trackme.utils.startOfLocalDayMillis
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 
 enum class HomeDashboardState {
@@ -46,6 +50,9 @@ data class HomeUiState(
     val activeSessionDayId: String? = null,
     val isTodaySessionFinished: Boolean = false,
     val displayName: String = "",
+    val selectedDate: LocalDate = LocalDate.now(),
+    val visibleMonth: YearMonth = YearMonth.now(),
+    val completedDays: Set<LocalDate> = emptySet(),
 )
 
 /**
@@ -60,103 +67,158 @@ data class HomeUiState(
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getTodayWorkout: GetTodayWorkoutUseCase,
+    private val getWorkoutForDate: GetWorkoutForDateUseCase,
     private val workoutRepository: WorkoutRepository,
     private val getHealthSnapshots: GetHealthSnapshotsUseCase,
     private val healthRepository: HealthRepository,
     private val supabase: SupabaseClient,
 ) : ViewModel() {
 
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    private val _visibleMonth = MutableStateFlow(YearMonth.now())
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<HomeUiState> = supabase.auth.sessionStatus
-        .onStart {
-            supabase.auth.awaitInitialization()
-            emit(supabase.auth.sessionStatus.value)
-        }
-        .distinctUntilChanged()
-        .flatMapLatest { status ->
-            val session = (status as? SessionStatus.Authenticated)?.session
-                ?: return@flatMapLatest flowOf(HomeUiState(isLoading = status is SessionStatus.LoadingFromStorage))
-
-            val uid = session.user?.id.orEmpty()
-            if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
-
-            viewModelScope.launch {
-                runCatching { healthRepository.syncFromHealthConnect(uid) }
+    val uiState: StateFlow<HomeUiState> = combine(
+        supabase.auth.sessionStatus
+            .onStart {
+                supabase.auth.awaitInitialization()
+                emit(supabase.auth.sessionStatus.value)
             }
+            .distinctUntilChanged(),
+        _selectedDate,
+        _visibleMonth
+    ) { status, selectedDate, visibleMonth ->
+        Triple(status, selectedDate, visibleMonth)
+    }.flatMapLatest { (status, selectedDate, visibleMonth) ->
+        val session = (status as? SessionStatus.Authenticated)?.session
+            ?: return@flatMapLatest flowOf(HomeUiState(isLoading = status is SessionStatus.LoadingFromStorage))
 
-            val thirtyDaysAgo = millisDaysAgo(30)
-            val displayName = session.user
-                ?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: ""
+        val uid = session.user?.id.orEmpty()
+        if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))
 
-            val weekStripFlow: Flow<List<WorkoutDay?>> = workoutRepository.getActivePlan(uid)
-                .flatMapLatest { plan ->
-                    if (plan == null) flowOf(List(7) { null })
-                    else workoutRepository.getDaysForPlan(plan.id)
-                        .map { days ->
-                            val byDow = days.associateBy { it.dayOfWeek.ordinal }
-                            List(7) { i -> byDow[i] }
-                        }
-                }
-
-            combine(
-                getTodayWorkout(uid),
-                workoutRepository.getPersonalRecords(uid),
-                workoutRepository.getSessionsSince(uid, thirtyDaysAgo),
-                getHealthSnapshots(uid, 30),
-                combine(weekStripFlow, workoutRepository.getSetsSince(uid, thirtyDaysAgo)) { ws, sets -> ws to sets }
-            ) { today, prs, sessions, snapshots, (weekStrip, sets) ->
-                val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
-                val completedDayIdsToday = sessions
-                    .filter { startOfLocalDayMillis(it.date) == todayMidnight && it.durationMinutes > 0 }
-                    .map { it.dayId }
-                    .toSet()
-                val validDayIds = weekStrip.filterNotNull().map { it.id }.toSet()
-                val activeSession = sessions.firstOrNull {
-                    startOfLocalDayMillis(it.date) == todayMidnight
-                        && it.durationMinutes == 0
-                        && it.dayId !in completedDayIdsToday
-                        && it.dayId in validDayIds
-                }
-                val isTodaySessionFinished = today != null && sessions.any {
-                    startOfLocalDayMillis(it.date) == todayMidnight && it.dayId == today.id && it.durationMinutes > 0
-                }
-                
-                val dashboardState = when {
-                    activeSession != null -> HomeDashboardState.ACTIVE_SESSION
-                    isTodaySessionFinished -> HomeDashboardState.TRIUMPH
-                    today != null -> HomeDashboardState.PRE_WORKOUT
-                    else -> HomeDashboardState.REST_RECOVERY
-                }
-                
-                // Calculate today's volume and lifting calories
-                val todaySets = sets.filter { it.updatedAt >= todayMidnight }
-                val todayVolumeKg = todaySets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
-                val liftingCalories = todayVolumeKg * 0.04f
-
-                val latestSnapshot = snapshots.maxByOrNull { it.date }
-                val healthInsight = latestSnapshot?.toHealthInsight(dashboardState, liftingCalories)
-
-                HomeUiState(
-                    isLoading = false,
-                    dashboardState = dashboardState,
-                    healthInsight = healthInsight,
-                    todayWorkoutDay = today,
-                    recentPRs = prs.take(3),
-                    weekStrip = weekStrip,
-                    streakDays = calculateStreak(
-                        sessions.filter { it.durationMinutes > 0 }
-                            .map { startOfLocalDayMillis(it.date) }.distinct(),
-                        System.currentTimeMillis(),
-                    ),
-                    latestSnapshot = latestSnapshot,
-                    activeSessionDayId = activeSession?.dayId,
-                    isTodaySessionFinished = isTodaySessionFinished,
-                    displayName = displayName,
-                )
+        viewModelScope.launch {
+            runCatching { 
+                healthRepository.syncFromHealthConnect(uid)
+                healthRepository.syncFromHealthConnectForDate(uid, selectedDate)
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
+
+        val thirtyDaysAgo = millisDaysAgo(30)
+        val oneYearAgo = millisDaysAgo(365)
+        val displayName = session.user
+            ?.userMetadata?.get("full_name")?.toString()?.trim('"') ?: ""
+
+        val weekStripFlow: Flow<List<WorkoutDay?>> = workoutRepository.getActivePlan(uid)
+            .flatMapLatest { plan ->
+                if (plan == null) flowOf(List(7) { null })
+                else workoutRepository.getDaysForPlan(plan.id)
+                    .map { days ->
+                        val byDow = days.associateBy { it.dayOfWeek.ordinal }
+                        List(7) { i -> byDow[i] }
+                    }
+            }
+
+        combine(
+            getWorkoutForDate(uid, selectedDate),
+            workoutRepository.getPersonalRecords(uid),
+            workoutRepository.getSessionsSince(uid, oneYearAgo),
+            getHealthSnapshots(uid, 30),
+            combine(weekStripFlow, workoutRepository.getSetsSince(uid, oneYearAgo)) { ws, sets -> ws to sets }
+        ) { today, prs, sessions, snapshots, (weekStrip, sets) ->
+            val selectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val selectedDateMidnight = startOfLocalDayMillis(selectedDateMillis)
+            val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
+            val isHistorical = selectedDateMidnight < todayMidnight
+            
+            // For completed day IDs today, if historical, consider ANY session with sets as completed
+            val completedDayIdsToday = sessions
+                .filter { session -> 
+                    startOfLocalDayMillis(session.date) == selectedDateMidnight && 
+                    (session.durationMinutes > 0 || (isHistorical && sets.any { it.sessionId == session.id }))
+                }
+                .map { it.dayId }
+                .toSet()
+                
+            val validDayIds = weekStrip.filterNotNull().map { it.id }.toSet()
+            
+            val activeSession = if (isHistorical) null else sessions.firstOrNull {
+                startOfLocalDayMillis(it.date) == selectedDateMidnight
+                    && it.durationMinutes == 0
+                    && it.dayId !in completedDayIdsToday
+                    && it.dayId in validDayIds
+            }
+            
+            val isTodaySessionFinished = if (isHistorical) {
+                sessions.any { session ->
+                    startOfLocalDayMillis(session.date) == selectedDateMidnight && 
+                    session.dayId == today?.id && 
+                    sets.any { it.sessionId == session.id }
+                }
+            } else {
+                today != null && sessions.any {
+                    startOfLocalDayMillis(it.date) == selectedDateMidnight && it.dayId == today.id && it.durationMinutes > 0
+                }
+            }
+            
+            val dashboardState = when {
+                activeSession != null -> HomeDashboardState.ACTIVE_SESSION
+                isTodaySessionFinished -> HomeDashboardState.TRIUMPH
+                today != null -> HomeDashboardState.PRE_WORKOUT
+                else -> HomeDashboardState.REST_RECOVERY
+            }
+            
+            // Calculate today's volume and lifting calories
+            val todaySets = sets.filter { it.updatedAt >= selectedDateMidnight && it.updatedAt < selectedDateMidnight + MILLIS_PER_DAY }
+            val todayVolumeKg = todaySets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
+            val liftingCalories = todayVolumeKg * 0.04f
+
+            val latestSnapshot = snapshots.maxByOrNull { it.date }
+            val healthInsight = latestSnapshot?.toHealthInsight(dashboardState, liftingCalories)
+
+            val completedDays = sessions.filter { session ->
+                session.durationMinutes > 0 || (startOfLocalDayMillis(session.date) < todayMidnight && sets.any { it.sessionId == session.id })
+            }.map { 
+                Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            }.toSet()
+
+            HomeUiState(
+                isLoading = false,
+                dashboardState = dashboardState,
+                healthInsight = healthInsight,
+                todayWorkoutDay = today,
+                recentPRs = prs.take(3),
+                weekStrip = weekStrip,
+                streakDays = calculateStreak(
+                    sessions.filter { it.durationMinutes > 0 }
+                        .map { startOfLocalDayMillis(it.date) }.distinct(),
+                    System.currentTimeMillis(),
+                ),
+                latestSnapshot = latestSnapshot,
+                activeSessionDayId = activeSession?.dayId,
+                isTodaySessionFinished = isTodaySessionFinished,
+                displayName = displayName,
+                selectedDate = selectedDate,
+                visibleMonth = visibleMonth,
+                completedDays = completedDays,
+            )
+        }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
+
+    fun selectDate(date: LocalDate) {
+        if (date.isAfter(LocalDate.now())) return
+        _selectedDate.value = date
+    }
+
+    fun changeMonth(monthOffset: Long) {
+        _visibleMonth.value = _visibleMonth.value.plusMonths(monthOffset)
+    }
+
+    fun jumpToToday() {
+        val today = LocalDate.now()
+        _selectedDate.value = today
+        _visibleMonth.value = YearMonth.from(today)
+    }
 
     fun restartFinishedWorkout(dayId: String) {
         val status = supabase.auth.sessionStatus.value
@@ -165,10 +227,11 @@ class HomeViewModel @Inject constructor(
         if (uid.isEmpty()) return
 
         viewModelScope.launch {
-            val todayMidnight = startOfLocalDayMillis(System.currentTimeMillis())
-            val sessions = workoutRepository.getSessionsSince(uid, todayMidnight).first()
+            val selectedDateMillis = _selectedDate.value.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val selectedDateMidnight = startOfLocalDayMillis(selectedDateMillis)
+            val sessions = workoutRepository.getSessionsSince(uid, millisDaysAgo(365)).first()
             val finishedSession = sessions.firstOrNull {
-                startOfLocalDayMillis(it.date) == todayMidnight && it.dayId == dayId && it.durationMinutes > 0
+                startOfLocalDayMillis(it.date) == selectedDateMidnight && it.dayId == dayId && it.durationMinutes > 0
             }
             if (finishedSession != null) {
                 workoutRepository.finishSession(finishedSession.id, 0)

@@ -117,8 +117,8 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                 }
                 composable(Routes.Home.route) {
                     HomeScreen(
-                        onStartSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) },
-                        onResumeSession = { dayId -> navController.navigate(Routes.ActiveSession.createRoute(dayId)) },
+                        onStartSession = { dayId, dateMillis -> navController.navigate(Routes.ActiveSession.createRoute(dayId, dateMillis)) },
+                        onResumeSession = { dayId, dateMillis -> navController.navigate(Routes.ActiveSession.createRoute(dayId, dateMillis)) },
                     )
                 }
                 composable(Routes.WeeklyPlanner.route) {
@@ -158,7 +158,10 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                 }
                 composable(
                     route = Routes.ActiveSession.route,
-                    arguments = listOf(navArgument("dayId") { type = NavType.StringType }),
+                    arguments = listOf(
+                        navArgument("dayId") { type = NavType.StringType },
+                        navArgument("dateMillis") { type = NavType.StringType; nullable = true }
+                    ),
                 ) { backStack ->
                     val dayId = backStack.arguments?.getString("dayId") ?: return@composable
                     ActiveSessionScreen(

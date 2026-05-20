@@ -39,7 +39,7 @@ interface WorkoutSessionDao {
     @Query("SELECT * FROM workout_sessions WHERE userId = :userId AND dayId = :dayId AND date >= :todayStart AND durationMinutes = 0 AND deletedAt IS NULL LIMIT 1")
     suspend fun getInProgressSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSessionEntity?
 
-    @Query("SELECT * FROM workout_sessions WHERE userId = :userId AND dayId = :dayId AND date >= :todayStart AND deletedAt IS NULL ORDER BY date DESC LIMIT 1")
+    @Query("SELECT * FROM workout_sessions WHERE userId = :userId AND dayId = :dayId AND date >= :todayStart AND date < :todayStart + 86400000 AND deletedAt IS NULL ORDER BY date DESC LIMIT 1")
     suspend fun getLatestSessionForDay(userId: String, dayId: String, todayStart: Long): WorkoutSessionEntity?
 
     @Query("UPDATE workout_sessions SET deletedAt = :ts, updatedAt = :ts, isSynced = 0 WHERE id = :id")

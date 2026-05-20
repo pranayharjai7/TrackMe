@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,8 +35,8 @@ import java.util.Calendar
 
 @Composable
 fun HomeScreen(
-    onStartSession: (dayId: String) -> Unit,
-    onResumeSession: (dayId: String) -> Unit,
+    onStartSession: (dayId: String, dateMillis: Long) -> Unit,
+    onResumeSession: (dayId: String, dateMillis: Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -51,6 +52,33 @@ fun HomeScreen(
                 .zIndex(0f),
         )
 
+        var showDatePicker by remember { mutableStateOf(false) }
+
+        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+        if (showDatePicker) {
+            val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            androidx.compose.material3.ModalBottomSheet(
+                onDismissRequest = { showDatePicker = false },
+                sheetState = sheetState,
+                containerColor = Background,
+                scrimColor = Color.Black.copy(alpha = 0.5f)
+            ) {
+                com.trackme.ui.components.CustomCalendar(
+                    selectedDate = state.selectedDate,
+                    visibleMonth = state.visibleMonth,
+                    completedDays = state.completedDays,
+                    onDateSelected = { date -> 
+                        viewModel.selectDate(date)
+                        showDatePicker = false
+                    },
+                    onMonthChange = { offset ->
+                        viewModel.changeMonth(offset)
+                    },
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 48.dp)
+                )
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -64,6 +92,13 @@ fun HomeScreen(
                     HomeLoadingCard()
                 }
                 return@LazyColumn
+            }
+
+            item {
+                HomeTopBar(
+                    selectedDate = state.selectedDate,
+                    onDateClick = { showDatePicker = true }
+                )
             }
 
             item {
@@ -191,8 +226,8 @@ private fun GreetingHeader(state: HomeUiState) {
 @Composable
 private fun HeroActionCard(
     state: HomeUiState,
-    onStartSession: (dayId: String) -> Unit,
-    onResumeSession: (dayId: String) -> Unit,
+    onStartSession: (dayId: String, dateMillis: Long) -> Unit,
+    onResumeSession: (dayId: String, dateMillis: Long) -> Unit,
     onRestartSession: (dayId: String) -> Unit,
 ) {
     GlassmorphicCard(
@@ -213,7 +248,12 @@ private fun HeroActionCard(
                     Text(day?.dayOfWeek?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Today", style = MaterialTheme.typography.bodyMedium, color = Coral)
                     Spacer(Modifier.height(24.dp))
                     Button(
-                        onClick = { day?.let { onStartSession(it.id) } },
+                        onClick = { 
+                            day?.let { 
+                                val dateMillis = state.selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                onStartSession(it.id, dateMillis) 
+                            } 
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -222,7 +262,7 @@ private fun HeroActionCard(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Start Workout", fontWeight = FontWeight.ExtraBold)
+                        Text(if (state.selectedDate < java.time.LocalDate.now()) "Log Missed Workout" else "Start Workout", fontWeight = FontWeight.ExtraBold)
                     }
                 }
                 HomeDashboardState.ACTIVE_SESSION -> {
@@ -230,7 +270,12 @@ private fun HeroActionCard(
                     Text("Tap below to jump back in", style = MaterialTheme.typography.bodyMedium, color = Coral)
                     Spacer(Modifier.height(24.dp))
                     Button(
-                        onClick = { state.activeSessionDayId?.let { onResumeSession(it) } },
+                        onClick = { 
+                            state.activeSessionDayId?.let { 
+                                val dateMillis = state.selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                onResumeSession(it, dateMillis) 
+                            } 
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -254,7 +299,14 @@ private fun HeroActionCard(
                     state.todayWorkoutDay?.let { day ->
                         Spacer(Modifier.height(20.dp))
                         OutlinedButton(
-                            onClick = { onRestartSession(day.id) },
+                            onClick = { 
+                                if (state.selectedDate < java.time.LocalDate.now()) {
+                                    val dateMillis = state.selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                    onResumeSession(day.id, dateMillis)
+                                } else {
+                                    onRestartSession(day.id) 
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
@@ -262,9 +314,9 @@ private fun HeroActionCard(
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Restart / Resume Workout", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                            Text("Edit Logged Workout", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -367,6 +419,46 @@ private fun RadialHealthSnapshotCard(insight: HealthInsight) {
                 Text(insight.title, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(insight.description, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTopBar(
+    selectedDate: java.time.LocalDate,
+    onDateClick: () -> Unit
+) {
+    val formatter = androidx.compose.runtime.remember { java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM d") }
+    val isToday = selectedDate == java.time.LocalDate.now()
+    val displayDate = if (isToday) "Today" else selectedDate.format(formatter)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 0.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White.copy(alpha = 0.1f),
+            modifier = Modifier.clickable { onDateClick() }
+        ) {
+            Row(
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    displayDate,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Date", tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
     }

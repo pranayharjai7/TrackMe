@@ -54,6 +54,7 @@ data class ActiveSessionUiState(
     val isFinishing: Boolean = false,
     val inputStyle: String = DEFAULT_INPUT_STYLE,
     val isCompleted: Boolean = false,
+    val isHistoricalSession: Boolean = false,
 )
 
 /**
@@ -86,6 +87,10 @@ class ActiveSessionViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val dayId: String = checkNotNull(savedStateHandle["dayId"])
+    private val dateMillisStr: String? = savedStateHandle["dateMillis"]
+    private val sessionDateMillis = dateMillisStr?.toLongOrNull() ?: System.currentTimeMillis()
+    private val isHistorical = com.trackme.utils.startOfLocalDayMillis(sessionDateMillis) < startOfTodayMillis()
+    
     private val userId get() = runCatching { supabase.auth.currentSessionOrNull()?.user?.id }.getOrNull() ?: ""
 
     private val _uiState = MutableStateFlow(ActiveSessionUiState())
@@ -102,17 +107,18 @@ class ActiveSessionViewModel @Inject constructor(
             }
         }
         
-        // Start or resume the today's active session, then observe exercises and logged sets flows.
+        // Start or resume the active session, then observe exercises and logged sets flows.
         viewModelScope.launch {
+            val localTodayStart = com.trackme.utils.startOfLocalDayMillis(sessionDateMillis)
             val session = try {
-                workoutRepository.getLatestSessionForDay(userId, dayId, startOfTodayMillis())
-                    ?: startSession(userId, dayId)
+                workoutRepository.getLatestSessionForDay(userId, dayId, localTodayStart)
+                    ?: startSession(userId, dayId, sessionDateMillis)
             } catch (e: Exception) {
                 return@launch
             }
             sessionStartTime = session.date
-            val isCompleted = session.durationMinutes > 0
-            updateUiState { it.copy(sessionId = session.id, isCompleted = isCompleted) }
+            val isCompleted = session.durationMinutes > 0 && !isHistorical
+            updateUiState { it.copy(sessionId = session.id, isCompleted = isCompleted, isHistoricalSession = isHistorical) }
 
             // Restore persistent active exercise / rest timer state
             try {
@@ -485,6 +491,10 @@ class ActiveSessionViewModel @Inject constructor(
      * it stays in the RESTING state until the countdown is zero or skipped.
      */
     private fun startRestTimer(exerciseId: String? = null) {
+        if (_uiState.value.isCompleted || _uiState.value.isHistoricalSession) {
+            updateUiState { it.copy(restingExerciseId = null) }
+            return
+        }
         runRestTimer(exerciseId, _uiState.value.restSeconds)
     }
 

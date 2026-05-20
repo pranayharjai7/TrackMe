@@ -15,8 +15,8 @@ sealed class Routes(val route: String) {
     object ExerciseDetail : Routes("exercise_detail/{exerciseId}") {
         fun createRoute(exerciseId: String) = "exercise_detail/$exerciseId"
     }
-    object ActiveSession : Routes("active_session/{dayId}") {
-        fun createRoute(dayId: String) = "active_session/$dayId"
+    object ActiveSession : Routes("active_session/{dayId}?dateMillis={dateMillis}") {
+        fun createRoute(dayId: String, dateMillis: Long? = null) = if (dateMillis != null) "active_session/$dayId?dateMillis=$dateMillis" else "active_session/$dayId"
     }
     object Progress : Routes("progress")
     object Profile : Routes("profile")

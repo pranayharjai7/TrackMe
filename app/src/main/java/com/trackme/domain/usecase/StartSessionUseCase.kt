@@ -6,12 +6,12 @@ import java.util.UUID
 import javax.inject.Inject
 
 class StartSessionUseCase @Inject constructor(private val repo: WorkoutRepository) {
-    suspend operator fun invoke(userId: String, dayId: String): WorkoutSession {
+    suspend operator fun invoke(userId: String, dayId: String, dateMillis: Long = System.currentTimeMillis()): WorkoutSession {
         val session = WorkoutSession(
             id = UUID.randomUUID().toString(),
             userId = userId,
             dayId = dayId,
-            date = System.currentTimeMillis(),
+            date = dateMillis,
             durationMinutes = 0,
             notes = "",
             updatedAt = System.currentTimeMillis(),

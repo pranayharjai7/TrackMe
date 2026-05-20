@@ -45,6 +45,22 @@ class HealthRepositoryImpl @Inject constructor(
         healthMetricDao.replaceForUser(userId, metrics)
     }
 
+    override suspend fun syncFromHealthConnectForDate(userId: String, date: java.time.LocalDate) = withContext(Dispatchers.IO) {
+        val snapshot = runCatching { healthConnectManager.readDate(userId, date) }
+            .getOrNull()
+
+        if (snapshot != null) {
+            healthSnapshotDao.insertAll(listOf(snapshot))
+        }
+
+        val metrics = runCatching { healthConnectManager.readDetailedMetricsForDate(userId, date) }
+            .getOrElse { emptyList() }
+
+        if (metrics.isNotEmpty()) {
+            healthMetricDao.insertAll(metrics)
+        }
+    }
+
     override suspend fun syncFromHealthConnectBootstrap(userId: String) = withContext(Dispatchers.IO) {
         val snapshots = runCatching { healthConnectManager.readLast30Days(userId, 90) }
             .getOrElse { emptyList() }

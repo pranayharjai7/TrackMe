@@ -77,8 +77,8 @@ fun ProgressScreen(viewModel: ProgressViewModel = hiltViewModel()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Transparent)
-                        .padding(vertical = 4.dp)
+                        .background(Background)
+                        .padding(vertical = 8.dp)
                 ) {
                     TabSelector(
                         tabs = tabs,
@@ -1308,17 +1308,24 @@ fun MuscleFatigueCountdownCard(fatigueMap: Map<String, MuscleFatigue>) {
                         pct > 20 -> Color(0xFFFBBF24)
                         else -> Teal
                     }
+                    val isFatigued = fatigue.recoveryTimeRemainingHours > 0
+                    val cardBg = when {
+                        isFatigued -> if (isSelected) Coral.copy(alpha = 0.2f) else Coral.copy(alpha = 0.1f)
+                        else -> if (isSelected) Teal.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.04f)
+                    }
+                    val cardBorderColor = when {
+                        isFatigued -> if (isSelected) Coral else Coral.copy(alpha = 0.4f)
+                        else -> if (isSelected) Teal else Color.White.copy(alpha = 0.08f)
+                    }
 
                     Box(
                         modifier = Modifier
                             .width(110.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                if (isSelected) color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.04f)
-                            )
+                            .background(cardBg)
                             .border(
                                 width = 1.dp,
-                                color = if (isSelected) color else Color.White.copy(alpha = 0.08f),
+                                color = cardBorderColor,
                                 shape = RoundedCornerShape(16.dp)
                             )
                             .clickable {
@@ -1395,7 +1402,7 @@ fun MuscleFatigueCountdownCard(fatigueMap: Map<String, MuscleFatigue>) {
             ) {
                 if (selectedMuscle != null) {
                     val fatigueObj = fatigueMap[selectedMuscle]
-                    if (fatigueObj != null && fatigueObj.fatiguePercentage > 0) {
+                    if (fatigueObj != null && fatigueObj.recoveryTimeRemainingHours > 0) {
                         Column {
                             Text(selectedMuscle!!.uppercase(), color = Coral, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             Spacer(Modifier.height(4.dp))
@@ -1484,11 +1491,27 @@ fun StrengthForecastChartCard(
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(Surface)
+                    modifier = Modifier
+                        .heightIn(max = 240.dp)
+                        .background(SurfaceVariant)
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                 ) {
                     exerciseOptions.forEach { option ->
+                        val isSelected = option == selectedExerciseId || (selectedExerciseId == null && option == activeProjection?.exerciseId)
                         DropdownMenuItem(
-                            text = { Text(option.formatExerciseName(), color = Color.White, fontSize = 13.sp) },
+                            text = {
+                                Text(
+                                    text = option.formatExerciseName(),
+                                    color = if (isSelected) Teal else Color.White,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 13.sp
+                                )
+                            },
+                            modifier = if (isSelected) {
+                                Modifier.background(Teal.copy(alpha = 0.08f))
+                            } else {
+                                Modifier
+                            },
                             onClick = {
                                 onSelectExercise(option)
                                 expanded = false
@@ -2022,15 +2045,15 @@ fun TabSelector(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Surface.copy(alpha = 0.9f))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+            .background(Surface.copy(alpha = 0.95f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         tabs.forEachIndexed { index, pair ->
             val isSelected = selectedTab == index
             val animatedBackground by animateColorAsState(
-                targetValue = if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                targetValue = if (isSelected) SurfaceVariant else Color.Transparent,
                 animationSpec = tween(300),
                 label = "tab_bg"
             )
@@ -2042,13 +2065,30 @@ fun TabSelector(
                 ),
                 label = "tab_scale"
             )
+            val animatedColor by animateColorAsState(
+                targetValue = if (isSelected) Teal else Color.White.copy(alpha = 0.6f),
+                animationSpec = tween(300),
+                label = "tab_color"
+            )
+            
+            val borderModifier = if (isSelected) {
+                Modifier.border(
+                    width = 1.dp,
+                    brush = Brush.horizontalGradient(listOf(Teal, Violet)),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            } else {
+                Modifier
+            }
+
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(animatedBackground)
+                    .then(borderModifier)
                     .clickable { onTabSelected(index) }
-                    .padding(vertical = 10.dp)
+                    .padding(vertical = 12.dp)
                     .scale(scale),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -2056,16 +2096,16 @@ fun TabSelector(
                 Icon(
                     imageVector = pair.second,
                     contentDescription = null,
-                    tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                    tint = animatedColor,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = pair.first,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = animatedColor,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
             }

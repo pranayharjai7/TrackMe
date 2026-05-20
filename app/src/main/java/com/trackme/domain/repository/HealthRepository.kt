@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface HealthRepository {
     suspend fun syncFromHealthConnect(userId: String)
+    suspend fun syncFromHealthConnectForDate(userId: String, date: java.time.LocalDate)
     suspend fun syncFromHealthConnectBootstrap(userId: String)
     fun getSnapshots(userId: String, fromDate: Long): Flow<List<HealthSnapshot>>
     fun getMetrics(userId: String): Flow<List<HealthMetric>>

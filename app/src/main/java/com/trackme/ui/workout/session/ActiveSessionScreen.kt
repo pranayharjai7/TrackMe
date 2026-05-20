@@ -141,6 +141,22 @@ fun ActiveSessionScreen(
         state.visualState(progress)
     }
 
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (state.isHistoricalSession) {
+            viewModel.finishSession(onBack)
+        } else {
+            onBack()
+        }
+    }
+
+
+    val handleBack = {
+        if (state.isHistoricalSession) {
+            viewModel.finishSession(onBack)
+        } else {
+            onBack()
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         ReactiveMeshGradient(
@@ -163,7 +179,7 @@ fun ActiveSessionScreen(
                 SessionHeader(
                     progress = progress,
                     sessionState = sessionState,
-                    onBack = onBack,
+                    onBack = handleBack,
                 )
             }
 
@@ -280,9 +296,10 @@ fun ActiveSessionScreen(
                     progress = progress,
                     isFinishing = state.isFinishing,
                     isCompleted = state.isCompleted,
+                    isHistoricalSession = state.isHistoricalSession,
                     onAddExercise = onAddExercise,
                     onFinish = { viewModel.finishSession(onSessionFinished) },
-                    onBack = onBack,
+                    onBack = handleBack,
                 )
             }
         }
@@ -1409,24 +1426,40 @@ private fun SessionActionsCard(
     progress: SessionProgress,
     isFinishing: Boolean,
     isCompleted: Boolean,
+    isHistoricalSession: Boolean,
     onAddExercise: () -> Unit,
     onFinish: () -> Unit,
     onBack: () -> Unit,
 ) {
     GlassmorphicCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (isCompleted) {
-                Button(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Go Back to Home", fontWeight = FontWeight.Bold)
+            if (isCompleted || isHistoricalSession) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = onAddExercise,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add")
+                    }
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .weight(1.35f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Color.White),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Go Back", fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1459,7 +1492,7 @@ private fun SessionActionsCard(
                 }
             }
             Text(
-                if (isCompleted) "Workout session completed!" else "${progress.completedSets} sets logged so far",
+                if (isCompleted) "Workout session completed!" else if (isHistoricalSession) "Editing historical workout session" else "${progress.completedSets} sets logged so far",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.58f),
             )
