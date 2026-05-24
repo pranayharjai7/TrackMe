@@ -25,6 +25,7 @@ import com.trackme.ui.health.HealthMetricsScreen
 import com.trackme.ui.home.HomeScreen
 import com.trackme.ui.onboarding.OnboardingScreen
 import com.trackme.ui.profile.ProfileScreen
+import com.trackme.ui.settings.WearOsSettingsScreen
 import com.trackme.ui.progress.ProgressScreen
 import com.trackme.ui.theme.Background
 import com.trackme.ui.theme.Violet
@@ -181,7 +182,11 @@ fun TrackMeNavGraph(navViewModel: NavViewModel = hiltViewModel()) {
                             }
                         },
                         onViewHealthData = { navController.navigate(Routes.HealthMetrics.route) },
+                        onOpenWearSettings = { navController.navigate(Routes.WearOsSettings.route) },
                     )
+                }
+                composable(Routes.WearOsSettings.route) {
+                    WearOsSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.HealthMetrics.route) {
                     HealthMetricsScreen(onBack = { navController.popBackStack() })

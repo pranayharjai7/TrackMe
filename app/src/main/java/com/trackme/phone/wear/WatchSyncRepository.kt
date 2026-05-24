@@ -46,6 +46,10 @@ data class WatchSyncDebugState(
     val lastSyncTime: Long? = null,
     val watchNodeId: String? = null,
     val lastEventIndex: Long = 0L,
+    val lastHeartRateBpm: Double? = null,
+    val lastCaloriesKcal: Double? = null,
+    val lastSteps: Double? = null,
+    val lastActiveDurationSeconds: Long? = null,
 )
 
 @Singleton
@@ -72,6 +76,11 @@ class WatchSyncRepository @Inject constructor(
         if (!started.compareAndSet(false, true)) return
         connectionManager.start()
         scope.launch {
+            connectionManager.refresh()
+            publishSnapshot()
+            sendSyncState()
+        }
+        scope.launch {
             var previous: ActiveSessionUiState? = null
             sessionManager.uiState.collect { state ->
                 publishWorkoutState(previous, state)
@@ -90,8 +99,51 @@ class WatchSyncRepository @Inject constructor(
 
     fun requestWorkoutSync() {
         scope.launch {
+            connectionManager.markSyncing()
             publishSnapshot()
             sendSyncState()
+            connectionManager.markSyncComplete()
+        }
+    }
+
+    suspend fun pingWatch(): Long? {
+        if (connectionManager.resolveWatchNodes().isEmpty()) return null
+        val started = System.currentTimeMillis()
+        _pendingPingStartedAt = started
+        val payload = WearProtocol.encodeWatchAction(
+            WatchActionPayload(
+                actionId = java.util.UUID.randomUUID().toString(),
+                actionType = WatchActionType.PING,
+                timestamp = started,
+                sessionId = sessionManager.uiState.value.sessionId,
+            ),
+        ).encodeToByteArray()
+        if (!sendToWatch(WearPaths.MESSAGE_PING, payload)) {
+            _pendingPingStartedAt = null
+            return null
+        }
+        repeat(30) {
+            delay(100)
+            if (_pendingPingStartedAt == null) {
+                return connectionManager.lastPingLatencyMs.value
+            }
+        }
+        _pendingPingStartedAt = null
+        return null
+    }
+
+    private var _pendingPingStartedAt: Long? = null
+
+    fun testCommunication() {
+        scope.launch {
+            connectionManager.markSyncing()
+            val latency = pingWatch()
+            if (latency == null) {
+                connectionManager.markError("Ping failed — watch unreachable")
+            } else {
+                publishSnapshot()
+                connectionManager.markSyncComplete()
+            }
         }
     }
 
@@ -137,6 +189,8 @@ class WatchSyncRepository @Inject constructor(
             WatchActionType.END_WORKOUT -> sessionManager.finishSession {}
             WatchActionType.SKIP_REST -> exerciseId?.let(sessionManager::skipRest)
             WatchActionType.REQUEST_SYNC -> publishSnapshot()
+            WatchActionType.SWITCH_EXERCISE -> exerciseId?.let(sessionManager::startExercise)
+            WatchActionType.PING -> Unit
         }
 
         markApplied(action)
@@ -154,7 +208,19 @@ class WatchSyncRepository @Inject constructor(
 
     suspend fun handleSyncState(state: SyncStatePayload) {
         noteReceived("${WearPaths.SYNC_STATE}:watchIndex=${state.lastEventIndex}")
-        connectionManager.updateWatchMetadata(state.nodeId, state.watchModel)
+        _pendingPingStartedAt?.let { started ->
+            val latency = System.currentTimeMillis() - started
+            connectionManager.recordPingLatency(latency)
+            _pendingPingStartedAt = null
+        }
+        connectionManager.updateWatchMetadata(
+            nodeId = state.nodeId,
+            watchModel = state.watchModel,
+            wearOsVersion = state.wearOsVersion,
+            batteryPercent = state.batteryPercent,
+            activeWorkout = sessionManager.uiState.value.sessionId.isNotBlank(),
+        )
+        connectionManager.markSyncComplete()
         sendMissingEvents(state)
         publishSnapshot()
     }
@@ -164,6 +230,17 @@ class WatchSyncRepository @Inject constructor(
         _debugState.value = _debugState.value.copy(
             lastMessageReceived = message,
             lastSyncTime = System.currentTimeMillis(),
+        )
+    }
+
+    fun noteWatchHealth(metrics: com.trackme.wearbridge.HealthMetricsPayload) {
+        _debugState.value = _debugState.value.copy(
+            lastHeartRateBpm = metrics.heartRate,
+            lastCaloriesKcal = metrics.calories,
+            lastSteps = metrics.steps,
+            lastActiveDurationSeconds = metrics.activeDurationSeconds,
+            lastSyncTime = System.currentTimeMillis(),
+            lastMessageReceived = "${WearPaths.HEALTH_METRICS}:hr=${metrics.heartRate}",
         )
     }
 
@@ -304,27 +381,40 @@ class WatchSyncRepository @Inject constructor(
     }
 
     private suspend fun sendToWatch(path: String, payload: ByteArray): Boolean {
-        val node = connectionManager.currentConnectedNode()
-        if (node == null) {
-            _debugState.value = _debugState.value.copy(lastMessageSent = "$path failed: disconnected")
-            Log.w(WearPaths.LOG_TAG, "Phone send skipped for $path: no reachable watch")
+        val nodes = connectionManager.resolveWatchNodes()
+        if (nodes.isEmpty()) {
+            _debugState.value = _debugState.value.copy(lastMessageSent = "$path failed: no peer nodes")
+            Log.w(WearPaths.LOG_TAG, "Phone send skipped for $path: no connected watch nodes")
             return false
         }
-        return runCatching {
-            messageClient.sendMessage(node.id, path, payload).await()
-            Log.d(WearPaths.LOG_TAG, "Phone sent $path to ${node.displayName}(${node.id})")
-            _debugState.value = _debugState.value.copy(
-                lastMessageSent = path,
-                lastSyncTime = System.currentTimeMillis(),
-                watchNodeId = node.id,
-                lastEventIndex = currentEventIndex(),
-            )
-            true
-        }.getOrElse { error ->
-            Log.e(WearPaths.LOG_TAG, "Phone send failed for $path", error)
-            _debugState.value = _debugState.value.copy(lastMessageSent = "$path failed")
-            false
+        var delivered = false
+        var lastError: Throwable? = null
+        for (node in nodes) {
+            val sent = runCatching {
+                messageClient.sendMessage(node.id, path, payload).await()
+                Log.d(WearPaths.LOG_TAG, "Phone sent $path to ${node.displayName}(${node.id})")
+                true
+            }.getOrElse { error ->
+                lastError = error
+                Log.e(WearPaths.LOG_TAG, "Phone send failed for $path to ${node.id}", error)
+                false
+            }
+            if (sent) {
+                delivered = true
+                _debugState.value = _debugState.value.copy(
+                    lastMessageSent = path,
+                    lastSyncTime = System.currentTimeMillis(),
+                    watchNodeId = node.id,
+                    lastEventIndex = currentEventIndex(),
+                )
+            }
         }
+        if (!delivered) {
+            _debugState.value = _debugState.value.copy(
+                lastMessageSent = "$path failed: ${lastError?.message ?: "unknown"}",
+            )
+        }
+        return delivered
     }
 
     private suspend fun nextEventIndex(): Long {

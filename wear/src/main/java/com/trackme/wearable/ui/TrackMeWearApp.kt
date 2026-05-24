@@ -53,6 +53,8 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import com.trackme.wearable.designsystem.WearGradientBackground
+import com.trackme.wearable.ui.screens.WearHomeScreen
 import com.trackme.wearable.viewmodel.LoggerField
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 import com.trackme.wearable.viewmodel.WearUiState
@@ -61,6 +63,7 @@ import com.trackme.wearbridge.SessionExercisePayload
 import com.trackme.wearbridge.SessionStatePayload
 
 private object WearRoutes {
+    const val Home = "home"
     const val Overview = "overview"
     const val Logger = "logger"
     const val Rest = "rest"
@@ -74,11 +77,22 @@ fun TrackMeWearApp(viewModel: WearSessionViewModel) {
     val navController = rememberSwipeDismissableNavController()
 
     MaterialTheme {
-        MeshBackground {
+        WearGradientBackground {
             SwipeDismissableNavHost(
                 navController = navController,
-                startDestination = WearRoutes.Overview,
+                startDestination = WearRoutes.Home,
             ) {
+                composable(WearRoutes.Home) {
+                    WearHomeScreen(
+                        state = state,
+                        onOpenWorkout = {
+                            navController.navigate(WearRoutes.Overview) {
+                                popUpTo(WearRoutes.Home)
+                            }
+                        },
+                        onSync = viewModel::requestSnapshot,
+                    )
+                }
                 composable(WearRoutes.Overview) {
                     SessionOverviewScreen(
                         state = state,
@@ -227,24 +241,20 @@ private fun SessionOverviewScreen(
             item {
                 ActionPill("Skip Rest", onClick = onSkipRest, accent = Color(0xFFFFC06A))
             }
-        }
-        item {
-            ActionPill("Start Set", onClick = onStartSet, enabled = session?.sessionId?.isNotBlank() == true)
+        } else {
+            item {
+                ActionPill("Start Set", onClick = onStartSet, enabled = session?.sessionId?.isNotBlank() == true)
+            }
         }
         item {
             Row(horizontalArrangement = Arrangement.Center) {
                 RoundAction("Prev", onPrevious)
                 Spacer(Modifier.width(8.dp))
                 RoundAction("Next", onNext)
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.Center) {
+                Spacer(Modifier.width(8.dp))
                 RoundAction("Info", onDetail)
                 Spacer(Modifier.width(8.dp))
                 RoundAction("List", onExercises)
-                Spacer(Modifier.width(8.dp))
-                RoundAction("Sync", onRefresh)
             }
         }
         item {

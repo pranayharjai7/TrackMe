@@ -89,7 +89,9 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun requestSnapshot() {
-        viewModelScope.launch { workoutStateSync.sendSyncState() }
+        viewModelScope.launch {
+            workoutStateSync.sendAction(actionType = WatchActionType.REQUEST_SYNC)
+        }
     }
 
     fun startSet() {
@@ -179,7 +181,7 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     fun switchToExercise(index: Int) {
         val session = _uiState.value.session
         sendAction(
-            actionType = WatchActionType.START_SET,
+            actionType = WatchActionType.SWITCH_EXERCISE,
             exerciseId = session?.exercises?.getOrNull(index)?.exerciseId,
             setNumber = session?.setIndex,
         )

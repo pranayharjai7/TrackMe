@@ -6,7 +6,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 object WearPaths {
-    const val LOG_TAG = "TrackMeWearSync"
+    const val LOG_TAG = "TrackMeWear"
+    const val LEGACY_LOG_TAG = "TrackMeWearSync"
 
     const val CAPABILITY_PHONE = "trackme_phone"
     const val CAPABILITY_WATCH = "trackme_watch"
@@ -24,6 +25,7 @@ object WearPaths {
     const val HEALTH_METRICS = "/health/metrics"
     const val SYNC_STATE = "/sync/state"
     const val SYNC_EVENTS = "/sync/events"
+    const val MESSAGE_PING = "/sync/ping"
 
     const val KEY_PAYLOAD = "payload"
     const val KEY_UPDATED_AT = "updated_at"
@@ -120,6 +122,8 @@ enum class WatchActionType {
     END_WORKOUT,
     SKIP_REST,
     REQUEST_SYNC,
+    SWITCH_EXERCISE,
+    PING,
 }
 
 @Serializable
@@ -211,6 +215,7 @@ data class SyncStatePayload(
     val nodeId: String? = null,
     val nodeName: String? = null,
     val watchModel: String? = null,
+    val wearOsVersion: String? = null,
     val batteryPercent: Int? = null,
     val timestamp: Long,
 )

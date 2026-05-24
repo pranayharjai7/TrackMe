@@ -15,6 +15,7 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
+import com.trackme.wearable.service.ActiveWorkoutService
 import com.trackme.wearable.service.WorkoutHealthService
 import com.trackme.wearbridge.LoggingTypePayload
 import com.trackme.wearbridge.SessionStatePayload
@@ -72,12 +73,39 @@ class WorkoutStateSync(
         if (!started.compareAndSet(false, true)) return
         dataClient.addListener(this)
         scope.launch {
+            fetchInitialSessionSnapshot()
+        }
+        scope.launch {
             connectionManager.connectionState.collect { state ->
                 if (state is PhoneConnectionState.Connected) {
                     flushActionQueue()
                     sendSyncState()
                 }
             }
+        }
+        scope.launch {
+            while (true) {
+                delay(20_000)
+                if (connectionManager.resolvePhoneNodes().isNotEmpty()) {
+                    sendSyncState()
+                }
+            }
+        }
+    }
+
+    private suspend fun fetchInitialSessionSnapshot() {
+        runCatching {
+            val items = dataClient.dataItems.await()
+            for (item in items) {
+                if (item.uri.path != WearPaths.DATA_SESSION_STATE) continue
+                val json = DataMapItem.fromDataItem(item).dataMap.getString(WearPaths.KEY_PAYLOAD)
+                    ?: continue
+                _sessionState.value = WearProtocol.decodeSessionState(json)
+                Log.d(WearPaths.LOG_TAG, "Watch loaded initial DataClient session snapshot")
+                return
+            }
+        }.onFailure { error ->
+            Log.w(WearPaths.LOG_TAG, "Watch initial DataClient snapshot read failed", error)
         }
     }
 
@@ -123,6 +151,7 @@ class WorkoutStateSync(
             nodeId = localNode?.id,
             nodeName = localNode?.displayName,
             watchModel = android.os.Build.MODEL,
+            wearOsVersion = android.os.Build.VERSION.RELEASE,
             batteryPercent = batteryPercent(),
             timestamp = System.currentTimeMillis(),
         )
@@ -149,8 +178,14 @@ class WorkoutStateSync(
         _sessionState.value = nextSession
         if (nextSession.isCompleted || payload.messageType == WorkoutMessageType.END || nextSession.sessionId.isBlank()) {
             appContext.stopService(Intent(appContext, WorkoutHealthService::class.java))
+            ActiveWorkoutService.stop(appContext)
         } else {
             ContextCompat.startForegroundService(appContext, Intent(appContext, WorkoutHealthService::class.java))
+            ActiveWorkoutService.start(
+                appContext,
+                title = nextSession.exerciseName.ifBlank { "Workout" },
+                body = "Set ${nextSession.setIndex} · ${nextSession.sessionProgressPercent}%",
+            )
         }
     }
 
@@ -183,16 +218,24 @@ class WorkoutStateSync(
     }
 
     private suspend fun sendToPhone(path: String, payload: ByteArray): Boolean {
-        val node = connectionManager.currentPhoneNode()
-        if (node == null) return false
-        return runCatching {
-            messageClient.sendMessage(node.id, path, payload).await()
-            Log.d(WearPaths.LOG_TAG, "Watch sent $path to ${node.displayName}(${node.id})")
-            true
-        }.getOrElse { error ->
-            Log.e(WearPaths.LOG_TAG, "Watch send failed for $path", error)
-            false
+        val nodes = connectionManager.resolvePhoneNodes()
+        if (nodes.isEmpty()) {
+            Log.w(WearPaths.LOG_TAG, "Watch send skipped for $path: no connected phone nodes")
+            return false
         }
+        var delivered = false
+        for (node in nodes) {
+            val sent = runCatching {
+                messageClient.sendMessage(node.id, path, payload).await()
+                Log.d(WearPaths.LOG_TAG, "Watch sent $path to ${node.displayName}(${node.id})")
+                true
+            }.getOrElse { error ->
+                Log.e(WearPaths.LOG_TAG, "Watch send failed for $path to ${node.id}", error)
+                false
+            }
+            if (sent) delivered = true
+        }
+        return delivered
     }
 
     private suspend fun nextLocalEventIndex(): Long {

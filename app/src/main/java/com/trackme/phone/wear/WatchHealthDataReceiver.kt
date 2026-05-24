@@ -18,6 +18,7 @@ import javax.inject.Singleton
 class WatchHealthDataReceiver @Inject constructor(
     private val healthRepository: HealthRepository,
     private val supabase: SupabaseClient,
+    private val watchSyncRepository: WatchSyncRepository,
 ) {
     private val userId: String
         get() = runCatching { supabase.auth.currentSessionOrNull()?.user?.id }.getOrNull().orEmpty()
@@ -39,6 +40,7 @@ class WatchHealthDataReceiver @Inject constructor(
             rawData = WearProtocol.encodeHealthMetrics(metrics),
             samples = samples,
         )
+        watchSyncRepository.noteWatchHealth(metrics)
         Log.d(WearPaths.LOG_TAG, "Phone received health metrics id=${metrics.metricId} samples=${samples.size}")
     }
 

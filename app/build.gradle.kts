@@ -55,6 +55,7 @@ android {
 }
 
 dependencies {
+    wearApp(project(":wear"))
     implementation(project(":wear-bridge"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")

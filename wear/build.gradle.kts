@@ -9,7 +9,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.trackme.wearable"
+        // Same applicationId as phone (JobTracker pattern) — required for reliable Data Layer on debug builds.
+        applicationId = "com.trackme"
         minSdk = 30
         targetSdk = 35
         versionCode = 1

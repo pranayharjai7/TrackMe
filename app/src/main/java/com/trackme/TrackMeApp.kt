@@ -3,6 +3,7 @@ package com.trackme
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.trackme.phone.wear.WearSyncInitializer
 import com.trackme.sync.HealthSyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -29,5 +30,6 @@ class TrackMeApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         HealthSyncWorker.schedule(this)
+        WearSyncInitializer.start(this)
     }
 }

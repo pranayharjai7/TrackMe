@@ -42,6 +42,11 @@ class PhoneMessageReceiverService : WearableListenerService() {
             WearPaths.SYNC_EVENTS -> runCatching {
                 runtime.workoutStateSync.handleSyncEvents(WearProtocol.decodeSyncEvents(payload))
             }.onFailure { Log.e(WearPaths.LOG_TAG, "Watch failed to handle sync events", it) }
+            WearPaths.MESSAGE_PING -> {
+                serviceScope.launch {
+                    runtime.workoutStateSync.sendSyncState()
+                }
+            }
             else -> Log.d(WearPaths.LOG_TAG, "Watch ignored message path=${messageEvent.path}")
         }
         serviceScope.launch {

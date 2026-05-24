@@ -69,6 +69,7 @@ class ProfileViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    val watchPingLatencyMs: StateFlow<Long?> = watchConnectionManager.lastPingLatencyMs
 
     init {
         viewModelScope.launch {
@@ -196,6 +197,22 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isWatchSyncing = true) }
             watchSyncRepository.reconnect()
+            _uiState.update { it.copy(isWatchSyncing = false) }
+        }
+    }
+
+    fun pingWatch() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWatchSyncing = true) }
+            watchSyncRepository.pingWatch()
+            _uiState.update { it.copy(isWatchSyncing = false) }
+        }
+    }
+
+    fun testWatchCommunication() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWatchSyncing = true) }
+            watchSyncRepository.testCommunication()
             _uiState.update { it.copy(isWatchSyncing = false) }
         }
     }

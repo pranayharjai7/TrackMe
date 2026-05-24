@@ -44,6 +44,7 @@ import java.util.*
 fun ProfileScreen(
     onSignOut: () -> Unit,
     onViewHealthData: () -> Unit,
+    onOpenWearSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -96,6 +97,7 @@ fun ProfileScreen(
                 onSyncWorkout = { viewModel.syncWorkoutDataToWatch() },
                 onSyncHealth = { viewModel.syncWearHealthData() },
                 onReconnect = { viewModel.reconnectWatch() },
+                onOpenFullSettings = onOpenWearSettings,
             )
 
             GlassmorphicPreferencesCard(
@@ -208,6 +210,7 @@ private fun WearOsSettingsCard(
     onSyncWorkout: () -> Unit,
     onSyncHealth: () -> Unit,
     onReconnect: () -> Unit,
+    onOpenFullSettings: () -> Unit,
 ) {
     val connection = state.watchConnectionState
     val connected = connection is WatchConnectionState.Connected
@@ -218,9 +221,16 @@ private fun WearOsSettingsCard(
     val statusLabel = when (connection) {
         WatchConnectionState.Connecting -> "Connecting"
         WatchConnectionState.Disconnected -> "Disconnected"
+        WatchConnectionState.Syncing -> "Syncing"
         is WatchConnectionState.Connected -> "Connected"
+        is WatchConnectionState.Error -> "Error"
     }
-    val statusColor = if (connected) Teal else Coral
+    val statusColor = when (connection) {
+        is WatchConnectionState.Connected -> Teal
+        WatchConnectionState.Syncing -> Violet
+        is WatchConnectionState.Error -> Coral
+        else -> Coral
+    }
 
     GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -287,6 +297,18 @@ private fun WearOsSettingsCard(
                 Icon(Icons.Default.BluetoothSearching, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
                 Text("Reconnect Watch", style = MaterialTheme.typography.labelMedium)
+            }
+
+            OutlinedButton(
+                onClick = onOpenFullSettings,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Violet.copy(alpha = 0.35f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Violet),
+            ) {
+                Icon(Icons.Default.Watch, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Wear OS settings", style = MaterialTheme.typography.labelMedium)
             }
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
