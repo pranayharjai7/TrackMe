@@ -6,6 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -55,6 +57,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.firebase:firebase-crashlytics:20.0.6")
     wearApp(project(":wear"))
     implementation(project(":wear-bridge"))
 

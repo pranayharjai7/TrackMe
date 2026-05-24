@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -47,6 +49,7 @@ android {
 
 dependencies {
     implementation(project(":wear-bridge"))
+    implementation("com.google.firebase:firebase-crashlytics:20.0.6")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
