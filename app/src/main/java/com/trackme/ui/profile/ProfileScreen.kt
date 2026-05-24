@@ -34,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.trackme.domain.model.HcSdkStatus
+import com.trackme.phone.wear.WatchConnectionState
 import com.trackme.ui.components.*
 import com.trackme.ui.theme.*
 import java.text.SimpleDateFormat
@@ -88,6 +89,13 @@ fun ProfileScreen(
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata"))
                     runCatching { context.startActivity(intent) }
                 }
+            )
+
+            WearOsSettingsCard(
+                state = state,
+                onSyncWorkout = { viewModel.syncWorkoutDataToWatch() },
+                onSyncHealth = { viewModel.syncWearHealthData() },
+                onReconnect = { viewModel.reconnectWatch() },
             )
 
             GlassmorphicPreferencesCard(
@@ -190,6 +198,123 @@ fun ProfileScreen(
             },
             containerColor = SurfaceVariant,
             shape = RoundedCornerShape(28.dp),
+        )
+    }
+}
+
+@Composable
+private fun WearOsSettingsCard(
+    state: ProfileUiState,
+    onSyncWorkout: () -> Unit,
+    onSyncHealth: () -> Unit,
+    onReconnect: () -> Unit,
+) {
+    val connection = state.watchConnectionState
+    val connected = connection is WatchConnectionState.Connected
+    val nodeId = (connection as? WatchConnectionState.Connected)?.nodeId ?: state.watchDebugState.watchNodeId
+    val watchName = (connection as? WatchConnectionState.Connected)?.nodeName ?: "Galaxy Watch"
+    val watchModel = (connection as? WatchConnectionState.Connected)?.watchModel ?: watchName
+    val lastSync = state.watchDebugState.lastSyncTime
+    val statusLabel = when (connection) {
+        WatchConnectionState.Connecting -> "Connecting"
+        WatchConnectionState.Disconnected -> "Disconnected"
+        is WatchConnectionState.Connected -> "Connected"
+    }
+    val statusColor = if (connected) Teal else Coral
+
+    GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Watch, contentDescription = null, tint = Violet, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Wear OS", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Real-time workout companion", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
+                }
+                AssistChip(
+                    onClick = onReconnect,
+                    label = { Text(statusLabel, color = statusColor, style = MaterialTheme.typography.labelSmall) },
+                    colors = AssistChipDefaults.assistChipColors(containerColor = statusColor.copy(alpha = 0.14f)),
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f)),
+                )
+            }
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                WearDebugLine("Watch", statusLabel)
+                WearDebugLine("Model", watchModel)
+                WearDebugLine(
+                    "Last sync",
+                    lastSync?.let { SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: "Never",
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onSyncWorkout,
+                    enabled = connected && !state.isWatchSyncing,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Violet.copy(alpha = 0.25f), contentColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Violet.copy(alpha = 0.45f)),
+                ) {
+                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Workout", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onSyncHealth,
+                    enabled = connected && !state.isWatchSyncing,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Teal.copy(alpha = 0.18f), contentColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Teal.copy(alpha = 0.35f)),
+                ) {
+                    Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Health", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            OutlinedButton(
+                onClick = onReconnect,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White.copy(alpha = 0.7f)),
+            ) {
+                Icon(Icons.Default.BluetoothSearching, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Reconnect Watch", style = MaterialTheme.typography.labelMedium)
+            }
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                WearDebugLine("Last received", state.watchDebugState.lastMessageReceived)
+                WearDebugLine("Last sent", state.watchDebugState.lastMessageSent)
+                WearDebugLine("Watch node", nodeId ?: "Unknown")
+                WearDebugLine("Event index", state.watchDebugState.lastEventIndex.toString())
+            }
+        }
+    }
+}
+
+@Composable
+private fun WearDebugLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.45f),
+            modifier = Modifier.width(96.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.78f),
+            maxLines = 1,
         )
     }
 }

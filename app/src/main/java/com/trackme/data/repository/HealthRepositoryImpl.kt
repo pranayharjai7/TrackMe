@@ -85,6 +85,31 @@ class HealthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun saveMetrics(metrics: List<HealthMetric>) {
+        if (metrics.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            healthMetricDao.insertAll(
+                metrics.map { metric ->
+                    com.trackme.data.local.entity.HealthMetricEntity(
+                        id = metric.id,
+                        userId = metric.userId,
+                        category = metric.category,
+                        recordType = metric.recordType,
+                        displayName = metric.displayName,
+                        startTime = metric.startTime,
+                        endTime = metric.endTime,
+                        primaryValue = metric.primaryValue,
+                        primaryUnit = metric.primaryUnit,
+                        details = metric.details.joinToString(separator = "\n"),
+                        sourceApp = metric.sourceApp,
+                        rawData = metric.rawData,
+                        updatedAt = metric.updatedAt,
+                    )
+                }
+            )
+        }
+    }
+
     override fun getSnapshots(userId: String, fromDate: Long): Flow<List<HealthSnapshot>> =
         healthSnapshotDao.getSince(userId, fromDate).map { list -> list.map { it.toDomain() } }
 

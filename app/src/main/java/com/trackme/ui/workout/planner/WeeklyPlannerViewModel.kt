@@ -10,8 +10,10 @@ import com.trackme.domain.usecase.BuildRoutineShareTextUseCase
 import com.trackme.domain.usecase.GetActivePlanUseCase
 import com.trackme.domain.usecase.SaveWorkoutDayUseCase
 import com.trackme.domain.usecase.SaveWorkoutPlanUseCase
+import com.trackme.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -46,34 +48,61 @@ class WeeklyPlannerViewModel @Inject constructor(
     private val savePlan: SaveWorkoutPlanUseCase,
     private val saveDay: SaveWorkoutDayUseCase,
     private val buildRoutineShareText: BuildRoutineShareTextUseCase,
+    private val syncManager: SyncManager,
     private val supabase: SupabaseClient,
 ) : ViewModel() {
 
-    private val userId get() = supabase.auth.currentSessionOrNull()?.user?.id ?: ""
+    private var userId: String = ""
 
     private val _uiState = MutableStateFlow(WeeklyPlannerUiState())
     val uiState: StateFlow<WeeklyPlannerUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            getActivePlan(userId)
-                .onEach { plan -> _uiState.update { it.copy(activePlan = plan) } }
-                .flatMapLatest { plan ->
-                    if (plan != null) workoutRepository.getDaysForPlan(plan.id)
-                    else flowOf(emptyList())
+            supabase.auth.sessionStatus
+                .onStart {
+                    supabase.auth.awaitInitialization()
+                    emit(supabase.auth.sessionStatus.value)
                 }
-                .flatMapLatest { days ->
-                    _uiState.update { it.copy(days = days) }
-                    if (days.isEmpty()) {
-                        flowOf(emptyMap())
+                .map { status -> (status as? SessionStatus.Authenticated)?.session?.user?.id.orEmpty() }
+                .distinctUntilChanged()
+                .flatMapLatest { uid ->
+                    userId = uid
+                    if (uid.isBlank()) {
+                        flowOf(PlannerObservation(null, emptyList(), emptyMap()))
                     } else {
-                        combine(days.map { day ->
-                            workoutRepository.getPlannedExercisesForDay(day.id)
-                                .map { exercises -> day.id to exercises.size }
-                        }) { pairs -> pairs.toMap() }
+                        viewModelScope.launch { runCatching { syncManager.runInitialSync() } }
+                        getActivePlan(uid)
+                            .flatMapLatest { plan ->
+                                if (plan == null) {
+                                    flowOf(PlannerObservation(null, emptyList(), emptyMap()))
+                                } else {
+                                    workoutRepository.getDaysForPlan(plan.id)
+                                        .flatMapLatest { days ->
+                                            if (days.isEmpty()) {
+                                                flowOf(PlannerObservation(plan, emptyList(), emptyMap()))
+                                            } else {
+                                                combine(days.map { day ->
+                                                    workoutRepository.getPlannedExercisesForDay(day.id)
+                                                        .map { exercises -> day.id to exercises.size }
+                                                }) { pairs ->
+                                                    PlannerObservation(plan, days, pairs.toMap())
+                                                }
+                                            }
+                                        }
+                                }
+                            }
                     }
                 }
-                .collect { counts -> _uiState.update { it.copy(exerciseCounts = counts) } }
+                .collect { observation ->
+                    _uiState.update {
+                        it.copy(
+                            activePlan = observation.activePlan,
+                            days = observation.days,
+                            exerciseCounts = observation.exerciseCounts,
+                        )
+                    }
+                }
         }
     }
 
@@ -112,3 +141,9 @@ class WeeklyPlannerViewModel @Inject constructor(
         _uiState.update { it.copy(routineTextToShare = null) }
     }
 }
+
+private data class PlannerObservation(
+    val activePlan: WorkoutPlan?,
+    val days: List<WorkoutDay>,
+    val exerciseCounts: Map<String, Int>,
+)

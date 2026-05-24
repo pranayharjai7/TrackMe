@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.trackme.domain.model.HcSdkStatus
 import com.trackme.domain.repository.HealthRepository
 import com.trackme.domain.usecase.ClearLocalUserDataUseCase
+import com.trackme.phone.wear.WatchConnectionManager
+import com.trackme.phone.wear.WatchConnectionState
+import com.trackme.phone.wear.WatchSyncDebugState
+import com.trackme.phone.wear.WatchSyncRepository
 import com.trackme.ui.onboarding.DEFAULT_FITNESS_GOAL
 import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_GOAL
@@ -38,6 +42,9 @@ data class ProfileUiState(
     val inputStyle: String = DEFAULT_INPUT_STYLE,
     val dashboardState: ProfileDashboardState = ProfileDashboardState.COSMOS,
     val isSigningOut: Boolean = false,
+    val watchConnectionState: WatchConnectionState = WatchConnectionState.Connecting,
+    val watchDebugState: WatchSyncDebugState = WatchSyncDebugState(),
+    val isWatchSyncing: Boolean = false,
 )
 
 /**
@@ -56,6 +63,8 @@ class ProfileViewModel @Inject constructor(
     private val supabase: SupabaseClient,
     private val dataStore: DataStore<Preferences>,
     private val clearLocalUserData: ClearLocalUserDataUseCase,
+    private val watchConnectionManager: WatchConnectionManager,
+    private val watchSyncRepository: WatchSyncRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -99,6 +108,24 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
             }
+        }
+
+        viewModelScope.launch {
+            watchConnectionManager.start()
+            watchSyncRepository.start()
+            combine(
+                watchConnectionManager.connectionState,
+                watchSyncRepository.debugState,
+            ) { connection, debug -> connection to debug }
+                .collect { (connection, debug) ->
+                    _uiState.update {
+                        it.copy(
+                            watchConnectionState = connection,
+                            watchDebugState = debug,
+                            isWatchSyncing = false,
+                        )
+                    }
+                }
         }
     }
 
@@ -146,6 +173,30 @@ class ProfileViewModel @Inject constructor(
                     lastSyncTime = if (result.isSuccess) System.currentTimeMillis() else it.lastSyncTime,
                 )
             }
+        }
+    }
+
+    fun syncWorkoutDataToWatch() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWatchSyncing = true) }
+            watchSyncRepository.requestWorkoutSync()
+            _uiState.update { it.copy(isWatchSyncing = false) }
+        }
+    }
+
+    fun syncWearHealthData() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWatchSyncing = true) }
+            watchSyncRepository.requestHealthSync()
+            _uiState.update { it.copy(isWatchSyncing = false) }
+        }
+    }
+
+    fun reconnectWatch() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWatchSyncing = true) }
+            watchSyncRepository.reconnect()
+            _uiState.update { it.copy(isWatchSyncing = false) }
         }
     }
 

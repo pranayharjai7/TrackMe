@@ -27,6 +27,8 @@ enum class ExerciseExecutionState {
  */
 data class ActiveSessionUiState(
     val sessionId: String = "",
+    val dayId: String = "",
+    val sessionDateMillis: Long? = null,
     val exercises: List<Pair<PlannedExercise, Exercise?>> = emptyList(),
     val loggedSets: List<SessionSet> = emptyList(),
     val loggedSetsByExercise: Map<String, List<SessionSet>> = emptyMap(),

@@ -18,4 +18,6 @@ local.properties
 /.superpowers/
 /docs/
 app/build/
+wear/build/
+wear-bridge/build/
 /io/

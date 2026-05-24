@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "TrackMe"
 include(":app")
+include(":wear-bridge")
+include(":wear")

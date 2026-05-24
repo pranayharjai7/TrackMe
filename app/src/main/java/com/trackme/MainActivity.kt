@@ -16,6 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import com.trackme.data.auth.SessionManager
 import com.trackme.data.auth.SessionState
 import com.trackme.domain.usecase.SeedExercisesUseCase
+import com.trackme.phone.wear.WatchConnectionManager
+import com.trackme.phone.wear.WatchSyncRepository
 import com.trackme.sync.SyncManager
 import com.trackme.ui.components.SyncingLogoutOverlay
 import com.trackme.ui.components.TerminatedOverlay
@@ -42,6 +44,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var seedExercises: SeedExercisesUseCase
     @Inject lateinit var syncManager: SyncManager
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var watchConnectionManager: WatchConnectionManager
+    @Inject lateinit var watchSyncRepository: WatchSyncRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +60,8 @@ class MainActivity : ComponentActivity() {
                 syncManager.enqueueImmediateSync()
                 syncManager.schedulePeriodicSync()
                 sessionManager.startHeartbeat()
+                watchConnectionManager.start()
+                watchSyncRepository.start()
             }
 
             override fun onStop(owner: LifecycleOwner) {

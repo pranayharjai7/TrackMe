@@ -73,12 +73,13 @@ class WorkoutSessionManager @Inject constructor(
         dataCollectionJob?.cancel()
 
         dataCollectionJob = managerScope.launch {
+            val resolvedUserId = userId.ifBlank { this@WorkoutSessionManager.userId }
             val localTodayStart = com.trackme.utils.startOfLocalDayMillis(sessionDateMillis)
             val isHistorical = com.trackme.utils.startOfLocalDayMillis(sessionDateMillis) < startOfTodayMillis()
             
             val session = try {
-                workoutRepository.getLatestSessionForDay(userId, dayId, localTodayStart)
-                    ?: startSession(userId, dayId, sessionDateMillis)
+                workoutRepository.getLatestSessionForDay(resolvedUserId, dayId, localTodayStart)
+                    ?: startSession(resolvedUserId, dayId, sessionDateMillis)
             } catch (e: Exception) {
                 return@launch
             }
@@ -87,7 +88,9 @@ class WorkoutSessionManager @Inject constructor(
             
             updateUiState { 
                 it.copy(
-                    sessionId = session.id, 
+                    sessionId = session.id,
+                    dayId = dayId,
+                    sessionDateMillis = session.date,
                     isCompleted = isCompleted, 
                     isHistoricalSession = isHistorical 
                 ) 
@@ -626,5 +629,17 @@ class WorkoutSessionManager @Inject constructor(
         val newRemaining = maxOf(0, _uiState.value.restSecondsRemaining + secondsToAdd)
         val restExId = _uiState.value.restingExerciseId
         runRestTimer(restExId, newRemaining)
+        managerScope.launch {
+            dataStore.edit { prefs ->
+                if (restExId != null && newRemaining > 0) {
+                    prefs[stringPreferencesKey("${dayId}_resting_exercise_id")] = restExId
+                    prefs[longPreferencesKey("${dayId}_rest_timer_end_time")] =
+                        System.currentTimeMillis() + newRemaining * 1000L
+                } else {
+                    prefs.remove(stringPreferencesKey("${dayId}_resting_exercise_id"))
+                    prefs.remove(longPreferencesKey("${dayId}_rest_timer_end_time"))
+                }
+            }
+        }
     }
 }

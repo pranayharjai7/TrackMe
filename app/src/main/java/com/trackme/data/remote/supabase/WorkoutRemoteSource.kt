@@ -162,7 +162,7 @@ class WorkoutRemoteSource @Inject constructor(
         supabase.postgrest[TABLE_PLANNED_EXERCISES]
             .select { filter { eq("user_id", userId) } }
             .decodeList<PlannedExerciseDto>()
-            .map { PlannedExerciseEntity(it.id, it.dayId, it.userId, it.exerciseId, it.orderIndex, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, targetSets = it.targetSets, targetReps = it.targetReps, targetWeightKg = it.targetWeightKg, targetDurationSeconds = it.targetDurationSeconds, targetDistanceKm = it.targetDistanceKm, targetSpeedKmh = it.targetSpeedKmh, targetIncline = it.targetIncline) }
+            .map { PlannedExerciseEntity(it.id, it.dayId, it.userId, it.exerciseId, it.orderIndex, it.updatedAt, isSynced = true, deletedAt = it.deletedAt, targetSets = it.targetSets ?: 3, targetReps = it.targetReps, targetWeightKg = it.targetWeightKg, targetDurationSeconds = it.targetDurationSeconds, targetDistanceKm = it.targetDistanceKm, targetSpeedKmh = it.targetSpeedKmh, targetIncline = it.targetIncline) }
 
     suspend fun fetchSessions(userId: String): List<WorkoutSessionEntity> =
         supabase.postgrest[TABLE_WORKOUT_SESSIONS]

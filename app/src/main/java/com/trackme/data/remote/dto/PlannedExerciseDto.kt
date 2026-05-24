@@ -12,7 +12,7 @@ data class PlannedExerciseDto(
     @SerialName("order_index") val orderIndex: Int,
     @SerialName("updated_at") val updatedAt: Long,
     @SerialName("deleted_at") val deletedAt: Long? = null,
-    @SerialName("target_sets") val targetSets: Int = 3,
+    @SerialName("target_sets") val targetSets: Int? = null,
     @SerialName("target_reps") val targetReps: Int? = null,
     @SerialName("target_weight_kg") val targetWeightKg: Float? = null,
     @SerialName("target_duration_seconds") val targetDurationSeconds: Int? = null,

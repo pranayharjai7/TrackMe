@@ -18,6 +18,7 @@ interface HealthRepository {
     suspend fun syncFromHealthConnect(userId: String)
     suspend fun syncFromHealthConnectForDate(userId: String, date: java.time.LocalDate)
     suspend fun syncFromHealthConnectBootstrap(userId: String)
+    suspend fun saveMetrics(metrics: List<HealthMetric>)
     fun getSnapshots(userId: String, fromDate: Long): Flow<List<HealthSnapshot>>
     fun getMetrics(userId: String): Flow<List<HealthMetric>>
     suspend fun getLatestSnapshot(userId: String): HealthSnapshot?
