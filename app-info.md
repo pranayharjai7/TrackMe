@@ -61,6 +61,7 @@ The app uses 14 specialized tables with `deletedAt` soft-deletion and `isSynced`
 - **Auth**: native Google Sign-In and Credential Manager.
 - **Postgrest**: Bi-directional sync using `updatedAt` timestamps.
 - **Row Level Security (RLS)**: Strictly enforces data isolation between users at the Postgres level.
+- **Setup**: Schema and RLS policies are defined in `run_sql_in_supabase.sql` for easy replication.
 
 ---
 
@@ -71,6 +72,8 @@ The app uses 14 specialized tables with `deletedAt` soft-deletion and `isSynced`
 - **Wear Health Services**: Direct access to heart rate and calorie sensors, piped back to the phone session via the bridge.
 
 ## 6. Development & Build
+- **Kotlin**: 2.0.21 (K2 Compiler)
+- **Compose Compiler**: Now using the `org.jetbrains.kotlin.plugin.compose` Gradle plugin.
 - **Target SDK**: 35 (Android 15)
 - **Compile SDK**: 36
 - **Min SDK**: 26 (Phone), 30 (Wear OS 3+)

@@ -7,7 +7,7 @@
 TrackMe isn't just a logger; it's a high-performance training partner designed for lifters who demand precision. Built with a dual-device strategy, it merges the power of a mobile command center with the seamless agility of Wear OS.
 
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20%7C%20Wear%20OS%204.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Language-Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Language-Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
@@ -63,6 +63,16 @@ TrackMe redefines the workout experience by leveraging a sophisticated **Phone +
 
 ---
 
+## 🛠️ Getting Started
+
+To get the project running locally, follow these steps:
+
+1.  **Environment Setup**: Copy `local.properties.example` to `local.properties` and fill in your Supabase credentials and API keys.
+2.  **Backend Setup**: Run the contents of `run_sql_in_supabase.sql` in your Supabase SQL Editor to initialize the database schema and security policies.
+3.  **Build**: Sync Gradle and build the project. Note that Kotlin 2.0.21 and the Compose Compiler plugin are required.
+
+---
+
 ## 🏗️ Architecture: Engineered for Scale
 
 TrackMe follows a robust **Clean Architecture** with a strict separation of concerns, optimized for multi-module communication.
@@ -87,6 +97,7 @@ graph TD
 ## 🛠️ Tech Stack
 
 ### Core & UI
+*   **Kotlin 2.0.21:** Leveraging the latest K2 compiler and the new Compose Compiler plugin.
 *   **Jetpack Compose (BOM 2024.10.00):** State-of-the-art declarative UI for both Mobile and Wear.
 *   **Material 3:** Contemporary design language with a "Glass-morphism" aesthetic.
 *   **Vico Charts:** High-performance data visualizations for complex fitness metrics.
