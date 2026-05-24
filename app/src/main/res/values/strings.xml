@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TrackMe</string>
+
+    <string name="notification_status_icon">Workout status</string>
+    <string name="notification_exercise_icon">Exercise</string>
+    <string name="notification_starting_title">Starting workout</string>
+    <string name="notification_starting_body">Preparing your live session…</string>
+    <string name="notification_channel_ongoing_name">Live Workout</string>
+    <string name="notification_channel_ongoing_desc">Shows exercise progress, rest timer, and quick controls during an active workout.</string>
+    <string name="notification_channel_alerts_name">Rest Timer Alerts</string>
+    <string name="notification_channel_alerts_desc">Heads-up alerts when your rest period ends.</string>
+    <string name="notification_rest_finished_title">Rest finished</string>
+    <string name="notification_rest_finished_body">Start your next set to stay locked in.</string>
+    <string name="notification_action_start_set">Start Set</string>
+    <string name="notification_action_open">Open Workout</string>
+    <string name="notification_action_plus_15">+15s</string>
+    <string name="notification_action_end">End</string>
 </resources>

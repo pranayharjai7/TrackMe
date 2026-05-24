@@ -9,6 +9,7 @@ import com.trackme.domain.model.Exercise
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.domain.model.SessionSet
 import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
+import com.trackme.ui.workout.session.notification.WorkoutNotificationActions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +46,7 @@ data class ActiveSessionUiState(
     val isPaused: Boolean = false,
     val quickWeight: Float = 0f,
     val quickReps: Int = 0,
+    val sessionStartTimeMillis: Long = 0L,
 )
 
 /**
@@ -76,7 +78,7 @@ class ActiveSessionViewModel @Inject constructor(
 
         // Start Ongoing Workout Foreground Service
         val intent = Intent(context, WorkoutSessionService::class.java).apply {
-            action = WorkoutSessionService.ACTION_START_SERVICE
+            action = WorkoutNotificationActions.ACTION_START_SERVICE
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)

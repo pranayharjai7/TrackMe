@@ -15,16 +15,23 @@ class WorkoutHealthService : Service() {
         super.onCreate()
         createChannel()
         (application as TrackMeWearApplication).runtime.healthMetricsSender.start()
-        startForeground(
-            NOTIFICATION_ID,
-            NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentTitle("TrackMe workout")
-                .setContentText("Streaming workout metrics")
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .build(),
-        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle("TrackMe workout")
+            .setContentText("Streaming workout metrics")
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY

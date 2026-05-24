@@ -6,7 +6,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
     <!-- Health Connect permissions -->
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
@@ -127,7 +132,11 @@
 
         <service
             android:name=".ui.workout.session.WorkoutSessionService"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="health|dataSync"
+            android:exported="false" />
+
+        <receiver
+            android:name=".ui.workout.session.notification.WorkoutNotificationActionReceiver"
             android:exported="false" />
 
         <service

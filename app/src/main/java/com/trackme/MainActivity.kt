@@ -18,6 +18,7 @@ import com.trackme.data.auth.SessionState
 import com.trackme.domain.usecase.SeedExercisesUseCase
 import com.trackme.phone.wear.WatchConnectionManager
 import com.trackme.phone.wear.WatchSyncRepository
+import com.trackme.ui.workout.session.notification.WorkoutNotificationBootstrap
 import com.trackme.sync.SyncManager
 import com.trackme.ui.components.SyncingLogoutOverlay
 import com.trackme.ui.components.TerminatedOverlay
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var watchConnectionManager: WatchConnectionManager
     @Inject lateinit var watchSyncRepository: WatchSyncRepository
+    @Inject lateinit var workoutNotificationBootstrap: WorkoutNotificationBootstrap
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 sessionManager.startHeartbeat()
                 watchConnectionManager.start()
                 watchSyncRepository.start()
+                workoutNotificationBootstrap.recoverIfNeeded()
             }
 
             override fun onStop(owner: LifecycleOwner) {

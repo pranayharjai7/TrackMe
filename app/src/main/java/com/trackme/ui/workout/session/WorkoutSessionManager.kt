@@ -85,12 +85,13 @@ class WorkoutSessionManager @Inject constructor(
             }
             sessionStartTime = session.date
             val isCompleted = session.durationMinutes > 0 && !isHistorical
-            
+
             updateUiState { 
                 it.copy(
                     sessionId = session.id,
                     dayId = dayId,
                     sessionDateMillis = session.date,
+                    sessionStartTimeMillis = session.date,
                     isCompleted = isCompleted, 
                     isHistoricalSession = isHistorical 
                 ) 
