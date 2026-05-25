@@ -34,6 +34,9 @@ object WearHaptics {
     internal val WARNING_TIMINGS         = longArrayOf(0, 80, 30, 80)
     internal val WARNING_AMPLITUDES      = intArrayOf(0, 255, 0, 255)
 
+    internal val REST_WARNING_TIMINGS    = longArrayOf(0, 40, 30, 40, 30, 40)
+    internal val REST_WARNING_AMPLITUDES = intArrayOf(0, 200, 0, 200, 0, 200)
+
     // ── Public API ─────────────────────────────────────────────────────────
 
     /** Short crisp tap — set confirmed and logged. */
@@ -67,6 +70,10 @@ object WearHaptics {
     /** Urgent buzz — something needs attention. */
     fun warning(context: Context) =
         vibrate(context, WARNING_TIMINGS, WARNING_AMPLITUDES)
+
+    /** Triple quick pulse — 10s rest warning (amber). */
+    fun restWarning(context: Context) =
+        vibrate(context, REST_WARNING_TIMINGS, REST_WARNING_AMPLITUDES)
 
     // ── Internal dispatcher ────────────────────────────────────────────────
 

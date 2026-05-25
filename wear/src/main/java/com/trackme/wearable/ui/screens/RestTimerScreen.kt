@@ -90,6 +90,13 @@ fun RestTimerScreen(
         }
     }
 
+    // Fire triple-pulse haptic once when rest timer enters the warning zone
+    LaunchedEffect(remaining) {
+        if (remaining == 10) {
+            WearHaptics.restWarning(context)
+        }
+    }
+
     // Arc color: Rest → Warning transition
     val arcColor by animateColorAsState(
         targetValue = if (warning) WearColors.Warning else WearColors.Rest,

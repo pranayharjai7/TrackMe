@@ -306,6 +306,8 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
                 sessionTitle = session.exerciseName,
                 heartRateSamples = emptyList(), // no buffered samples in this version
                 totalCaloriesKcal = health.activeCalories,
+                activeCaloriesKcal = health.activeCalories,
+                steps = health.steps,
             )
         }
     }

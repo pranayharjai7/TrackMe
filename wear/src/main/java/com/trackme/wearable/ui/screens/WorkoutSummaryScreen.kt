@@ -79,7 +79,7 @@ fun WorkoutSummaryScreen(
         item {
             Text(
                 text = "✓ WORKOUT COMPLETE",
-                color = WearColors.Active,
+                color = WearColors.Warning,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -121,7 +121,7 @@ fun WorkoutSummaryScreen(
             WearPillButton(
                 text = "Dismiss",
                 onClick = onDismiss,
-                accent = WearColors.Active,
+                accent = WearColors.Warning,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp),

@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,10 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +111,15 @@ fun ActiveSetScreen(
     val activeField  = loggerInput.activeField
     val loggingType  = session?.loggingType
 
+    // Set progress for the ring arc
+    val completedSets = uiState.session?.let { s ->
+        s.exercises.getOrNull(s.exerciseIndex)?.completedSets ?: 0
+    } ?: 0
+    val targetSets = uiState.session?.let { s ->
+        s.exercises.getOrNull(s.exerciseIndex)?.targetSets ?: 0
+    } ?: 0
+    val setProgress = if (targetSets > 0) completedSets.toFloat() / targetSets.toFloat() else 0f
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -125,6 +139,32 @@ fun ActiveSetScreen(
             },
         contentAlignment = Alignment.Center,
     ) {
+        // ── Set progress ring (drawn behind everything) ─────────────────────
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            if (setProgress > 0f) {
+                val strokeWidth = 4.dp.toPx()
+                val inset = strokeWidth / 2f
+                drawArc(
+                    color = WearColors.Active.copy(alpha = 0.25f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                    topLeft = Offset(inset, inset),
+                    size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                )
+                drawArc(
+                    color = WearColors.Active,
+                    startAngle = -90f,
+                    sweepAngle = 360f * setProgress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                    topLeft = Offset(inset, inset),
+                    size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                )
+            }
+        }
+
         // ── Central content column ──────────────────────────────────────────
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

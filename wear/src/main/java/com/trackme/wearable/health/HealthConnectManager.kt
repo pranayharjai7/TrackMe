@@ -3,8 +3,10 @@ package com.trackme.wearable.health
 import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
@@ -34,6 +36,8 @@ class HealthConnectManager(private val context: Context) {
         sessionTitle: String,
         heartRateSamples: List<Pair<Long, Int>>,   // epochMs to bpm
         totalCaloriesKcal: Double?,
+        activeCaloriesKcal: Double? = null,
+        steps: Double? = null,
     ) {
         val hc = client ?: return
         val zoneOffset = ZoneOffset.systemDefault().rules.getOffset(Instant.now())
@@ -78,6 +82,30 @@ class HealthConnectManager(private val context: Context) {
                         endTime = endInstant,
                         endZoneOffset = zoneOffset,
                         energy = Energy.kilocalories(kcal),
+                        metadata = Metadata.autoRecorded(device = watchDevice),
+                    )
+                )
+            }
+            activeCaloriesKcal?.let { kcal ->
+                add(
+                    ActiveCaloriesBurnedRecord(
+                        startTime = startInstant,
+                        startZoneOffset = zoneOffset,
+                        endTime = endInstant,
+                        endZoneOffset = zoneOffset,
+                        energy = Energy.kilocalories(kcal),
+                        metadata = Metadata.autoRecorded(device = watchDevice),
+                    )
+                )
+            }
+            steps?.let { s ->
+                add(
+                    StepsRecord(
+                        startTime = startInstant,
+                        startZoneOffset = zoneOffset,
+                        endTime = endInstant,
+                        endZoneOffset = zoneOffset,
+                        count = s.toLong().coerceAtLeast(0L),
                         metadata = Metadata.autoRecorded(device = watchDevice),
                     )
                 )

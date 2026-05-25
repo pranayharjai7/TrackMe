@@ -7,10 +7,10 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.health.connect.client.PermissionController
 import com.trackme.wearable.health.HealthConnectManager
 import com.trackme.wearable.ui.TrackMeWearApp
 import com.trackme.wearable.viewmodel.WearSessionViewModel
@@ -23,12 +23,16 @@ class MainActivity : ComponentActivity() {
         "android.permission.health.WRITE_EXERCISE",
         "android.permission.health.WRITE_HEART_RATE",
         "android.permission.health.WRITE_TOTAL_CALORIES_BURNED",
+        "android.permission.health.WRITE_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.WRITE_STEPS",
     )
 
-    private val healthPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
+    private val healthConnectPermissionLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        // permissions resolved — no further action needed in this version
+        // permissions resolved; no further action needed in this version
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,11 +81,6 @@ class MainActivity : ComponentActivity() {
     private fun requestHealthConnectPermissionsIfNeeded() {
         val manager = HealthConnectManager(this)
         if (!manager.isAvailable()) return
-        val notGranted = healthConnectPermissions.filter { permission ->
-            checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
-        if (notGranted.isNotEmpty()) {
-            healthPermissionLauncher.launch(notGranted.toTypedArray())
-        }
+        healthConnectPermissionLauncher.launch(healthConnectPermissions)
     }
 }

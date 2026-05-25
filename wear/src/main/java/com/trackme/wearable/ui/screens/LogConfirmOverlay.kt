@@ -156,22 +156,44 @@ fun LogConfirmOverlay(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // TAP TO LOG — pulsing hero text
+            // Large ✓ — pulsing, green
             Text(
-                text = "TAP TO LOG",
-                color = WearColors.TextPrimary,
-                fontSize = 22.sp,
+                text = "✓",
+                color = WearColors.Active,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.scale(pulseScale),
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            // "LOG SET" label
+            Text(
+                text = "LOG SET",
+                color = WearColors.Active,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            // "tap anywhere" hint
+            Text(
+                text = "tap anywhere",
+                color = WearColors.TextMuted,
+                fontSize = 7.sp,
+                textAlign = TextAlign.Center,
             )
         }
 
         // ── Swipe-down cancel hint ────────────────────────────────────────
         Text(
-            text = "↓ cancel",
-            color = WearColors.TextMuted,
-            fontSize = 10.sp,
+            text = "↓ swipe = cancel",
+            color = WearColors.TextMuted.copy(alpha = 0.6f),
+            fontSize = 7.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
