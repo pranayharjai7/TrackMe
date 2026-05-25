@@ -52,8 +52,6 @@ internal fun currentTargetSets(session: SessionStatePayload): Int =
 fun WorkoutHubScreen(
     uiState: WearUiState,
     onStartWorkout: () -> Unit,
-    onRefresh: () -> Unit,
-    onSetupHealthConnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -68,7 +66,7 @@ fun WorkoutHubScreen(
             .background(WearColors.Black)
             .focusRequester(focusRequester)
             .focusable()
-            .onRotaryScrollEvent { event ->
+            .onRotaryScrollEvent { _ ->
                 WearHaptics.bezelStep(context)
                 true
             }
