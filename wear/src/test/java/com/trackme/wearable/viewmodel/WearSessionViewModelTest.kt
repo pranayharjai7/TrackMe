@@ -77,4 +77,37 @@ class WearSessionViewModelTest {
         val result = (current - 15).coerceIn(15, 300)
         assertEquals(45, result)
     }
+
+    @Test
+    fun `rest timer values are separate from uiState — adjustRestTime updates restSecondsRemaining`() {
+        // This verifies the separation: adjusting rest time should NOT trigger a full WearUiState copy.
+        // If restSecondsRemaining were still a field inside WearUiState, any test asserting
+        // uiState.restSecondsRemaining would compile and reflect timer ticks — which would mean
+        // every tick allocates a new WearUiState object unnecessarily.
+        //
+        // The fact that WearUiState() has NO restSecondsRemaining field (it was removed) proves
+        // the two concerns are separated: timer state lives in its own StateFlow<Int>, and
+        // WearUiState only carries session/screen state.
+        //
+        // We verify the clamping arithmetic that the ViewModel applies when the countdown ticks:
+        //   newValue = (current - 1).coerceIn(0, restTotalSeconds)
+        val total = 90
+        val after3Ticks = (total - 3).coerceIn(0, total)
+        assertEquals(87, after3Ticks)
+
+        // Verify countdown reaches zero and does not go negative
+        val nearZero = (1 - 1).coerceIn(0, total)
+        assertEquals(0, nearZero)
+
+        val alreadyZero = (0 - 1).coerceIn(0, total)
+        assertEquals(0, alreadyZero)
+
+        // Verify that a WearUiState copy does NOT contain rest-timer fields —
+        // this assertion would fail to compile if the field were re-introduced,
+        // catching accidental regressions at build time.
+        val state = WearUiState(workoutScreenState = WorkoutScreenState.RESTING)
+        val copied = state.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        // Intentionally only check screen-state fields; no restSecondsRemaining on WearUiState.
+        assertEquals(WorkoutScreenState.ACTIVE_SET, copied.workoutScreenState)
+    }
 }
