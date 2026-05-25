@@ -31,7 +31,7 @@ class HealthConnectManager(private val context: Context) {
     suspend fun writeWorkoutSession(
         startEpochMs: Long,
         endEpochMs: Long,
-        exerciseTypeName: String,
+        sessionTitle: String,
         heartRateSamples: List<Pair<Long, Int>>,   // epochMs to bpm
         totalCaloriesKcal: Double?,
     ) {
@@ -49,7 +49,7 @@ class HealthConnectManager(private val context: Context) {
                     endTime = endInstant,
                     endZoneOffset = zoneOffset,
                     exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING,
-                    title = exerciseTypeName,
+                    title = sessionTitle,
                     metadata = Metadata.autoRecorded(device = watchDevice),
                 )
             )

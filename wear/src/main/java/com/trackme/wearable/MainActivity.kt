@@ -66,6 +66,11 @@ class MainActivity : ComponentActivity() {
     private fun requestHealthConnectPermissionsIfNeeded() {
         val manager = HealthConnectManager(this)
         if (!manager.isAvailable()) return
-        healthPermissionLauncher.launch(healthConnectPermissions.toTypedArray())
+        val notGranted = healthConnectPermissions.filter { permission ->
+            checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (notGranted.isNotEmpty()) {
+            healthPermissionLauncher.launch(notGranted.toTypedArray())
+        }
     }
 }

@@ -78,6 +78,7 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     val uiState: StateFlow<WearUiState> = _uiState.asStateFlow()
 
     private var started = false
+    private var sessionStartEpochMs: Long = 0L
 
     init {
         combine(
@@ -92,7 +93,13 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
                 queuedCount = queuedCount,
                 health = health,
             )
-        }.onEach { next -> _uiState.value = next }.launchIn(viewModelScope)
+        }.onEach { next ->
+            // Track session start time when a new session begins
+            if (next.session != null && _uiState.value.session == null) {
+                sessionStartEpochMs = System.currentTimeMillis()
+            }
+            _uiState.value = next
+        }.launchIn(viewModelScope)
 
         viewModelScope.launch {
             while (true) {
@@ -263,13 +270,12 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         val session = _uiState.value.session ?: return
         val health = _uiState.value.health
         val endMs = System.currentTimeMillis()
-        val durationMs = health.durationSeconds * 1_000L
-        val startMs = endMs - durationMs
+        val startMs = if (sessionStartEpochMs > 0L) sessionStartEpochMs else endMs - (health.durationSeconds * 1_000L)
         viewModelScope.launch {
             healthConnectManager.writeWorkoutSession(
                 startEpochMs = startMs,
                 endEpochMs = endMs,
-                exerciseTypeName = session.exerciseName,
+                sessionTitle = session.exerciseName,
                 heartRateSamples = emptyList(), // no buffered samples in this version
                 totalCaloriesKcal = health.activeCalories,
             )
