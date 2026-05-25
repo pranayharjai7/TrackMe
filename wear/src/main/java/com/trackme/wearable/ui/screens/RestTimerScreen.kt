@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.StrokeCap
@@ -113,6 +114,7 @@ fun RestTimerScreen(
         modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
+            .focusable()
             .onRotaryScrollEvent { event ->
                 rotaryAccumulator[0] += event.verticalScrollPixels
                 val threshold = 16f

@@ -198,7 +198,15 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     /** Called when rest ends (timer or tap). Advances to next set. */
     fun endRest() {
         restCountdownJob?.cancel()
-        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        val session = _uiState.value.session
+        val currentExercise = session?.exercises?.getOrNull(session.exerciseIndex)
+        val allSetsComplete = currentExercise != null &&
+            currentExercise.completedSets >= currentExercise.targetSets
+        if (allSetsComplete) {
+            showExerciseSummary()
+        } else {
+            _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        }
     }
 
     /** Long-press hardware button — resets watch state. Undo logic lives on the phone. */
@@ -267,9 +275,22 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         )
     }
 
+    fun showExerciseSummary() {
+        val session = _uiState.value.session ?: return
+        val currentExercise = session.exercises.getOrNull(session.exerciseIndex)
+        _uiState.value = _uiState.value.copy(
+            workoutScreenState = WorkoutScreenState.EXERCISE_SUMMARY,
+            lastExerciseName = session.exerciseName,
+            lastExerciseVolume = currentExercise?.completedSets?.toFloat()?.times(session.targetWeight ?: 0f) ?: 0f,
+            isPr = false,      // TODO: wire from phone when PR detection is added
+            prDeltaKg = 0f,
+        )
+    }
+
     fun finishWorkout() {
         flushHealthMetrics()
         sendAction(actionType = WatchActionType.END_WORKOUT)
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.WORKOUT_COMPLETE)
         writeToHealthConnect()
     }
 

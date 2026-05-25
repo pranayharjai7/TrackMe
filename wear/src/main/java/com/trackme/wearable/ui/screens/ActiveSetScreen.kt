@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -109,6 +110,7 @@ fun ActiveSetScreen(
         modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
+            .focusable()
             .onRotaryScrollEvent { event ->
                 rotaryAccumulator[0] += event.verticalScrollPixels
                 // Use a threshold to debounce tiny nudges

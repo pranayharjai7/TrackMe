@@ -1,6 +1,7 @@
 package com.trackme.wearable
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +15,7 @@ import com.trackme.wearable.health.HealthConnectManager
 import com.trackme.wearable.ui.TrackMeWearApp
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 
+@SuppressLint("InvalidFragmentVersionForActivityResult")
 class MainActivity : ComponentActivity() {
     private val viewModel: WearSessionViewModel by viewModels()
 

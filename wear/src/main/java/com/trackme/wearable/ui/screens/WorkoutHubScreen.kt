@@ -42,6 +42,7 @@ fun WorkoutHubScreen(
     uiState: WearUiState,
     onStartWorkout: () -> Unit,
     onRefresh: () -> Unit,
+    onSetupHealthConnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val session = uiState.session
@@ -143,6 +144,18 @@ fun WorkoutHubScreen(
             WearPillButton(
                 text = "Refresh",
                 onClick = onRefresh,
+                accent = WearColors.Rest,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        item { Spacer(Modifier.height(8.dp)) }
+
+        // ── Health Connect setup ──────────────────────────────────────────────
+        item {
+            WearPillButton(
+                text = "Health Connect",
+                onClick = onSetupHealthConnect,
                 accent = WearColors.Rest,
                 modifier = Modifier.fillMaxWidth(),
             )

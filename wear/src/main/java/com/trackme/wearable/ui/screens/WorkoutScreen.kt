@@ -8,14 +8,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.pager.HorizontalPager
 import androidx.wear.compose.foundation.pager.rememberPagerState
+import androidx.wear.compose.material3.Text
+import com.trackme.wearable.designsystem.WearColors
 import com.trackme.wearable.designsystem.stateBackgroundColor
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 import com.trackme.wearable.viewmodel.WorkoutScreenState
@@ -96,6 +102,34 @@ fun WorkoutScreen(
                     onDismiss = onWorkoutFinished
                 )
                 else -> Box(modifier = Modifier.fillMaxSize())
+            }
+        }
+
+        // Layer 3: ambient overlay (dims everything when watch is in AOD mode)
+        if (uiState.isAmbient) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(WearColors.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = uiState.session?.exerciseName ?: "Workout",
+                        color = WearColors.TextSecondary,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = formatSeconds(uiState.restSecondsRemaining).takeIf {
+                            uiState.workoutScreenState == WorkoutScreenState.RESTING
+                        } ?: "Set ${uiState.session?.setIndex ?: "--"}",
+                        color = WearColors.TextPrimary,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
