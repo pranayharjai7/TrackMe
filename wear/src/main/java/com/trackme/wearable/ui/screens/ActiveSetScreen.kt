@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,16 +120,10 @@ fun ActiveSetScreen(
     val loggingType  = session?.loggingType
 
     // Set progress for the ring arc
-    val setProgress by remember(uiState.session) {
-        derivedStateOf {
-            val completed = uiState.session?.let { s ->
-                s.exercises.getOrNull(s.exerciseIndex)?.completedSets ?: 0
-            } ?: 0
-            val target = uiState.session?.let { s ->
-                s.exercises.getOrNull(s.exerciseIndex)?.targetSets ?: 0
-            } ?: 0
-            if (target > 0) completed.toFloat() / target.toFloat() else 0f
-        }
+    val setProgress = remember(uiState.session?.exerciseIndex, uiState.session?.exercises) {
+        val s = uiState.session ?: return@remember 0f
+        val ex = s.exercises.getOrNull(s.exerciseIndex) ?: return@remember 0f
+        if (ex.targetSets > 0) ex.completedSets.toFloat() / ex.targetSets.toFloat() else 0f
     }
 
     Box(
@@ -225,14 +217,14 @@ fun ActiveSetScreen(
             Spacer(Modifier.height(2.dp))
 
             // ── Hero value — double-tap toggles field, single tap confirms ──
-            val animState = remember(activeField, loggerInput) {
+            val heroAnimState = remember(activeField, loggerInput) {
                 FieldAnimState(
                     display = formatFieldValue(activeField, loggerInput),
                     sortKey = activeFieldSortKey(loggerInput),
                 )
             }
             AnimatedContent(
-                targetState = animState,
+                targetState = heroAnimState,
                 transitionSpec = {
                     val goUp = targetState.sortKey > initialState.sortKey
                     val enterSlide = if (goUp) -1 else 1
