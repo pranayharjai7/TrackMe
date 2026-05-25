@@ -194,7 +194,8 @@ fun ActiveSetScreen(
 
             // Set indicator
             val currentEx = session?.exercises?.getOrNull(session.exerciseIndex)
-            val setLabel = if (session != null && currentEx != null) {
+            val setLabel = if (session != null && currentEx != null
+                    && session.setIndex <= currentEx.targetSets) {
                 "SET ${session.setIndex} / ${currentEx.targetSets}"
             } else ""
             if (setLabel.isNotEmpty()) {
@@ -275,15 +276,17 @@ fun ActiveSetScreen(
                     textAlign = TextAlign.Center,
                 )
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "TAP →",
-                color = WearColors.Active,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                textAlign = TextAlign.Center,
-            )
+            if (session != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "TAP →",
+                    color = WearColors.Active,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
 
         // ── Heart-rate chip — bottom-left ───────────────────────────────────
