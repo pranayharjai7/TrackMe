@@ -11,6 +11,7 @@ import com.trackme.wearbridge.SetLogPayload
 import com.trackme.wearable.phone.PhoneConnectionState
 import com.trackme.wearbridge.WatchActionType
 import java.util.UUID
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -259,13 +260,13 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch { healthMetricsSender.flushNow() }
     }
 
-    private var restCountdownJob: kotlinx.coroutines.Job? = null
+    private var restCountdownJob: Job? = null
 
     private fun startRestCountdown() {
         restCountdownJob?.cancel()
         restCountdownJob = viewModelScope.launch {
             while (_uiState.value.restSecondsRemaining > 0) {
-                kotlinx.coroutines.delay(1_000)
+                delay(1_000)
                 _uiState.value = _uiState.value.copy(
                     restSecondsRemaining = (_uiState.value.restSecondsRemaining - 1).coerceAtLeast(0)
                 )
