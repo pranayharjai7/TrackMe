@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -39,33 +40,47 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 
 object WearColors {
-    val Background = Color(0xFF111118)
-    val Surface = Color(0xFF1A1A24)
-    val SurfaceElevated = Color(0xFF22223A)
-    val Accent = Color(0xFF34D399)
-    val Violet = Color(0xFFA78BFA)
-    val Blue = Color(0xFF60A5FA)
-    val Coral = Color(0xFFFB7185)
-    val TextPrimary = Color(0xFFEEEEF5)
+    // AMOLED backgrounds — every non-black pixel costs battery
+    val Black       = Color(0xFF000000)
+    val Void        = Color(0xFF0A0A0E)
+    val Surface     = Color(0xFF111118)
+    val Elevated    = Color(0xFF1A1A24)
+
+    // State accent colours — colour = state, no words needed
+    val Active      = Color(0xFF34D399)  // active set, confirm, go
+    val Rest        = Color(0xFF60A5FA)  // rest timer, recovery
+    val Summary     = Color(0xFFA78BFA)  // exercise done, muscle map
+    val Warning     = Color(0xFFFBBF24)  // 10s warn, PRs, done
+    val Signal      = Color(0xFFFB7185)  // heart rate, cancel
+
+    // Text
+    val TextPrimary   = Color(0xFFF5F5F7)
     val TextSecondary = Color(0xFFAAAABC)
-    val TextMuted = Color(0xFF6E6E82)
+    val TextMuted     = Color(0xFF6E6E82)
 }
 
+// TODO: Uncomment when WorkoutScreenState is added in Phase 2 (WearSessionViewModel.kt)
+// fun stateBackgroundColor(state: WorkoutScreenState): Color = when (state) {
+//     WorkoutScreenState.ACTIVE_SET        -> WearColors.Black
+//     WorkoutScreenState.CONFIRM           -> Color(0xFF07130F)
+//     WorkoutScreenState.RESTING           -> Color(0xFF00050F)
+//     WorkoutScreenState.EXERCISE_SUMMARY  -> WearColors.Black
+//     WorkoutScreenState.WORKOUT_COMPLETE  -> WearColors.Black
+//     WorkoutScreenState.IDLE              -> WearColors.Black
+// }
+
 @Composable
-fun WearGradientBackground(content: @Composable () -> Unit) {
+fun WearGradientBackground(
+    modifier: Modifier = Modifier,
+    tint: Color = WearColors.Black,
+    content: @Composable BoxScope.() -> Unit
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(WearColors.SurfaceElevated, WearColors.Background),
-                    center = Offset(120f, 80f),
-                    radius = 420f,
-                ),
-            ),
-    ) {
-        content()
-    }
+            .background(tint),
+        content = content
+    )
 }
 
 @Composable
@@ -89,13 +104,13 @@ fun WearProgressRing(
     progress: Float,
     centerText: String,
     modifier: Modifier = Modifier,
-    accent: Color = WearColors.Accent,
+    accent: Color = WearColors.Active,
 ) {
     Box(modifier = modifier.size(108.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 10.dp.toPx()
             drawArc(
-                color = WearColors.SurfaceElevated,
+                color = WearColors.Elevated,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -124,7 +139,7 @@ fun WearPillButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    accent: Color = WearColors.Accent,
+    accent: Color = WearColors.Active,
     enabled: Boolean = true,
 ) {
     val scale by animateFloatAsState(
@@ -134,7 +149,7 @@ fun WearPillButton(
     )
     Text(
         text = text,
-        color = if (enabled) WearColors.Background else WearColors.TextMuted,
+        color = if (enabled) WearColors.Black else WearColors.TextMuted,
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
@@ -142,7 +157,7 @@ fun WearPillButton(
             .scale(scale)
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(if (enabled) accent else WearColors.SurfaceElevated)
+            .background(if (enabled) accent else WearColors.Elevated)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 16.dp),
     )
@@ -162,7 +177,7 @@ fun WearIconButton(
         modifier = modifier
             .size(52.dp)
             .clip(CircleShape)
-            .background(WearColors.SurfaceElevated)
+            .background(WearColors.Elevated)
             .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
             .clickable(onClick = onClick)
             .padding(6.dp),
@@ -178,9 +193,9 @@ fun WearStatusChip(offline: Boolean, queuedCount: Int) {
         else -> "Connected"
     }
     val color = when {
-        offline -> WearColors.Coral
-        queuedCount > 0 -> WearColors.Blue
-        else -> WearColors.Accent
+        offline -> WearColors.Signal
+        queuedCount > 0 -> WearColors.Rest
+        else -> WearColors.Active
     }
     Text(
         text = label,

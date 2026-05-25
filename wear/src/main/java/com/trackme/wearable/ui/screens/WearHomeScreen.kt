@@ -39,7 +39,7 @@ fun WearHomeScreen(
             WearProgressRing(
                 progress = (session?.sessionProgressPercent ?: 0) / 100f,
                 centerText = if (hasWorkout) "${session?.sessionProgressPercent ?: 0}%" else "—",
-                accent = if (hasWorkout) WearColors.Accent else WearColors.Violet,
+                accent = if (hasWorkout) WearColors.Active else WearColors.Summary,
             )
         }
         item {
@@ -70,7 +70,7 @@ fun WearHomeScreen(
             WearPillButton(
                 text = "Sync with phone",
                 onClick = onSync,
-                accent = WearColors.Violet,
+                accent = WearColors.Summary,
             )
         }
         item {
