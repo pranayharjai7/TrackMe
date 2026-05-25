@@ -62,7 +62,7 @@ class ActiveSetScreenTest {
     @Test
     fun `formatFieldValue DISTANCE shows distance in km`() {
         val input = LoggerInputState(distanceKm = 2.5f)
-        assertEquals("2.5 km", formatFieldValue(LoggerField.DISTANCE, input))
+        assertEquals("2.50 km", formatFieldValue(LoggerField.DISTANCE, input))
     }
 
     @Test

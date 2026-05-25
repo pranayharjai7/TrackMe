@@ -275,10 +275,6 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-    }
-
     private fun sendAction(
         actionType: WatchActionType,
         exerciseId: String? = null,

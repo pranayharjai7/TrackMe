@@ -50,12 +50,12 @@ fun formatSeconds(seconds: Int): String {
  * Returns a human-readable string for the current value of [field] in [input].
  */
 fun formatFieldValue(field: LoggerField, input: LoggerInputState): String = when (field) {
-    LoggerField.WEIGHT   -> "${input.weightKg} kg"
-    LoggerField.REPS     -> "${input.reps}"
+    LoggerField.WEIGHT   -> String.format(java.util.Locale.US, "%.1f kg", input.weightKg)
+    LoggerField.REPS     -> input.reps.toString()
     LoggerField.DURATION -> formatSeconds(input.durationSeconds)
-    LoggerField.DISTANCE -> "${input.distanceKm} km"
-    LoggerField.SPEED    -> "${input.speedKmh} km/h"
-    LoggerField.INCLINE  -> "${input.inclinePercent}%"
+    LoggerField.DISTANCE -> String.format(java.util.Locale.US, "%.2f km", input.distanceKm)
+    LoggerField.SPEED    -> String.format(java.util.Locale.US, "%.1f km/h", input.speedKmh)
+    LoggerField.INCLINE  -> String.format(java.util.Locale.US, "%.1f%%", input.inclinePercent)
 }
 
 /** Short label shown above the big value. */
@@ -84,7 +84,7 @@ fun ActiveSetScreen(
     val haptic = LocalHapticFeedback.current
 
     // Accumulate fractional rotary scroll so we fire integer steps
-    var rotaryAccumulator = remember { 0f }
+    val rotaryAccumulator = remember { floatArrayOf(0f) }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -98,14 +98,14 @@ fun ActiveSetScreen(
             .fillMaxSize()
             .focusRequester(focusRequester)
             .onRotaryScrollEvent { event ->
-                rotaryAccumulator += event.verticalScrollPixels
+                rotaryAccumulator[0] += event.verticalScrollPixels
                 // Use a threshold to debounce tiny nudges
                 val threshold = 16f
-                while (abs(rotaryAccumulator) >= threshold) {
-                    val delta = if (rotaryAccumulator > 0) -1 else 1
+                while (abs(rotaryAccumulator[0]) >= threshold) {
+                    val delta = if (rotaryAccumulator[0] > 0) -1 else 1
                     onAdjustField(delta)
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    rotaryAccumulator += if (rotaryAccumulator > 0) -threshold else threshold
+                    rotaryAccumulator[0] += if (rotaryAccumulator[0] > 0) -threshold else threshold
                 }
                 true
             },
@@ -166,7 +166,7 @@ fun ActiveSetScreen(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .pointerInput(Unit) {
+                    .pointerInput(onTap, onToggleField) {
                         detectTapGestures(
                             onTap = { onTap() },
                             onDoubleTap = { onToggleField() },
