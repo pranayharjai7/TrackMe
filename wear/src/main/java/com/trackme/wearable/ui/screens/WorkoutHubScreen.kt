@@ -1,24 +1,35 @@
 package com.trackme.wearable.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
-import com.trackme.wearable.designsystem.WearGlassCard
-import com.trackme.wearable.designsystem.WearPillButton
-import com.trackme.wearable.designsystem.WearStatusChip
+import com.trackme.wearable.haptics.WearHaptics
 import com.trackme.wearable.viewmodel.WearUiState
 import com.trackme.wearbridge.SessionStatePayload
 
@@ -45,120 +56,90 @@ fun WorkoutHubScreen(
     onSetupHealthConnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val focusRequester = remember { FocusRequester() }
     val session = uiState.session
 
-    ScalingLazyColumn(
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(WearColors.Black)
+            .focusRequester(focusRequester)
+            .focusable()
+            .onRotaryScrollEvent { event ->
+                WearHaptics.bezelStep(context)
+                true
+            }
+            .pointerInput(onStartWorkout) {
+                detectTapGestures(onTap = { onStartWorkout() })
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        // ── Connectivity status chip ──────────────────────────────────────────
-        item(key = "status_chip") {
-            WearStatusChip(
-                offline = uiState.offline,
-                queuedCount = uiState.queuedCount,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "TODAY",
+                color = WearColors.TextMuted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                textAlign = TextAlign.Center,
             )
-        }
-
-        item(key = "gap_1") { Spacer(Modifier.height(8.dp)) }
-
-        if (session != null) {
-            // ── Active session info ───────────────────────────────────────────
-            item(key = "session_card") {
-                WearGlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = session.exerciseName,
-                        color = WearColors.TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Set ${session.setIndex}/${currentTargetSets(session)}",
-                        color = WearColors.TextSecondary,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    val bpm = uiState.health.heartRateBpm?.toInt()
-                    if (bpm != null) {
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            text = "♥ $bpm bpm",
-                            color = WearColors.Signal,
-                            fontSize = 11.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
-
-            item(key = "gap_2") { Spacer(Modifier.height(8.dp)) }
-
-            item(key = "continue_btn") {
-                WearPillButton(
-                    text = "Continue Workout",
-                    onClick = onStartWorkout,
-                    accent = WearColors.Active,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        } else {
-            // ── No active session ─────────────────────────────────────────────
-            item(key = "no_session_text") {
+            Text(
+                text = session?.exerciseName ?: "No Workout",
+                color = WearColors.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val exerciseCount = session?.exercises?.size
+            if (exerciseCount != null && exerciseCount > 0) {
                 Text(
-                    text = "Start a workout on your phone",
-                    color = WearColors.TextSecondary,
-                    fontSize = 13.sp,
+                    text = "$exerciseCount exercises",
+                    color = WearColors.TextMuted,
+                    fontSize = 9.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
                 )
             }
-
-            val bpm = uiState.health.heartRateBpm?.toInt()
-            if (bpm != null) {
-                item(key = "idle_hr") {
-                    Text(
-                        text = "♥ $bpm bpm",
-                        color = WearColors.Signal,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+            Spacer(Modifier.height(4.dp))
+            // Readiness pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(WearColors.Active.copy(alpha = 0.15f))
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = if (session != null) "TAP = CONTINUE" else "TAP = START",
+                    color = WearColors.Active,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
             }
-        }
-
-        item(key = "gap_3") { Spacer(Modifier.height(8.dp)) }
-
-        // ── Refresh button ────────────────────────────────────────────────────
-        item(key = "refresh_btn") {
-            WearPillButton(
-                text = "Refresh",
-                onClick = onRefresh,
-                accent = WearColors.Rest,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        item(key = "gap_4") { Spacer(Modifier.height(8.dp)) }
-
-        // ── Health Connect setup ──────────────────────────────────────────────
-        item(key = "hc_btn") {
-            WearPillButton(
-                text = "Health Connect",
-                onClick = onSetupHealthConnect,
-                accent = WearColors.Rest,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (uiState.offline) {
+                Text(
+                    text = "Offline",
+                    color = WearColors.Warning,
+                    fontSize = 7.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            val queued = uiState.queuedCount
+            if (queued > 0) {
+                Text(
+                    text = "$queued queued",
+                    color = WearColors.TextMuted,
+                    fontSize = 7.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
