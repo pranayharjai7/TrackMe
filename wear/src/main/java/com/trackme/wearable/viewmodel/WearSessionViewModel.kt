@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.trackme.wearable.TrackMeWearApplication
 import com.trackme.wearable.health.HealthConnectManager
 import com.trackme.wearable.health.WearHealthSnapshot
+import com.trackme.wearbridge.DayPayload
 import com.trackme.wearbridge.LoggingTypePayload
 import com.trackme.wearbridge.SessionStatePayload
 import com.trackme.wearbridge.SetLogPayload
@@ -55,6 +56,7 @@ enum class WorkoutScreenState {
 @Immutable
 data class WearUiState(
     val session: SessionStatePayload? = null,
+    val dayState: DayPayload? = null,
     val offline: Boolean = false,
     val queuedCount: Int = 0,
     val loggerInput: LoggerInputState = LoggerInputState(),
@@ -91,12 +93,14 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     init {
         combine(
             workoutStateSync.sessionState,
+            workoutStateSync.dayState,
             phoneConnectionManager.connectionState,
             workoutStateSync.queuedCount,
             healthMetricsSender.snapshot,
-        ) { session, connection, queuedCount, health ->
+        ) { session, dayState, connection, queuedCount, health ->
             _uiState.value.copy(
                 session = session,
+                dayState = dayState,
                 offline = connection !is PhoneConnectionState.Connected,
                 queuedCount = queuedCount,
                 health = health,

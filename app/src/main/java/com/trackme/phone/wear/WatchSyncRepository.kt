@@ -11,10 +11,17 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.trackme.domain.repository.WorkoutRepository
+import com.trackme.domain.usecase.GetTodayWorkoutUseCase
 import com.trackme.ui.workout.session.ActiveSessionUiState
 import com.trackme.ui.workout.session.WorkoutSessionManager
+import com.trackme.utils.millisDaysAgo
 import com.trackme.wear.session.toWearPayload
+import com.trackme.wearbridge.DayPayload
+import com.trackme.wearbridge.RecentWorkoutPayload
 import com.trackme.wearbridge.SetLogPayload
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import com.trackme.wearbridge.SyncEventsPayload
 import com.trackme.wearbridge.SyncStatePayload
 import com.trackme.wearbridge.WatchActionPayload
@@ -35,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.trackme.domain.model.WorkoutSession
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -58,6 +66,9 @@ class WatchSyncRepository @Inject constructor(
     private val sessionManager: WorkoutSessionManager,
     private val connectionManager: WatchConnectionManager,
     private val dataStore: DataStore<Preferences>,
+    private val supabase: SupabaseClient,
+    private val getTodayWorkout: GetTodayWorkoutUseCase,
+    private val workoutRepository: WorkoutRepository,
 ) {
     private val messageClient: MessageClient = Wearable.getMessageClient(context)
     private val dataClient = Wearable.getDataClient(context)
@@ -265,6 +276,7 @@ class WatchSyncRepository @Inject constructor(
                 )
                 dataStore.edit { it.remove(lastSessionIdKey) }
             }
+            publishDayState()
             return
         }
 
@@ -307,7 +319,10 @@ class WatchSyncRepository @Inject constructor(
 
     private suspend fun publishSnapshot() {
         val state = sessionManager.uiState.value
-        if (state.sessionId.isBlank()) return
+        if (state.sessionId.isBlank()) {
+            publishDayState()
+            return
+        }
         val payload = state.toWearPayload()
         val eventIndex = nextEventIndex()
         val workoutState = WorkoutStatePayload(
@@ -378,6 +393,75 @@ class WatchSyncRepository @Inject constructor(
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
         }.onFailure { Log.e(WearPaths.LOG_TAG, "Phone DataClient publish failed", it) }
+    }
+
+    private suspend fun publishDayState() {
+        val userId = resolveUserId()
+        if (userId.isBlank()) return
+
+        val todayWorkout = runCatching { getTodayWorkout(userId).first() }.getOrNull()
+        val workoutName = todayWorkout?.name ?: "Rest Day"
+        val exerciseCount = if (todayWorkout == null) {
+            0
+        } else {
+            runCatching { workoutRepository.getPlannedExercisesForDay(todayWorkout.id).first().size }
+                .getOrDefault(0)
+        }
+
+        val lookbackStart = millisDaysAgo(30)
+        val completedSessions = runCatching {
+            workoutRepository.getSessionsSince(userId, lookbackStart).first()
+                .filter { it.durationMinutes > 0 }
+                .sortedByDescending { it.date }
+        }.getOrDefault(emptyList())
+
+        val lastCompletedAt = completedSessions.firstOrNull()?.let { sessionCompletedAt(it) }
+        val recentWorkouts = buildRecentWorkoutPayloads(userId, completedSessions.take(5))
+        val updatedAt = System.currentTimeMillis()
+        val payload = DayPayload(
+            workoutName = workoutName,
+            exerciseCount = exerciseCount,
+            readinessScore = computeReadinessScore(lastCompletedAt, updatedAt),
+            recentWorkouts = recentWorkouts,
+            updatedAt = updatedAt,
+        )
+        publishDayDataItem(payload)
+    }
+
+    private suspend fun buildRecentWorkoutPayloads(
+        userId: String,
+        sessions: List<WorkoutSession>,
+    ): List<RecentWorkoutPayload> {
+        if (sessions.isEmpty()) return emptyList()
+        val plan = workoutRepository.getActivePlan(userId).first() ?: return emptyList()
+        val dayNames = workoutRepository.getDaysForPlan(plan.id).first().associateBy({ it.id }, { it.name })
+        return sessions.map { session ->
+            RecentWorkoutPayload(
+                dayName = dayNames[session.dayId] ?: "Workout",
+                completedAt = sessionCompletedAt(session),
+                durationMinutes = session.durationMinutes,
+            )
+        }
+    }
+
+    private fun sessionCompletedAt(session: WorkoutSession): Long =
+        if (session.updatedAt > session.date) session.updatedAt else session.date
+
+    private fun resolveUserId(): String {
+        val fromSession = sessionManager.userId
+        if (fromSession.isNotBlank()) return fromSession
+        return runCatching { supabase.auth.currentSessionOrNull()?.user?.id }.getOrNull().orEmpty()
+    }
+
+    private suspend fun publishDayDataItem(payload: DayPayload) {
+        runCatching {
+            val request = PutDataMapRequest.create(WearPaths.DATA_DAY_STATE).apply {
+                dataMap.putString(WearPaths.KEY_PAYLOAD, WearProtocol.encodeDayState(payload))
+                dataMap.putLong(WearPaths.KEY_UPDATED_AT, payload.updatedAt)
+            }.asPutDataRequest().setUrgent()
+            dataClient.putDataItem(request).await()
+            Log.d(WearPaths.LOG_TAG, "Phone published day state: ${payload.workoutName} readiness=${payload.readinessScore}")
+        }.onFailure { Log.e(WearPaths.LOG_TAG, "Phone DataClient day state publish failed", it) }
     }
 
     private suspend fun sendToWatch(path: String, payload: ByteArray): Boolean {

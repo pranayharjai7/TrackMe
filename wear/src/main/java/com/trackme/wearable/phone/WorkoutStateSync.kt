@@ -17,6 +17,7 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
 import com.trackme.wearable.service.ActiveWorkoutService
 import com.trackme.wearable.service.WorkoutHealthService
+import com.trackme.wearbridge.DayPayload
 import com.trackme.wearbridge.LoggingTypePayload
 import com.trackme.wearbridge.SessionStatePayload
 import com.trackme.wearbridge.SetLogPayload
@@ -62,6 +63,9 @@ class WorkoutStateSync(
     private val _sessionState = MutableStateFlow<SessionStatePayload?>(null)
     val sessionState: StateFlow<SessionStatePayload?> = _sessionState.asStateFlow()
 
+    private val _dayState = MutableStateFlow<DayPayload?>(null)
+    val dayState: StateFlow<DayPayload?> = _dayState.asStateFlow()
+
     private val _lastPhoneEventIndex = MutableStateFlow(0L)
     val lastPhoneEventIndex: StateFlow<Long> = _lastPhoneEventIndex.asStateFlow()
 
@@ -77,7 +81,7 @@ class WorkoutStateSync(
         if (!started.compareAndSet(false, true)) return
         dataClient.addListener(this)
         scope.launch {
-            fetchInitialSessionSnapshot()
+            fetchInitialDataClientSnapshots()
         }
         scope.launch {
             connectionManager.connectionState.collect { state ->
@@ -97,16 +101,24 @@ class WorkoutStateSync(
         }
     }
 
-    private suspend fun fetchInitialSessionSnapshot() {
+    private suspend fun fetchInitialDataClientSnapshots() {
         runCatching {
             val items = dataClient.dataItems.await()
             for (item in items) {
-                if (item.uri.path != WearPaths.DATA_SESSION_STATE) continue
-                val json = DataMapItem.fromDataItem(item).dataMap.getString(WearPaths.KEY_PAYLOAD)
-                    ?: continue
-                _sessionState.value = WearProtocol.decodeSessionState(json)
-                Log.d(WearPaths.LOG_TAG, "Watch loaded initial DataClient session snapshot")
-                return
+                when (item.uri.path) {
+                    WearPaths.DATA_SESSION_STATE -> {
+                        val json = DataMapItem.fromDataItem(item).dataMap.getString(WearPaths.KEY_PAYLOAD)
+                            ?: continue
+                        _sessionState.value = WearProtocol.decodeSessionState(json)
+                        Log.d(WearPaths.LOG_TAG, "Watch loaded initial DataClient session snapshot")
+                    }
+                    WearPaths.DATA_DAY_STATE -> {
+                        val json = DataMapItem.fromDataItem(item).dataMap.getString(WearPaths.KEY_PAYLOAD)
+                            ?: continue
+                        _dayState.value = WearProtocol.decodeDayState(json)
+                        Log.d(WearPaths.LOG_TAG, "Watch loaded initial DataClient day snapshot")
+                    }
+                }
             }
         }.onFailure { error ->
             Log.w(WearPaths.LOG_TAG, "Watch initial DataClient snapshot read failed", error)
@@ -213,13 +225,18 @@ class WorkoutStateSync(
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         dataEvents.forEach { event ->
-            if (event.type == DataEvent.TYPE_CHANGED && event.dataItem.uri.path == WearPaths.DATA_SESSION_STATE) {
-                val json = DataMapItem.fromDataItem(event.dataItem).dataMap.getString(WearPaths.KEY_PAYLOAD)
-                    ?: return@forEach
-                runCatching {
+            if (event.type != DataEvent.TYPE_CHANGED) return@forEach
+            val json = DataMapItem.fromDataItem(event.dataItem).dataMap.getString(WearPaths.KEY_PAYLOAD)
+                ?: return@forEach
+            when (event.dataItem.uri.path) {
+                WearPaths.DATA_SESSION_STATE -> runCatching {
                     _sessionState.value = WearProtocol.decodeSessionState(json)
                     Log.d(WearPaths.LOG_TAG, "Watch DataClient session snapshot received")
-                }.onFailure { Log.e(WearPaths.LOG_TAG, "Watch failed to decode DataClient snapshot", it) }
+                }.onFailure { Log.e(WearPaths.LOG_TAG, "Watch failed to decode session snapshot", it) }
+                WearPaths.DATA_DAY_STATE -> runCatching {
+                    _dayState.value = WearProtocol.decodeDayState(json)
+                    Log.d(WearPaths.LOG_TAG, "Watch DataClient day snapshot received")
+                }.onFailure { Log.e(WearPaths.LOG_TAG, "Watch failed to decode day snapshot", it) }
             }
         }
     }

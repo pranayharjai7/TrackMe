@@ -57,7 +57,7 @@ class WorkoutSessionManager @Inject constructor(
     private var restTimerJob: Job? = null
     private var dataCollectionJob: Job? = null
     
-    private val userId get() = runCatching { supabase.auth.currentSessionOrNull()?.user?.id }.getOrNull() ?: ""
+    internal val userId get() = runCatching { supabase.auth.currentSessionOrNull()?.user?.id }.getOrNull() ?: ""
 
     /**
      * Initializes or resumes the active workout session.

@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +61,28 @@ fun WorkoutHubScreen(
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val session = uiState.session
+    val dayState = uiState.dayState
+    val recentWorkouts = dayState?.recentWorkouts.orEmpty()
+    var recentIndex by remember(recentWorkouts) { mutableIntStateOf(0) }
+    var browsingRecent by remember { mutableStateOf(false) }
+    LaunchedEffect(recentWorkouts) {
+        browsingRecent = false
+        if (recentIndex >= recentWorkouts.size) recentIndex = 0
+    }
+    val selectedRecent = recentWorkouts.getOrNull(recentIndex)
+    val workoutTitle = when {
+        session?.exerciseName?.isNotBlank() == true -> session.exerciseName
+        browsingRecent && selectedRecent != null -> selectedRecent.dayName
+        else -> dayState?.workoutName ?: "No Workout"
+    }
+    val exerciseCount = session?.exercises?.size?.takeIf { it > 0 } ?: dayState?.exerciseCount
+    val readinessPill = dayState?.let { "${it.readinessScore} · ${readinessLabel(it.readinessScore)}" }
+    val subtitle = when {
+        browsingRecent && selectedRecent != null ->
+            "${selectedRecent.durationMinutes} min · recent"
+        else -> null
+    }
+    val headerLabel = if (browsingRecent) "RECENT" else "TODAY"
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -66,7 +92,16 @@ fun WorkoutHubScreen(
             .background(WearColors.Black)
             .focusRequester(focusRequester)
             .focusable()
-            .onRotaryScrollEvent { _ ->
+            .onRotaryScrollEvent { event ->
+                if (session == null && recentWorkouts.isNotEmpty()) {
+                    if (!browsingRecent) {
+                        browsingRecent = true
+                        recentIndex = 0
+                    } else {
+                        val delta = if (event.verticalScrollPixels > 0f) 1 else -1
+                        recentIndex = (recentIndex + delta).mod(recentWorkouts.size)
+                    }
+                }
                 WearHaptics.bezelStep(context)
                 true
             }
@@ -80,7 +115,7 @@ fun WorkoutHubScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "TODAY",
+                text = headerLabel,
                 color = WearColors.TextMuted,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
@@ -88,7 +123,7 @@ fun WorkoutHubScreen(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = session?.exerciseName ?: "No Workout",
+                text = workoutTitle,
                 color = WearColors.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -96,17 +131,29 @@ fun WorkoutHubScreen(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val exerciseCount = session?.exercises?.size
-            if (exerciseCount != null && exerciseCount > 0) {
-                Text(
+            when {
+                subtitle != null -> Text(
+                    text = subtitle,
+                    color = WearColors.TextMuted,
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Center,
+                )
+                exerciseCount != null && exerciseCount > 0 -> Text(
                     text = "$exerciseCount exercises",
                     color = WearColors.TextMuted,
                     fontSize = 9.sp,
                     textAlign = TextAlign.Center,
                 )
             }
+            if (readinessPill != null) {
+                Text(
+                    text = readinessPill,
+                    color = WearColors.TextSecondary,
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
             Spacer(Modifier.height(4.dp))
-            // Readiness pill
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))

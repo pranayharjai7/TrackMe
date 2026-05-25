@@ -1,13 +1,14 @@
 package com.trackme.wearable.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import com.trackme.wearable.ui.screens.HomeScreen
 import com.trackme.wearable.ui.screens.PermissionRationaleScreen
-import com.trackme.wearable.ui.screens.WorkoutHubScreen
 import com.trackme.wearable.ui.screens.WorkoutScreen
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 
@@ -27,7 +28,14 @@ fun WearNavGraph(viewModel: WearSessionViewModel) {
         startDestination = WearRoutes.HOME
     ) {
         composable(WearRoutes.HOME) {
-            WorkoutHubScreen(
+            LaunchedEffect(uiState.session) {
+                if (uiState.session != null) {
+                    navController.navigate(WearRoutes.WORKOUT) {
+                        launchSingleTop = true
+                    }
+                }
+            }
+            HomeScreen(
                 uiState = uiState,
                 onStartWorkout = {
                     navController.navigate(WearRoutes.WORKOUT) { launchSingleTop = true }
