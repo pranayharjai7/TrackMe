@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
+import com.trackme.wearable.viewmodel.WorkoutScreenState
 
 object WearColors {
     // AMOLED backgrounds — every non-black pixel costs battery
@@ -58,15 +59,14 @@ object WearColors {
     val TextMuted     = Color(0xFF6E6E82)
 }
 
-// TODO: Uncomment when WorkoutScreenState is added in Phase 2 (WearSessionViewModel.kt)
-// fun stateBackgroundColor(state: WorkoutScreenState): Color = when (state) {
-//     WorkoutScreenState.ACTIVE_SET        -> WearColors.Black
-//     WorkoutScreenState.CONFIRM           -> Color(0xFF07130F)
-//     WorkoutScreenState.RESTING           -> Color(0xFF00050F)
-//     WorkoutScreenState.EXERCISE_SUMMARY  -> WearColors.Black
-//     WorkoutScreenState.WORKOUT_COMPLETE  -> WearColors.Black
-//     WorkoutScreenState.IDLE              -> WearColors.Black
-// }
+fun stateBackgroundColor(state: WorkoutScreenState): Color = when (state) {
+    WorkoutScreenState.ACTIVE_SET        -> WearColors.Black
+    WorkoutScreenState.CONFIRM           -> Color(0xFF07130F)
+    WorkoutScreenState.RESTING           -> Color(0xFF00050F)
+    WorkoutScreenState.EXERCISE_SUMMARY  -> WearColors.Black
+    WorkoutScreenState.WORKOUT_COMPLETE  -> WearColors.Black
+    WorkoutScreenState.IDLE              -> WearColors.Black
+}
 
 @Composable
 fun WearGradientBackground(

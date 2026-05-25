@@ -39,6 +39,15 @@ enum class LoggerField {
     INCLINE,
 }
 
+enum class WorkoutScreenState {
+    IDLE,
+    ACTIVE_SET,
+    CONFIRM,
+    RESTING,
+    EXERCISE_SUMMARY,
+    WORKOUT_COMPLETE
+}
+
 data class WearUiState(
     val session: SessionStatePayload? = null,
     val offline: Boolean = false,
@@ -46,6 +55,14 @@ data class WearUiState(
     val loggerInput: LoggerInputState = LoggerInputState(),
     val health: WearHealthSnapshot = WearHealthSnapshot(),
     val lastCommandAccepted: Boolean? = null,
+    val workoutScreenState: WorkoutScreenState = WorkoutScreenState.IDLE,
+    val restSecondsRemaining: Int = 90,
+    val restTotalSeconds: Int = 90,
+    val lastExerciseVolume: Float = 0f,
+    val lastExerciseName: String = "",
+    val isPr: Boolean = false,
+    val prDeltaKg: Float = 0f,
+    val isAmbient: Boolean = false,
 )
 
 class WearSessionViewModel(application: Application) : AndroidViewModel(application) {
