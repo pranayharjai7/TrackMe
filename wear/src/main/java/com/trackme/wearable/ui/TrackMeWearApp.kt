@@ -54,6 +54,7 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.trackme.wearable.designsystem.WearGradientBackground
+import com.trackme.wearable.ui.navigation.WearNavGraph
 import com.trackme.wearable.ui.screens.WearHomeScreen
 import com.trackme.wearable.viewmodel.LoggerField
 import com.trackme.wearable.viewmodel.WearSessionViewModel
@@ -73,88 +74,7 @@ private object WearRoutes {
 
 @Composable
 fun TrackMeWearApp(viewModel: WearSessionViewModel) {
-    val state by viewModel.uiState.collectAsState()
-    val navController = rememberSwipeDismissableNavController()
-
-    MaterialTheme {
-        WearGradientBackground {
-            SwipeDismissableNavHost(
-                navController = navController,
-                startDestination = WearRoutes.Home,
-            ) {
-                composable(WearRoutes.Home) {
-                    WearHomeScreen(
-                        state = state,
-                        onOpenWorkout = {
-                            navController.navigate(WearRoutes.Overview) {
-                                popUpTo(WearRoutes.Home)
-                            }
-                        },
-                        onSync = viewModel::requestSnapshot,
-                    )
-                }
-                composable(WearRoutes.Overview) {
-                    SessionOverviewScreen(
-                        state = state,
-                        onStartSet = {
-                            viewModel.startSet()
-                            viewModel.prepareLogger()
-                            navController.navigate(WearRoutes.Logger)
-                        },
-                        onSkipRest = {
-                            viewModel.skipRest()
-                            navController.navigate(WearRoutes.Overview)
-                        },
-                        onNext = viewModel::nextExercise,
-                        onPrevious = viewModel::previousExercise,
-                        onFinish = viewModel::finishWorkout,
-                        onRest = { navController.navigate(WearRoutes.Rest) },
-                        onDetail = { navController.navigate(WearRoutes.Detail) },
-                        onExercises = { navController.navigate(WearRoutes.Exercises) },
-                        onRefresh = viewModel::requestSnapshot,
-                    )
-                }
-                composable(WearRoutes.Logger) {
-                    SetLoggerScreen(
-                        state = state,
-                        onSelectField = viewModel::selectField,
-                        onAdjust = viewModel::adjustActiveField,
-                        onSave = {
-                            viewModel.submitLog()
-                            navController.navigate(WearRoutes.Overview) {
-                                popUpTo(WearRoutes.Overview)
-                            }
-                        },
-                    )
-                }
-                composable(WearRoutes.Rest) {
-                    RestTimerScreen(
-                        session = state.session,
-                        onSkipRest = {
-                            viewModel.skipRest()
-                            navController.navigate(WearRoutes.Overview) {
-                                popUpTo(WearRoutes.Overview)
-                            }
-                        },
-                    )
-                }
-                composable(WearRoutes.Detail) {
-                    ExerciseDetailMiniView(session = state.session)
-                }
-                composable(WearRoutes.Exercises) {
-                    ExerciseSwitcherScreen(
-                        state = state,
-                        onSwitch = {
-                            viewModel.switchToExercise(it)
-                            navController.navigate(WearRoutes.Overview) {
-                                popUpTo(WearRoutes.Overview)
-                            }
-                        },
-                    )
-                }
-            }
-        }
-    }
+    WearNavGraph(viewModel = viewModel)
 }
 
 @Composable
