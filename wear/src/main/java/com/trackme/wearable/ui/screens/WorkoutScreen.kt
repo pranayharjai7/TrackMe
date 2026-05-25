@@ -38,6 +38,8 @@ fun WorkoutScreen(
     onWorkoutFinished: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val restSecondsRemaining by viewModel.restSecondsRemaining.collectAsStateWithLifecycle()
+    val restTotalSeconds by viewModel.restTotalSeconds.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = PAGE_ACTIVE) { PAGE_COUNT }
     val bgColor by animateColorAsState(
         targetValue = stateBackgroundColor(uiState.workoutScreenState),
@@ -89,8 +91,11 @@ fun WorkoutScreen(
                     onCancel  = { viewModel.cancelConfirm() }
                 )
                 WorkoutScreenState.RESTING -> RestTimerScreen(
-                    uiState = uiState,
-                    onEndRest = { viewModel.endRest() },
+                    remaining        = restSecondsRemaining,
+                    total            = restTotalSeconds,
+                    nextExerciseName = uiState.session?.nextExerciseName,
+                    heartRateBpm     = uiState.health.heartRateBpm,
+                    onEndRest        = { viewModel.endRest() },
                     onAdjustRestTime = { delta -> viewModel.adjustRestTime(delta * 15) }
                 )
                 WorkoutScreenState.EXERCISE_SUMMARY -> ExerciseSummaryScreen(
@@ -121,7 +126,7 @@ fun WorkoutScreen(
                         textAlign = TextAlign.Center,
                     )
                     Text(
-                        text = formatSeconds(uiState.restSecondsRemaining).takeIf {
+                        text = formatSeconds(restSecondsRemaining).takeIf {
                             uiState.workoutScreenState == WorkoutScreenState.RESTING
                         } ?: "Set ${uiState.session?.setIndex ?: "--"}",
                         color = WearColors.TextPrimary,

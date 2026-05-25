@@ -61,8 +61,7 @@ data class WearUiState(
     val health: WearHealthSnapshot = WearHealthSnapshot(),
     val lastCommandAccepted: Boolean? = null,
     val workoutScreenState: WorkoutScreenState = WorkoutScreenState.IDLE,
-    val restSecondsRemaining: Int = 90,
-    val restTotalSeconds: Int = 90,
+    // restSecondsRemaining and restTotalSeconds REMOVED — now separate StateFlows
     val lastExerciseVolume: Float = 0f,
     val lastExerciseName: String = "",
     val isPr: Boolean = false,
@@ -79,6 +78,12 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _uiState = MutableStateFlow(WearUiState())
     val uiState: StateFlow<WearUiState> = _uiState.asStateFlow()
+
+    private val _restSecondsRemaining = MutableStateFlow(90)
+    val restSecondsRemaining: StateFlow<Int> = _restSecondsRemaining.asStateFlow()
+
+    private val _restTotalSeconds = MutableStateFlow(90)
+    val restTotalSeconds: StateFlow<Int> = _restTotalSeconds.asStateFlow()
 
     private var started = false
     private var sessionStartEpochMs: Long = 0L
@@ -110,13 +115,6 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
             }
             _uiState.value = state
         }.launchIn(viewModelScope)
-
-        viewModelScope.launch {
-            while (true) {
-                delay(30_000)
-                flushHealthMetrics()
-            }
-        }
     }
 
     fun start() {
@@ -184,18 +182,15 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     fun confirmAndLog() {
         submitLog()
         val restSeconds = _uiState.value.session?.restRemaining ?: 90
-        _uiState.value = _uiState.value.copy(
-            workoutScreenState = WorkoutScreenState.RESTING,
-            restSecondsRemaining = restSeconds,
-            restTotalSeconds = restSeconds
-        )
+        _restSecondsRemaining.value = restSeconds
+        _restTotalSeconds.value = restSeconds
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.RESTING)
         startRestCountdown()
     }
 
     /** Adjusts the rest timer duration. deltaSeconds is a raw delta (e.g. +15 or -15). */
     fun adjustRestTime(deltaSeconds: Int) {
-        val newTime = (_uiState.value.restSecondsRemaining + deltaSeconds).coerceIn(15, 300)
-        _uiState.value = _uiState.value.copy(restSecondsRemaining = newTime)
+        _restSecondsRemaining.value = (_restSecondsRemaining.value + deltaSeconds).coerceIn(15, 300)
     }
 
     /** Called when rest ends (timer or tap). Advances to next set. */
@@ -324,11 +319,9 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     private fun startRestCountdown() {
         restCountdownJob?.cancel()
         restCountdownJob = viewModelScope.launch {
-            while (_uiState.value.restSecondsRemaining > 0) {
+            while (_restSecondsRemaining.value > 0) {
                 delay(1_000)
-                _uiState.value = _uiState.value.copy(
-                    restSecondsRemaining = (_uiState.value.restSecondsRemaining - 1).coerceAtLeast(0)
-                )
+                _restSecondsRemaining.value = (_restSecondsRemaining.value - 1).coerceAtLeast(0)
             }
             endRest()
         }

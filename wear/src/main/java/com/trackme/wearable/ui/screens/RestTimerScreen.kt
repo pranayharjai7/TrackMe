@@ -39,7 +39,6 @@ import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
 import com.trackme.wearable.designsystem.WearPillButton
 import com.trackme.wearable.haptics.WearHaptics
-import com.trackme.wearable.viewmodel.WearUiState
 import kotlin.math.abs
 
 // ---------------------------------------------------------------------------
@@ -66,7 +65,10 @@ internal fun isWarning(seconds: Int): Boolean = seconds in 1..10
 
 @Composable
 fun RestTimerScreen(
-    uiState: WearUiState,
+    remaining: Int,
+    total: Int,
+    nextExerciseName: String?,
+    heartRateBpm: Double?,
     onEndRest: () -> Unit,
     onAdjustRestTime: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -75,8 +77,6 @@ fun RestTimerScreen(
     val focusRequester = remember { FocusRequester() }
     val rotaryAccumulator = remember { floatArrayOf(0f) }
 
-    val remaining = uiState.restSecondsRemaining
-    val total = uiState.restTotalSeconds
     val warning = isWarning(remaining)
     val progress = restProgress(remaining, total)
 
@@ -206,7 +206,7 @@ fun RestTimerScreen(
             )
 
             // Next exercise preview
-            val nextName = uiState.session?.nextExerciseName
+            val nextName = nextExerciseName
             if (nextName != null) {
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -221,7 +221,7 @@ fun RestTimerScreen(
         }
 
         // ── Heart-rate chip — bottom-left ─────────────────────────────────────
-        val bpm = uiState.health.heartRateBpm?.toInt()
+        val bpm = heartRateBpm?.toInt()
         if (bpm != null) {
             Text(
                 text = "♥ $bpm",
