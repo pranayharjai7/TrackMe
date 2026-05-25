@@ -93,7 +93,7 @@ class WearHealthMetricCollector(context: Context) {
         _snapshot.value = WearHealthSnapshot()
 
         val exec = Executors.newSingleThreadExecutor().also { executor = it }
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val currentScope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { scope = it }
 
         val config = ExerciseConfig.builder(ExerciseType.WORKOUT)
             .setDataTypes(
@@ -113,7 +113,7 @@ class WearHealthMetricCollector(context: Context) {
             exerciseClient.startExerciseAsync(config)
         }.onFailure { Log.w("WearHealthCollector", "Unable to start Health Services exercise", it) }
 
-        samplingJob = scope!!.launch {
+        samplingJob = currentScope.launch {
             while (true) {
                 val interval = samplingIntervalMillis().coerceIn(5_000L, 15_000L)
                 delay(interval)

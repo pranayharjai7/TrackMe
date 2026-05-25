@@ -10,6 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WearHealthMetricCollectorTest {
+    // Uses a test double because WearHealthMetricCollector requires HealthServices.getClient(context)
+    // which needs a real Android Context. Full integration coverage lives in instrumented tests.
     @Test
     fun `stop cancels sampling job so no further emissions occur`() {
         val collector = WearHealthMetricCollectorTestDouble()
