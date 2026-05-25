@@ -80,8 +80,8 @@ fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
         Text(
             text = bpm?.toString() ?: "--",
             color = color,
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center,
         )
 

@@ -24,10 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
-import com.trackme.wearable.designsystem.WearPillButton
 import com.trackme.wearable.haptics.WearHaptics
 import kotlin.math.abs
 
@@ -132,6 +133,9 @@ fun RestTimerScreen(
                     rotaryAccumulator[0] += if (rotaryAccumulator[0] > 0) -threshold else threshold
                 }
                 true
+            }
+            .pointerInput(onEndRest) {
+                detectTapGestures(onTap = { onEndRest() })
             },
         contentAlignment = Alignment.Center
     ) {
@@ -198,8 +202,8 @@ fun RestTimerScreen(
             Text(
                 text = formatSeconds(remaining),
                 color = WearColors.TextPrimary,
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.scale(centerScale),
@@ -218,6 +222,15 @@ fun RestTimerScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "TAP = END REST",
+                color = WearColors.TextMuted.copy(alpha = 0.5f),
+                fontSize = 8.sp,
+                letterSpacing = 0.5.sp,
+                textAlign = TextAlign.Center,
+            )
         }
 
         // ── Heart-rate chip — bottom-left ─────────────────────────────────────
@@ -232,15 +245,5 @@ fun RestTimerScreen(
                     .padding(start = 10.dp, bottom = 44.dp),
             )
         }
-
-        // ── Skip Rest pill ────────────────────────────────────────────────────
-        WearPillButton(
-            text = "Skip Rest",
-            onClick = onEndRest,
-            accent = WearColors.Warning,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-        )
     }
 }
