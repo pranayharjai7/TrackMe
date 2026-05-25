@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,11 +89,13 @@ import com.trackme.domain.model.LoggingType
 import com.trackme.domain.model.PlannedExercise
 import com.trackme.domain.model.SessionSet
 import com.trackme.domain.model.loggingType
+import com.trackme.phone.wear.WatchConnectionState
 import com.trackme.ui.components.GlassmorphicCard
 import com.trackme.ui.components.HorizontalWheelPicker
 import com.trackme.ui.components.MeshGradientPalette
 import com.trackme.ui.components.ReactiveMeshGradient
 import com.trackme.ui.components.WheelPicker
+import com.trackme.ui.profile.ProfileViewModel
 import com.trackme.ui.theme.Background
 import com.trackme.ui.theme.Blue
 import com.trackme.ui.theme.Coral
@@ -134,6 +137,9 @@ fun ActiveSessionScreen(
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val watchConnection = profileState.watchConnectionState
     val progress = remember(state.exercises, state.loggedSets, state.loggedSetsByExercise) {
         state.toProgress()
     }
@@ -176,11 +182,19 @@ fun ActiveSessionScreen(
             contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 28.dp),
         ) {
             item {
-                SessionHeader(
-                    progress = progress,
-                    sessionState = sessionState,
-                    onBack = handleBack,
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SessionHeader(
+                        progress = progress,
+                        sessionState = sessionState,
+                        onBack = handleBack,
+                    )
+                    WatchSyncChip(
+                        connection = watchConnection,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 16.dp, top = 12.dp),
+                    )
+                }
             }
 
             if (state.restTimerRunning) {
@@ -1617,3 +1631,39 @@ private fun LoggingType.actionLabel(): String = when (this) {
 }
 
 private fun String.cleanText(): String = replace("\u00C2\u00B7", "|").replace("\u00B7", "|")
+
+@Composable
+private fun WatchSyncChip(
+    connection: WatchConnectionState,
+    modifier: Modifier = Modifier,
+) {
+    val (label, tint) = when {
+        connection is WatchConnectionState.Syncing -> "Live Sync" to Color(0xFF60A5FA)
+        connection is WatchConnectionState.Connected -> "Watch Connected" to Color(0xFF34D399)
+        else -> return
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(tint.copy(alpha = 0.12f))
+            .border(
+                width = 1.dp,
+                color = tint.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(12.dp),
+            )
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Canvas(modifier = Modifier.size(5.dp)) { drawCircle(tint) }
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = tint,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
