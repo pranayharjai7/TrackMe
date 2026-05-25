@@ -51,31 +51,31 @@ class HrZonesPageTest {
 
     @Test
     fun `zoneName 1 returns Recovery`() {
-        assertEquals("Zone 1 · Recovery", zoneName(1))
+        assertEquals("Zone 1 · Recovery", 1.zoneName())
     }
 
     @Test
     fun `zoneName 2 returns Aerobic`() {
-        assertEquals("Zone 2 · Aerobic", zoneName(2))
+        assertEquals("Zone 2 · Aerobic", 2.zoneName())
     }
 
     @Test
     fun `zoneName 3 returns Tempo`() {
-        assertEquals("Zone 3 · Tempo", zoneName(3))
+        assertEquals("Zone 3 · Tempo", 3.zoneName())
     }
 
     @Test
     fun `zoneName 4 returns Threshold`() {
-        assertEquals("Zone 4 · Threshold", zoneName(4))
+        assertEquals("Zone 4 · Threshold", 4.zoneName())
     }
 
     @Test
     fun `zoneName 5 returns Max`() {
-        assertEquals("Zone 5 · Max", zoneName(5))
+        assertEquals("Zone 5 · Max", 5.zoneName())
     }
 
     @Test
     fun `zoneName unknown returns Zone question mark`() {
-        assertEquals("Zone ?", zoneName(99))
+        assertEquals("Zone ?", 99.zoneName())
     }
 }
