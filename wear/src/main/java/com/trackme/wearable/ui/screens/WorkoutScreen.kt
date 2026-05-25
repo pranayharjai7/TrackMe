@@ -76,6 +76,7 @@ fun WorkoutScreen(
         ) { state ->
             when (state) {
                 WorkoutScreenState.CONFIRM -> LogConfirmOverlay(
+                    uiState   = uiState,
                     onConfirm = { viewModel.confirmAndLog() },
                     onCancel  = { viewModel.cancelConfirm() }
                 )
