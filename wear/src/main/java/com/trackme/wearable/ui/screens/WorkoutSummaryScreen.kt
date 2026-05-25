@@ -1,26 +1,32 @@
 package com.trackme.wearable.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
-import com.trackme.wearable.designsystem.WearGlassCard
-import com.trackme.wearable.designsystem.WearPillButton
 import com.trackme.wearable.haptics.WearHaptics
 import com.trackme.wearable.viewmodel.WearUiState
 
@@ -61,92 +67,77 @@ fun WorkoutSummaryScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
     val session = uiState.session
     val health = uiState.health
 
-    // Fire haptic once when the summary is shown
     LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
         WearHaptics.workoutComplete(context)
     }
 
-    ScalingLazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp),
+            .background(WearColors.Black)
+            .focusRequester(focusRequester)
+            .focusable()
+            .onRotaryScrollEvent { event ->
+                // bezel scrolls the summary
+                true
+            }
+            .verticalScroll(scrollState)
+            .pointerInput(onDismiss) { detectTapGestures(onTap = { onDismiss() }) }
+            .padding(horizontal = 12.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // ── Headline ──────────────────────────────────────────────────────────
-        item(key = "headline") {
+        Text(
+            text = "✓ COMPLETE",
+            color = WearColors.Warning,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = formatDurationLabel(health.durationSeconds),
+            color = WearColors.TextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+        )
+        if (session != null) {
+            val exerciseCount = session.exercises.size
+            if (exerciseCount > 0) {
+                Text(
+                    text = "$exerciseCount exercises",
+                    color = WearColors.TextMuted,
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
             Text(
-                text = "✓ WORKOUT COMPLETE",
+                text = "${session.totalVolumeKg.toInt()} kg",
                 color = WearColors.Warning,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
+            )
+            Text(
+                text = "${session.completedSets} sets",
+                color = WearColors.TextSecondary,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
             )
         }
-
-        // ── Stats card ────────────────────────────────────────────────────────
-        item(key = "stats_card") {
-            WearGlassCard(modifier = Modifier.fillMaxWidth()) {
-                StatRow(
-                    label = "Duration",
-                    value = formatDurationLabel(health.durationSeconds),
-                )
-                Spacer(Modifier.height(6.dp))
-                StatRow(
-                    label = "Volume",
-                    value = "${session?.totalVolumeKg?.toInt() ?: 0} kg",
-                )
-                Spacer(Modifier.height(6.dp))
-                StatRow(
-                    label = "Sets",
-                    value = "${session?.completedSets ?: 0} sets",
-                )
-                Spacer(Modifier.height(6.dp))
-                StatRow(
-                    label = "Calories",
-                    value = formatCalories(health.activeCalories),
-                )
-            }
-        }
-
-        item(key = "gap") { Spacer(Modifier.height(8.dp)) }
-
-        // ── Dismiss button ────────────────────────────────────────────────────
-        item(key = "dismiss") {
-            WearPillButton(
-                text = "Dismiss",
-                onClick = onDismiss,
-                accent = WearColors.Warning,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+        Spacer(Modifier.height(4.dp))
         Text(
-            text = label,
-            color = WearColors.TextSecondary,
-            fontSize = 12.sp,
-        )
-        Text(
-            text = value,
-            color = WearColors.TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
+            text = "tap to finish",
+            color = WearColors.TextMuted.copy(alpha = 0.5f),
+            fontSize = 7.sp,
+            textAlign = TextAlign.Center,
         )
     }
 }
