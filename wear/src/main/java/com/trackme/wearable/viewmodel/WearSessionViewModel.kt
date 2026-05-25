@@ -1,6 +1,7 @@
 package com.trackme.wearable.viewmodel
 
 import android.app.Application
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackme.wearable.TrackMeWearApplication
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
+@Immutable
 data class LoggerInputState(
     val activeField: LoggerField = LoggerField.REPS,
     val weightKg: Float = 0f,
@@ -50,6 +52,7 @@ enum class WorkoutScreenState {
     WORKOUT_COMPLETE
 }
 
+@Immutable
 data class WearUiState(
     val session: SessionStatePayload? = null,
     val offline: Boolean = false,

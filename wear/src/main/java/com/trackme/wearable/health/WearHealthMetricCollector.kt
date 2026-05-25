@@ -2,6 +2,7 @@ package com.trackme.wearable.health
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.health.services.client.ExerciseUpdateCallback
 import androidx.health.services.client.HealthServices
 import androidx.health.services.client.data.Availability
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+@Immutable
 data class WearHealthSnapshot(
     val heartRateBpm: Double? = null,
     val steps: Double? = null,
