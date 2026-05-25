@@ -48,6 +48,15 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // On Wear OS, ambient (AOD) mode causes the window to lose focus.
+        // This is a lightweight proxy for AmbientModeSupport without requiring
+        // additional dependencies. True AOD support can be added with
+        // androidx.wear:wear-ambient when a dedicated ambient layout is needed.
+        viewModel.setAmbientMode(!hasFocus)
+    }
+
     private fun requestRuntimePermissions() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val permissions = buildList {

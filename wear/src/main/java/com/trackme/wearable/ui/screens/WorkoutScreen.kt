@@ -69,6 +69,8 @@ fun WorkoutScreen(
         }
 
         // Layer 2: state machine overlays
+        // GW4: AnimatedContent pre-warms naturally — InfiniteTransition in LogConfirmOverlay
+        // starts on first composition which AnimatedContent handles correctly.
         AnimatedContent(
             targetState = uiState.workoutScreenState,
             transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },

@@ -1,5 +1,12 @@
 package com.trackme.wearable.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +44,19 @@ import kotlin.math.abs
 // ---------------------------------------------------------------------------
 
 // formatSeconds is defined in WearFormatUtils.kt (same package)
+
+/**
+ * Returns a numeric sort key for the currently active field in [input].
+ * Used to determine the direction of the number-roll animation.
+ */
+internal fun activeFieldSortKey(input: LoggerInputState): Float = when (input.activeField) {
+    LoggerField.WEIGHT   -> input.weightKg
+    LoggerField.REPS     -> input.reps.toFloat()
+    LoggerField.DURATION -> input.durationSeconds.toFloat()
+    LoggerField.DISTANCE -> input.distanceKm
+    LoggerField.SPEED    -> input.speedKmh
+    LoggerField.INCLINE  -> input.inclinePercent
+}
 
 /**
  * Returns a human-readable string for the current value of [field] in [input].
@@ -149,14 +169,20 @@ fun ActiveSetScreen(
             Spacer(Modifier.height(2.dp))
 
             // ── Hero value — double-tap toggles field, single tap confirms ──
-            Text(
-                text = formatFieldValue(activeField, loggerInput),
-                color = WearColors.TextPrimary,
-                fontSize = 54.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            val displayValue = formatFieldValue(activeField, loggerInput)
+            val currentSortKey = activeFieldSortKey(loggerInput)
+            AnimatedContent(
+                targetState = Pair(displayValue, currentSortKey),
+                transitionSpec = {
+                    val goUp = targetState.second > initialState.second
+                    val enterSlide = if (goUp) -1 else 1
+                    val exitSlide = if (goUp) 1 else -1
+                    (slideInVertically(tween(120)) { height -> enterSlide * height } +
+                        fadeIn(tween(120))) togetherWith
+                    (slideOutVertically(tween(80)) { height -> exitSlide * height } +
+                        fadeOut(tween(80)))
+                },
+                label = "valueRoll",
                 modifier = Modifier
                     .pointerInput(onTap, onToggleField) {
                         detectTapGestures(
@@ -164,7 +190,17 @@ fun ActiveSetScreen(
                             onDoubleTap = { onToggleField() },
                         )
                     },
-            )
+            ) { (value, _) ->
+                Text(
+                    text = value,
+                    color = WearColors.TextPrimary,
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             // ── Secondary field row (WEIGHTED_REPS only) ───────────────────
             if (loggingType == LoggingTypePayload.WEIGHTED_REPS) {
@@ -186,15 +222,13 @@ fun ActiveSetScreen(
 
         // ── Heart-rate chip — bottom-left ───────────────────────────────────
         val bpm = uiState.health.heartRateBpm?.toInt()
-        if (bpm != null) {
-            Text(
-                text = "♥ $bpm",
-                color = WearColors.Signal,
-                fontSize = 10.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 10.dp, bottom = 8.dp),
-            )
-        }
+        Text(
+            text = if (bpm != null) "♥ $bpm bpm" else "♥ --",
+            color = if (bpm != null) WearColors.Signal else WearColors.TextMuted,
+            fontSize = 10.sp,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 10.dp, bottom = 8.dp),
+        )
     }
 }

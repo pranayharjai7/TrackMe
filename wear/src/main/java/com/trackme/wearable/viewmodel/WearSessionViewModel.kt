@@ -98,7 +98,14 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
             if (next.session != null && _uiState.value.session == null) {
                 sessionStartEpochMs = System.currentTimeMillis()
             }
-            _uiState.value = next
+            // Crash recovery: if a session is active but we're in IDLE (e.g. after process restart),
+            // auto-transition to ACTIVE_SET so the user can continue logging immediately.
+            val state = if (next.session != null && _uiState.value.workoutScreenState == WorkoutScreenState.IDLE) {
+                next.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+            } else {
+                next
+            }
+            _uiState.value = state
         }.launchIn(viewModelScope)
 
         viewModelScope.launch {
