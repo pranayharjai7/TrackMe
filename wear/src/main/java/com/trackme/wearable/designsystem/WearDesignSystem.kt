@@ -38,17 +38,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 
+/** @deprecated Use [WearTokens]; kept for gradual migration. */
 object WearColors {
-    val Background = Color(0xFF111118)
-    val Surface = Color(0xFF1A1A24)
-    val SurfaceElevated = Color(0xFF22223A)
-    val Accent = Color(0xFF34D399)
-    val Violet = Color(0xFFA78BFA)
-    val Blue = Color(0xFF60A5FA)
-    val Coral = Color(0xFFFB7185)
-    val TextPrimary = Color(0xFFEEEEF5)
-    val TextSecondary = Color(0xFFAAAABC)
-    val TextMuted = Color(0xFF6E6E82)
+    val Background = WearTokens.Background
+    val Surface = WearTokens.Surface
+    val SurfaceElevated = WearTokens.Elevated
+    val Accent = WearTokens.Active
+    val Violet = WearTokens.Summary
+    val Blue = WearTokens.Rest
+    val Coral = WearTokens.Signal
+    val TextPrimary = WearTokens.TextPrimary
+    val TextSecondary = WearTokens.TextSecondary
+    val TextMuted = WearTokens.TextMuted
 }
 
 @Composable
@@ -56,13 +57,7 @@ fun WearGradientBackground(content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(WearColors.SurfaceElevated, WearColors.Background),
-                    center = Offset(120f, 80f),
-                    radius = 420f,
-                ),
-            ),
+            .background(WearTokens.Background),
     ) {
         content()
     }
