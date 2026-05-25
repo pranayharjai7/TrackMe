@@ -83,8 +83,7 @@ fun WorkoutSummaryScreen(
             .background(WearColors.Black)
             .focusRequester(focusRequester)
             .focusable()
-            .onRotaryScrollEvent { event ->
-                // bezel scrolls the summary
+            .onRotaryScrollEvent { _ ->
                 true
             }
             .verticalScroll(scrollState)
