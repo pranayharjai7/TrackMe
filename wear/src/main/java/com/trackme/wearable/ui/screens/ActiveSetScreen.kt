@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +47,13 @@ import com.trackme.wearable.viewmodel.LoggerField
 import com.trackme.wearable.viewmodel.LoggerInputState
 import com.trackme.wearable.viewmodel.WearUiState
 import kotlin.math.abs
+
+// ---------------------------------------------------------------------------
+// Stable animation state
+// ---------------------------------------------------------------------------
+
+@Immutable
+internal data class FieldAnimState(val display: String, val sortKey: Float)
 
 // ---------------------------------------------------------------------------
 // Pure formatting helpers (also used by ActiveSetScreenTest)
@@ -112,13 +122,17 @@ fun ActiveSetScreen(
     val loggingType  = session?.loggingType
 
     // Set progress for the ring arc
-    val completedSets = uiState.session?.let { s ->
-        s.exercises.getOrNull(s.exerciseIndex)?.completedSets ?: 0
-    } ?: 0
-    val targetSets = uiState.session?.let { s ->
-        s.exercises.getOrNull(s.exerciseIndex)?.targetSets ?: 0
-    } ?: 0
-    val setProgress = if (targetSets > 0) completedSets.toFloat() / targetSets.toFloat() else 0f
+    val setProgress by remember(uiState.session) {
+        derivedStateOf {
+            val completed = uiState.session?.let { s ->
+                s.exercises.getOrNull(s.exerciseIndex)?.completedSets ?: 0
+            } ?: 0
+            val target = uiState.session?.let { s ->
+                s.exercises.getOrNull(s.exerciseIndex)?.targetSets ?: 0
+            } ?: 0
+            if (target > 0) completed.toFloat() / target.toFloat() else 0f
+        }
+    }
 
     Box(
         modifier = modifier
@@ -211,12 +225,16 @@ fun ActiveSetScreen(
             Spacer(Modifier.height(2.dp))
 
             // ── Hero value — double-tap toggles field, single tap confirms ──
-            val displayValue = formatFieldValue(activeField, loggerInput)
-            val currentSortKey = activeFieldSortKey(loggerInput)
+            val animState = remember(activeField, loggerInput) {
+                FieldAnimState(
+                    display = formatFieldValue(activeField, loggerInput),
+                    sortKey = activeFieldSortKey(loggerInput),
+                )
+            }
             AnimatedContent(
-                targetState = Pair(displayValue, currentSortKey),
+                targetState = animState,
                 transitionSpec = {
-                    val goUp = targetState.second > initialState.second
+                    val goUp = targetState.sortKey > initialState.sortKey
                     val enterSlide = if (goUp) -1 else 1
                     val exitSlide = if (goUp) 1 else -1
                     (slideInVertically(tween(120)) { height -> enterSlide * height } +
@@ -232,9 +250,9 @@ fun ActiveSetScreen(
                             onDoubleTap = { onToggleField() },
                         )
                     },
-            ) { (value, _) ->
+            ) { state ->
                 Text(
-                    text = value,
+                    text = state.display,
                     color = WearColors.TextPrimary,
                     fontSize = 54.sp,
                     fontWeight = FontWeight.Bold,
