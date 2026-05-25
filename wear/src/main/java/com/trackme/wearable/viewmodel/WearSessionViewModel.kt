@@ -150,6 +150,52 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.value = _uiState.value.copy(loggerInput = next)
     }
 
+    /** Called when user taps the Active Set screen — shows the confirm overlay. */
+    fun confirmSet() {
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.CONFIRM)
+    }
+
+    /** Called when user swipes down on the confirm overlay — cancels without logging. */
+    fun cancelConfirm() {
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+    }
+
+    /** Called when user taps the confirm overlay — logs the set and starts rest. */
+    fun confirmAndLog() {
+        submitLog()
+        val restSeconds = _uiState.value.session?.restRemaining ?: 90
+        _uiState.value = _uiState.value.copy(
+            workoutScreenState = WorkoutScreenState.RESTING,
+            restSecondsRemaining = restSeconds,
+            restTotalSeconds = restSeconds
+        )
+        startRestCountdown()
+    }
+
+    /** Adjusts the rest timer duration. deltaSeconds is a raw delta (e.g. +15 or -15). */
+    fun adjustRestTime(deltaSeconds: Int) {
+        val newTime = (_uiState.value.restSecondsRemaining + deltaSeconds).coerceIn(15, 300)
+        _uiState.value = _uiState.value.copy(restSecondsRemaining = newTime)
+    }
+
+    /** Called when rest ends (timer or tap). Advances to next set. */
+    fun endRest() {
+        restCountdownJob?.cancel()
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+    }
+
+    /** Long-press hardware button — resets watch state. Undo logic lives on the phone. */
+    fun undoLastSet() {
+        // WatchActionType has no UNDO action; local state reset only.
+        // Phone will resync the authoritative state shortly after.
+        _uiState.value = _uiState.value.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+    }
+
+    /** Sets ambient (always-on) mode. */
+    fun setAmbientMode(ambient: Boolean) {
+        _uiState.value = _uiState.value.copy(isAmbient = ambient)
+    }
+
     fun submitLog() {
         val session = _uiState.value.session ?: return
         val input = _uiState.value.loggerInput
@@ -211,6 +257,21 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
 
     fun flushHealthMetrics() {
         viewModelScope.launch { healthMetricsSender.flushNow() }
+    }
+
+    private var restCountdownJob: kotlinx.coroutines.Job? = null
+
+    private fun startRestCountdown() {
+        restCountdownJob?.cancel()
+        restCountdownJob = viewModelScope.launch {
+            while (_uiState.value.restSecondsRemaining > 0) {
+                kotlinx.coroutines.delay(1_000)
+                _uiState.value = _uiState.value.copy(
+                    restSecondsRemaining = (_uiState.value.restSecondsRemaining - 1).coerceAtLeast(0)
+                )
+            }
+            endRest()
+        }
     }
 
     override fun onCleared() {

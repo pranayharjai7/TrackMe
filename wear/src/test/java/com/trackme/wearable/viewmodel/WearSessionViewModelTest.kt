@@ -43,4 +43,39 @@ class WearSessionViewModelTest {
         assertEquals(15, tooLow.restSecondsRemaining)
         assertEquals(300, tooHigh.restSecondsRemaining)
     }
+
+    @Test
+    fun `confirmSet transitions to CONFIRM state`() {
+        val state = WearUiState(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        val result = state.copy(workoutScreenState = WorkoutScreenState.CONFIRM)
+        assertEquals(WorkoutScreenState.CONFIRM, result.workoutScreenState)
+    }
+
+    @Test
+    fun `cancelConfirm returns to ACTIVE_SET state`() {
+        val state = WearUiState(workoutScreenState = WorkoutScreenState.CONFIRM)
+        val result = state.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        assertEquals(WorkoutScreenState.ACTIVE_SET, result.workoutScreenState)
+    }
+
+    @Test
+    fun `endRest transitions to ACTIVE_SET`() {
+        val state = WearUiState(workoutScreenState = WorkoutScreenState.RESTING, restSecondsRemaining = 45)
+        val result = state.copy(workoutScreenState = WorkoutScreenState.ACTIVE_SET)
+        assertEquals(WorkoutScreenState.ACTIVE_SET, result.workoutScreenState)
+    }
+
+    @Test
+    fun `adjustRestTime positive delta increases time`() {
+        val state = WearUiState(restSecondsRemaining = 60)
+        val result = state.copy(restSecondsRemaining = (state.restSecondsRemaining + 15).coerceIn(15, 300))
+        assertEquals(75, result.restSecondsRemaining)
+    }
+
+    @Test
+    fun `adjustRestTime negative delta decreases time`() {
+        val state = WearUiState(restSecondsRemaining = 60)
+        val result = state.copy(restSecondsRemaining = (state.restSecondsRemaining - 15).coerceIn(15, 300))
+        assertEquals(45, result.restSecondsRemaining)
+    }
 }
