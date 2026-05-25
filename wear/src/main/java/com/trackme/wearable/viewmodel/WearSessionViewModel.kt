@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackme.wearable.TrackMeWearApplication
+import com.trackme.wearable.health.HealthConnectManager
 import com.trackme.wearable.health.WearHealthSnapshot
 import com.trackme.wearbridge.LoggingTypePayload
 import com.trackme.wearbridge.SessionStatePayload
@@ -71,6 +72,7 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     private val workoutStateSync = runtime.workoutStateSync
     private val healthMetricsSender = runtime.healthMetricsSender
     private val phoneConnectionManager = runtime.phoneConnectionManager
+    private val healthConnectManager = HealthConnectManager(application.applicationContext)
 
     private val _uiState = MutableStateFlow(WearUiState())
     val uiState: StateFlow<WearUiState> = _uiState.asStateFlow()
@@ -254,6 +256,24 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
     fun finishWorkout() {
         flushHealthMetrics()
         sendAction(actionType = WatchActionType.END_WORKOUT)
+        writeToHealthConnect()
+    }
+
+    private fun writeToHealthConnect() {
+        val session = _uiState.value.session ?: return
+        val health = _uiState.value.health
+        val endMs = System.currentTimeMillis()
+        val durationMs = health.durationSeconds * 1_000L
+        val startMs = endMs - durationMs
+        viewModelScope.launch {
+            healthConnectManager.writeWorkoutSession(
+                startEpochMs = startMs,
+                endEpochMs = endMs,
+                exerciseTypeName = session.exerciseName,
+                heartRateSamples = emptyList(), // no buffered samples in this version
+                totalCaloriesKcal = health.activeCalories,
+            )
+        }
     }
 
     fun flushHealthMetrics() {

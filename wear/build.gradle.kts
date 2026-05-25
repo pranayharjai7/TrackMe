@@ -70,6 +70,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.health:health-services-client:1.0.0")
+    implementation("androidx.health.connect:connect-client:1.1.0-rc01")
     implementation("com.google.guava:guava:31.1-android")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 

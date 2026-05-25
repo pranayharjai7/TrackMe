@@ -6,18 +6,33 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.trackme.wearable.health.HealthConnectManager
 import com.trackme.wearable.ui.TrackMeWearApp
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 
 class MainActivity : ComponentActivity() {
     private val viewModel: WearSessionViewModel by viewModels()
 
+    private val healthConnectPermissions = setOf(
+        "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.WRITE_HEART_RATE",
+        "android.permission.health.WRITE_TOTAL_CALORIES_BURNED",
+    )
+
+    private val healthPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        // permissions resolved — no further action needed in this version
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestRuntimePermissions()
+        requestHealthConnectPermissionsIfNeeded()
         setContent {
             TrackMeWearApp(viewModel = viewModel)
         }
@@ -46,5 +61,11 @@ class MainActivity : ComponentActivity() {
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 2001)
         }
+    }
+
+    private fun requestHealthConnectPermissionsIfNeeded() {
+        val manager = HealthConnectManager(this)
+        if (!manager.isAvailable()) return
+        healthPermissionLauncher.launch(healthConnectPermissions.toTypedArray())
     }
 }
