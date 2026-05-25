@@ -57,7 +57,9 @@ class HealthMetricsSender(
         scope.launch {
             while (true) {
                 delay(30_000)
-                flushNow()
+                if (connectionManager.connectionState.value is PhoneConnectionState.Connected) {
+                    flushNow()
+                }
             }
         }
     }
