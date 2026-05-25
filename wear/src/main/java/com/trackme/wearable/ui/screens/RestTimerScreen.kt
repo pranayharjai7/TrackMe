@@ -1,7 +1,6 @@
 package com.trackme.wearable.ui.screens
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -60,6 +59,8 @@ internal fun restProgress(remaining: Int, total: Int): Float {
  */
 internal fun isWarning(seconds: Int): Boolean = seconds in 1..10
 
+private const val ROTARY_THRESHOLD_PX = 16f
+
 // ---------------------------------------------------------------------------
 // RestTimerScreen composable
 // ---------------------------------------------------------------------------
@@ -105,18 +106,21 @@ fun RestTimerScreen(
         label = "arcColor"
     )
 
-    // Pulsing scale for center text when in warning zone
-    val pulseTransition: InfiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by pulseTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
-    val centerScale = if (warning) pulseScale else 1f
+    // Pulsing scale for center text when in warning zone — only animate when needed
+    val pulseScale = if (warning) {
+        val pulse = rememberInfiniteTransition(label = "pulse")
+        pulse.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.05f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(500, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseScale"
+        ).value
+    } else {
+        1f
+    }
 
     Box(
         modifier = modifier
@@ -125,12 +129,11 @@ fun RestTimerScreen(
             .focusable()
             .onRotaryScrollEvent { event ->
                 rotaryAccumulator[0] += event.verticalScrollPixels
-                val threshold = 16f
-                while (abs(rotaryAccumulator[0]) >= threshold) {
+                while (abs(rotaryAccumulator[0]) >= ROTARY_THRESHOLD_PX) {
                     val delta = if (rotaryAccumulator[0] > 0) -1 else 1
                     onAdjustRestTime(delta)
                     WearHaptics.bezelStep(context)
-                    rotaryAccumulator[0] += if (rotaryAccumulator[0] > 0) -threshold else threshold
+                    rotaryAccumulator[0] += if (rotaryAccumulator[0] > 0) -ROTARY_THRESHOLD_PX else ROTARY_THRESHOLD_PX
                 }
                 true
             }
@@ -206,12 +209,11 @@ fun RestTimerScreen(
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                modifier = Modifier.scale(centerScale),
+                modifier = Modifier.scale(pulseScale),
             )
 
             // Next exercise preview
-            val nextName = nextExerciseName
-            if (nextName != null) {
+            nextExerciseName?.let { nextName ->
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Next: $nextName",
@@ -221,9 +223,8 @@ fun RestTimerScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(6.dp))
             }
-
-            Spacer(Modifier.height(6.dp))
             Text(
                 text = "TAP = END REST",
                 color = WearColors.TextMuted.copy(alpha = 0.5f),

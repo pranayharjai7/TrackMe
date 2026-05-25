@@ -33,7 +33,7 @@ internal fun hrToZone(bpm: Int): Int = when {
     else      -> 5
 }
 
-internal fun zoneName(zone: Int): String = when (zone) {
+internal fun Int.zoneName(): String = when (this) {
     1    -> "Zone 1 · Recovery"
     2    -> "Zone 2 · Aerobic"
     3    -> "Zone 3 · Tempo"
@@ -42,7 +42,7 @@ internal fun zoneName(zone: Int): String = when (zone) {
     else -> "Zone ?"
 }
 
-internal fun zoneColor(zone: Int): Color = when (zone) {
+internal fun Int.zoneColor(): Color = when (this) {
     1    -> WearColors.Rest
     2    -> WearColors.Active
     3    -> WearColors.Summary
@@ -55,19 +55,11 @@ internal fun zoneColor(zone: Int): Color = when (zone) {
 // Composable
 // ---------------------------------------------------------------------------
 
-private val ZONE_COLORS = listOf(
-    WearColors.Rest,
-    WearColors.Active,
-    WearColors.Summary,
-    WearColors.Warning,
-    WearColors.Signal,
-)
-
 @Composable
 fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
     val bpm   = heartRateBpm?.toInt()
     val zone  = bpm?.let { hrToZone(it) } ?: 0
-    val color = zoneColor(zone)
+    val color = zone.zoneColor()
 
     Column(
         modifier = modifier
@@ -97,7 +89,7 @@ fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
 
         // Zone name
         Text(
-            text = if (zone > 0) zoneName(zone) else "No signal",
+            text = if (zone > 0) zone.zoneName() else "No signal",
             color = WearColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
@@ -118,8 +110,8 @@ private fun HrZoneBars(activeZone: Int) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        ZONE_COLORS.forEachIndexed { index, zoneAccent ->
-            val zoneNumber = index + 1
+        (1..5).forEach { zoneNumber ->
+            val zoneAccent = zoneNumber.zoneColor()
             val isActive = zoneNumber == activeZone
             Row(
                 modifier = Modifier
