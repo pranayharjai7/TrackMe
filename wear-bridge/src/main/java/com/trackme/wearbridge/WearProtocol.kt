@@ -15,6 +15,7 @@ object WearPaths {
     const val MESSAGE_COMMAND = "/trackme/command"
     const val MESSAGE_HEALTH_BATCH = "/trackme/health_batch"
     const val DATA_SESSION_STATE = "/trackme/session_state"
+    const val DATA_DAY_STATE = "/trackme/day_state"
 
     const val WORKOUT_START = "/workout/start"
     const val WORKOUT_NEXT_SET = "/workout/next_set"
@@ -75,6 +76,9 @@ object WearProtocol {
 
     fun encodeSyncEvents(payload: SyncEventsPayload): String = json.encodeToString(payload)
     fun decodeSyncEvents(payload: String): SyncEventsPayload = json.decodeFromString(payload)
+
+    fun encodeDayState(payload: DayPayload): String = json.encodeToString(payload)
+    fun decodeDayState(payload: String): DayPayload = json.decodeFromString(payload)
 
     fun encodeHealthSamples(payload: List<HealthMetricSamplePayload>): String = json.encodeToString(payload)
 
@@ -290,6 +294,22 @@ data class SetHistoryPayload(
     val speedKmh: Float? = null,
     val inclinePercent: Float? = null,
     val completedAt: Long,
+)
+
+@Serializable
+data class RecentWorkoutPayload(
+    val dayName: String,
+    val completedAt: Long,
+    val durationMinutes: Int,
+)
+
+@Serializable
+data class DayPayload(
+    val workoutName: String,
+    val exerciseCount: Int,
+    val readinessScore: Int,
+    val recentWorkouts: List<RecentWorkoutPayload> = emptyList(),
+    val updatedAt: Long,
 )
 
 @Serializable
