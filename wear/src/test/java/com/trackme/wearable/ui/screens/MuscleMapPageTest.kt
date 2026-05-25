@@ -57,4 +57,14 @@ class MuscleMapPageTest {
     fun `muscleColor lowercase chest is case insensitive`() {
         assertEquals(WearColors.Signal, muscleColor("chest"))
     }
+
+    @Test
+    fun `muscleColor for SHOULDERS returns Signal`() {
+        assertEquals(WearColors.Signal, muscleColor("SHOULDERS"))
+    }
+
+    @Test
+    fun `muscleColor for TRAPS returns Rest`() {
+        assertEquals(WearColors.Rest, muscleColor("TRAPS"))
+    }
 }

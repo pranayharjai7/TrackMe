@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,7 +67,7 @@ fun MediaPage(modifier: Modifier = Modifier) {
     val maxVolume    = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
     var volumeLevel  by remember { mutableIntStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
 
-    val isPlaying    = remember { audioManager.isMusicActive() }
+    var isPlaying    by remember { mutableStateOf(audioManager.isMusicActive()) }
 
     val focusRequester = remember { FocusRequester() }
     val rotaryAccumulator = remember { floatArrayOf(0f) }
@@ -122,7 +123,10 @@ fun MediaPage(modifier: Modifier = Modifier) {
             )
             WearIconButton(
                 label = if (isPlaying) "⏸" else "▶",
-                onClick = { sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
+                onClick = {
+                    sendMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                    isPlaying = audioManager.isMusicActive()
+                },
             )
             WearIconButton(
                 label = "⏭",

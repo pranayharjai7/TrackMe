@@ -42,7 +42,7 @@ internal fun muscleColor(muscle: String?): Color = when (muscle?.uppercase()) {
 // Which body region to highlight
 // ---------------------------------------------------------------------------
 
-private enum class BodyRegion { HEAD, UPPER, MIDDLE, LOWER, NONE }
+private enum class BodyRegion { UPPER, MIDDLE, LOWER, NONE }
 
 private fun muscleRegion(muscle: String?): BodyRegion = when (muscle?.uppercase()) {
     "CHEST", "SHOULDERS", "TRICEPS" -> BodyRegion.UPPER
@@ -86,7 +86,7 @@ fun MuscleMapPage(uiState: WearUiState, modifier: Modifier = Modifier) {
         Text(
             text = muscle?.uppercase() ?: "–",
             color = accent,
-            fontSize = 22.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )
@@ -133,7 +133,7 @@ private fun BodySilhouette(
         val headCx = w / 2f
         val headCy = headR + h * 0.01f
         drawCircle(
-            color  = if (activeRegion == BodyRegion.HEAD) activeColor else inactive,
+            color  = inactive,
             radius = headR,
             center = Offset(headCx, headCy),
         )
