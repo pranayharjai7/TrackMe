@@ -19,7 +19,6 @@ import com.trackme.wearable.designsystem.WearColors
 import com.trackme.wearable.designsystem.WearGlassCard
 import com.trackme.wearable.designsystem.WearPillButton
 import com.trackme.wearable.designsystem.WearStatusChip
-import com.trackme.wearable.viewmodel.WearSessionViewModel
 import com.trackme.wearable.viewmodel.WearUiState
 import com.trackme.wearbridge.SessionStatePayload
 
@@ -42,8 +41,7 @@ internal fun currentTargetSets(session: SessionStatePayload): Int =
 fun WorkoutHubScreen(
     uiState: WearUiState,
     onStartWorkout: () -> Unit,
-    onRequestPermission: () -> Unit,
-    viewModel: WearSessionViewModel,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val session = uiState.session
@@ -144,7 +142,7 @@ fun WorkoutHubScreen(
         item {
             WearPillButton(
                 text = "Refresh",
-                onClick = { viewModel.requestSnapshot() },
+                onClick = onRefresh,
                 accent = WearColors.Rest,
                 modifier = Modifier.fillMaxWidth(),
             )

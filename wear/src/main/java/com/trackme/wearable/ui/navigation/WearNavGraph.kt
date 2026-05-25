@@ -32,8 +32,7 @@ fun WearNavGraph(viewModel: WearSessionViewModel) {
                 onStartWorkout = {
                     navController.navigate(WearRoutes.WORKOUT) { launchSingleTop = true }
                 },
-                onRequestPermission = { navController.navigate(WearRoutes.PERMISSION) },
-                viewModel = viewModel
+                onRefresh = { viewModel.requestSnapshot() },
             )
         }
         composable(WearRoutes.WORKOUT) {

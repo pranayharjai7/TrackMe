@@ -52,13 +52,9 @@ fun ExerciseSummaryScreen(
 ) {
     val context = LocalContext.current
 
-    // Always fire haptic on composition
+    // Fire haptic then auto-advance after 2 seconds
     LaunchedEffect(Unit) {
         WearHaptics.exerciseSummary(context)
-    }
-
-    // Auto-advance after 2 seconds
-    LaunchedEffect(Unit) {
         delay(2_000)
         onAdvance()
     }

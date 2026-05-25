@@ -39,4 +39,9 @@ class ExerciseSummaryScreenTest {
     fun `formatPrBadge truncates decimal to int`() {
         assertEquals("+5 kg PR", formatPrBadge(5.7f))
     }
+
+    @Test
+    fun `formatPrBadge with zero delta`() {
+        assertEquals("+0 kg PR", formatPrBadge(0f))
+    }
 }
