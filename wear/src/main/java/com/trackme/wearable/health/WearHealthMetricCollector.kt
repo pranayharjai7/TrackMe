@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +39,8 @@ data class WearHealthSnapshot(
 
 class WearHealthMetricCollector(context: Context) {
     private val exerciseClient = HealthServices.getClient(context.applicationContext).exerciseClient
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var executor: ExecutorService? = null
+    private var scope: CoroutineScope? = null
 
     private val _snapshot = MutableStateFlow(WearHealthSnapshot())
     val snapshot: StateFlow<WearHealthSnapshot> = _snapshot.asStateFlow()
@@ -82,11 +83,17 @@ class WearHealthMetricCollector(context: Context) {
 
     fun start(sessionId: String, samplingIntervalMillis: () -> Long = { 5_000L }) {
         if (activeSessionId == sessionId && samplingJob?.isActive == true) return
+        // Tear down previous session cleanly before starting a new one
+        stop()
+
         activeSessionId = sessionId
         startedAt = System.currentTimeMillis()
         lastSampleAt = startedAt
         estimatedCaloriesKcal = 0.0
         _snapshot.value = WearHealthSnapshot()
+
+        val exec = Executors.newSingleThreadExecutor().also { executor = it }
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         val config = ExerciseConfig.builder(ExerciseType.WORKOUT)
             .setDataTypes(
@@ -102,12 +109,11 @@ class WearHealthMetricCollector(context: Context) {
             .build()
 
         runCatching {
-            exerciseClient.setUpdateCallback(executor, callback)
+            exerciseClient.setUpdateCallback(exec, callback)
             exerciseClient.startExerciseAsync(config)
         }.onFailure { Log.w("WearHealthCollector", "Unable to start Health Services exercise", it) }
 
-        samplingJob?.cancel()
-        samplingJob = scope.launch {
+        samplingJob = scope!!.launch {
             while (true) {
                 val interval = samplingIntervalMillis().coerceIn(5_000L, 15_000L)
                 delay(interval)
@@ -127,6 +133,10 @@ class WearHealthMetricCollector(context: Context) {
     fun stop() {
         samplingJob?.cancel()
         samplingJob = null
+        scope?.cancel()
+        scope = null
+        executor?.shutdown()
+        executor = null
         activeSessionId = ""
         runCatching {
             exerciseClient.endExerciseAsync()
