@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
-import com.trackme.wearable.viewmodel.WearUiState
 
 // ---------------------------------------------------------------------------
 // Pure helper (internal for testability)
@@ -58,11 +57,9 @@ private fun muscleRegion(muscle: String?): BodyRegion = when (muscle?.uppercase(
 // ---------------------------------------------------------------------------
 
 @Composable
-fun MuscleMapPage(uiState: WearUiState, modifier: Modifier = Modifier) {
-    val muscle       = uiState.session?.muscle
-    val exerciseName = uiState.session?.exerciseName
-    val accent       = muscleColor(muscle)
-    val region       = muscleRegion(muscle)
+fun MuscleMapPage(muscle: String?, exerciseName: String?, modifier: Modifier = Modifier) {
+    val accent = muscleColor(muscle)
+    val region = muscleRegion(muscle)
 
     Column(
         modifier = modifier

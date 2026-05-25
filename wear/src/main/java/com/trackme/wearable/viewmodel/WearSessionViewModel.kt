@@ -155,6 +155,12 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.value = _uiState.value.copy(loggerInput = _uiState.value.loggerInput.copy(activeField = field))
     }
 
+    fun toggleActiveField() {
+        val current = _uiState.value.loggerInput.activeField
+        val next = if (current == LoggerField.WEIGHT) LoggerField.REPS else LoggerField.WEIGHT
+        selectField(next)
+    }
+
     fun adjustActiveField(deltaSteps: Int) {
         val input = _uiState.value.loggerInput
         val next = when (input.activeField) {

@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
-import com.trackme.wearable.viewmodel.WearUiState
 
 // ---------------------------------------------------------------------------
 // Pure helpers (internal for testability)
@@ -56,9 +55,17 @@ internal fun zoneColor(zone: Int): Color = when (zone) {
 // Composable
 // ---------------------------------------------------------------------------
 
+private val ZONE_COLORS = listOf(
+    WearColors.Rest,
+    WearColors.Active,
+    WearColors.Summary,
+    WearColors.Warning,
+    WearColors.Signal,
+)
+
 @Composable
-fun HrZonesPage(uiState: WearUiState, modifier: Modifier = Modifier) {
-    val bpm   = uiState.health.heartRateBpm?.toInt()
+fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
+    val bpm   = heartRateBpm?.toInt()
     val zone  = bpm?.let { hrToZone(it) } ?: 0
     val color = zoneColor(zone)
 
@@ -106,20 +113,12 @@ fun HrZonesPage(uiState: WearUiState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun HrZoneBars(activeZone: Int) {
-    val zoneColors = listOf(
-        WearColors.Rest,
-        WearColors.Active,
-        WearColors.Summary,
-        WearColors.Warning,
-        WearColors.Signal,
-    )
-
     Column(
         verticalArrangement = Arrangement.spacedBy(3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        zoneColors.forEachIndexed { index, zoneAccent ->
+        ZONE_COLORS.forEachIndexed { index, zoneAccent ->
             val zoneNumber = index + 1
             val isActive = zoneNumber == activeZone
             Row(

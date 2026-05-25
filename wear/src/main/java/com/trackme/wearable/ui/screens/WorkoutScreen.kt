@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +42,16 @@ fun WorkoutScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val restSecondsRemaining by viewModel.restSecondsRemaining.collectAsStateWithLifecycle()
     val restTotalSeconds by viewModel.restTotalSeconds.collectAsStateWithLifecycle()
+
+    // Derived slices — each page only recomposes when its own slice changes
+    val heartRateBpm by remember { derivedStateOf { uiState.health.heartRateBpm } }
+    val sessionMuscle by remember { derivedStateOf { uiState.session?.muscle } }
+    val sessionExerciseName by remember { derivedStateOf { uiState.session?.exerciseName } }
+
+    val onTap         = remember(viewModel) { { viewModel.confirmSet() } }
+    val onAdjustField = remember(viewModel) { { d: Int -> viewModel.adjustActiveField(d) } }
+    val onToggleField = remember(viewModel) { { viewModel.toggleActiveField() } }
+
     val pagerState = rememberPagerState(initialPage = PAGE_ACTIVE) { PAGE_COUNT }
     val bgColor by animateColorAsState(
         targetValue = stateBackgroundColor(uiState.workoutScreenState),
@@ -56,21 +68,17 @@ fun WorkoutScreen(
         // Layer 1: horizontal context pages
         HorizontalPager(state = pagerState) { page ->
             when (page) {
-                PAGE_HR     -> HrZonesPage(uiState = uiState)
+                PAGE_HR     -> HrZonesPage(heartRateBpm = heartRateBpm)
                 PAGE_ACTIVE -> ActiveSetScreen(
-                    uiState = uiState,
-                    onTap = { viewModel.confirmSet() },
-                    onAdjustField = { delta -> viewModel.adjustActiveField(delta) },
-                    onToggleField = {
-                        viewModel.selectField(
-                            if (uiState.loggerInput.activeField == com.trackme.wearable.viewmodel.LoggerField.WEIGHT)
-                                com.trackme.wearable.viewmodel.LoggerField.REPS
-                            else
-                                com.trackme.wearable.viewmodel.LoggerField.WEIGHT
-                        )
-                    }
+                    uiState       = uiState,
+                    onTap         = onTap,
+                    onAdjustField = onAdjustField,
+                    onToggleField = onToggleField,
                 )
-                PAGE_MUSCLE -> MuscleMapPage(uiState = uiState)
+                PAGE_MUSCLE -> MuscleMapPage(
+                    muscle        = sessionMuscle,
+                    exerciseName  = sessionExerciseName,
+                )
                 PAGE_MEDIA  -> MediaPage()
                 else        -> Box(modifier = Modifier.fillMaxSize())
             }
