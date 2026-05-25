@@ -36,15 +36,7 @@ import kotlin.math.abs
 // Pure formatting helpers (also used by ActiveSetScreenTest)
 // ---------------------------------------------------------------------------
 
-/**
- * Formats a duration given in seconds as "m:ss".
- * e.g. 90 → "1:30", 5 → "0:05"
- */
-fun formatSeconds(seconds: Int): String {
-    val minutes = seconds / 60
-    val secs = seconds % 60
-    return "$minutes:${secs.toString().padStart(2, '0')}"
-}
+// formatSeconds is defined in WearFormatUtils.kt (same package)
 
 /**
  * Returns a human-readable string for the current value of [field] in [input].

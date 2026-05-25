@@ -1,16 +1,22 @@
 package com.trackme.wearable.haptics
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WearHapticsTest {
 
     @Test
-    fun `WearHaptics is a singleton object`() {
-        // Verify both references are the same instance
-        val a = WearHaptics
-        val b = WearHaptics
-        assertTrue("WearHaptics must be a singleton", a === b)
+    fun `all waveform arrays have matching timings and amplitudes lengths`() {
+        // A length mismatch causes IllegalArgumentException at runtime in VibrationEffect.createWaveform
+        assertEquals("setLogged arrays length", WearHaptics.SET_LOGGED_TIMINGS.size, WearHaptics.SET_LOGGED_AMPLITUDES.size)
+        assertEquals("restStart arrays length", WearHaptics.REST_START_TIMINGS.size, WearHaptics.REST_START_AMPLITUDES.size)
+        assertEquals("restEnd arrays length", WearHaptics.REST_END_TIMINGS.size, WearHaptics.REST_END_AMPLITUDES.size)
+        assertEquals("exerciseSummary arrays length", WearHaptics.EXERCISE_SUMMARY_TIMINGS.size, WearHaptics.EXERCISE_SUMMARY_AMPLITUDES.size)
+        assertEquals("workoutComplete arrays length", WearHaptics.WORKOUT_COMPLETE_TIMINGS.size, WearHaptics.WORKOUT_COMPLETE_AMPLITUDES.size)
+        assertEquals("bezelStep arrays length", WearHaptics.BEZEL_STEP_TIMINGS.size, WearHaptics.BEZEL_STEP_AMPLITUDES.size)
+        assertEquals("fieldToggle arrays length", WearHaptics.FIELD_TOGGLE_TIMINGS.size, WearHaptics.FIELD_TOGGLE_AMPLITUDES.size)
+        assertEquals("warning arrays length", WearHaptics.WARNING_TIMINGS.size, WearHaptics.WARNING_AMPLITUDES.size)
     }
 
     @Test

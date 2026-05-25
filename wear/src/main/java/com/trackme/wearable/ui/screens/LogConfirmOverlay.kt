@@ -17,9 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -90,7 +88,7 @@ fun LogConfirmOverlay(
     )
 
     // Track cumulative vertical drag for swipe-down detection
-    var dragAccumY by remember { mutableFloatStateOf(0f) }
+    val dragAccumY = remember { floatArrayOf(0f) }
 
     Box(
         modifier = Modifier
@@ -104,14 +102,15 @@ fun LogConfirmOverlay(
             }
             .pointerInput(onCancel) {
                 detectDragGestures(
-                    onDragStart = { dragAccumY = 0f },
+                    onDragStart = { dragAccumY[0] = 0f },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        dragAccumY += dragAmount.y
+                        dragAccumY[0] += dragAmount.y
                         // Convert dp threshold to pixels using density
                         val thresholdPx = SWIPE_DOWN_THRESHOLD_DP * density
-                        if (dragAccumY > thresholdPx) {
-                            dragAccumY = 0f
+                        if (dragAccumY[0] > thresholdPx) {
+                            dragAccumY[0] = 0f
+                            WearHaptics.warning(context)
                             onCancel()
                         }
                     },

@@ -71,13 +71,14 @@ object WearHaptics {
     // ── Internal dispatcher ────────────────────────────────────────────────
 
     private fun vibrate(context: Context, timings: LongArray, amplitudes: IntArray) {
+        val appContext = context.applicationContext
         val effect = VibrationEffect.createWaveform(timings, amplitudes, /* repeat= */ -1)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            val manager = appContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
             manager?.defaultVibrator?.vibrate(effect)
         } else {
             @Suppress("DEPRECATION")
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            val vibrator = appContext.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             @Suppress("DEPRECATION")
             vibrator?.vibrate(effect)
         }
