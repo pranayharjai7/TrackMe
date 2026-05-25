@@ -71,7 +71,7 @@ class WorkoutStateSync(
         const val SYNC_DEBOUNCE_MS = 5_000L
     }
 
-    private var lastSyncStateAt = 0L
+    @Volatile private var lastSyncStateAt = 0L
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
