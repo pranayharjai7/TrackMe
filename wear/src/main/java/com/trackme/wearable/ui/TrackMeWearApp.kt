@@ -19,11 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,29 +46,14 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.itemsIndexed
 import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
-import androidx.wear.compose.navigation.SwipeDismissableNavHost
-import androidx.wear.compose.navigation.composable
-import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import com.trackme.wearable.designsystem.WearGradientBackground
 import com.trackme.wearable.ui.navigation.WearNavGraph
-import com.trackme.wearable.ui.screens.WearHomeScreen
 import com.trackme.wearable.viewmodel.LoggerField
 import com.trackme.wearable.viewmodel.WearSessionViewModel
 import com.trackme.wearable.viewmodel.WearUiState
 import com.trackme.wearbridge.LoggingTypePayload
 import com.trackme.wearbridge.SessionExercisePayload
 import com.trackme.wearbridge.SessionStatePayload
-
-private object WearRoutes {
-    const val Home = "home"
-    const val Overview = "overview"
-    const val Logger = "logger"
-    const val Rest = "rest"
-    const val Detail = "detail"
-    const val Exercises = "exercises"
-}
 
 @Composable
 fun TrackMeWearApp(viewModel: WearSessionViewModel) {
