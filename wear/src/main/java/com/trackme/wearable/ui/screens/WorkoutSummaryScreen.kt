@@ -76,7 +76,7 @@ fun WorkoutSummaryScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // ── Headline ──────────────────────────────────────────────────────────
-        item {
+        item(key = "headline") {
             Text(
                 text = "✓ WORKOUT COMPLETE",
                 color = WearColors.Warning,
@@ -90,7 +90,7 @@ fun WorkoutSummaryScreen(
         }
 
         // ── Stats card ────────────────────────────────────────────────────────
-        item {
+        item(key = "stats_card") {
             WearGlassCard(modifier = Modifier.fillMaxWidth()) {
                 StatRow(
                     label = "Duration",
@@ -114,10 +114,10 @@ fun WorkoutSummaryScreen(
             }
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        item(key = "gap") { Spacer(Modifier.height(8.dp)) }
 
         // ── Dismiss button ────────────────────────────────────────────────────
-        item {
+        item(key = "dismiss") {
             WearPillButton(
                 text = "Dismiss",
                 onClick = onDismiss,

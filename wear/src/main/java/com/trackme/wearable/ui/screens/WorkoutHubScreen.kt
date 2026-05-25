@@ -54,18 +54,18 @@ fun WorkoutHubScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // ── Connectivity status chip ──────────────────────────────────────────
-        item {
+        item(key = "status_chip") {
             WearStatusChip(
                 offline = uiState.offline,
                 queuedCount = uiState.queuedCount,
             )
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        item(key = "gap_1") { Spacer(Modifier.height(8.dp)) }
 
         if (session != null) {
             // ── Active session info ───────────────────────────────────────────
-            item {
+            item(key = "session_card") {
                 WearGlassCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = session.exerciseName,
@@ -99,9 +99,9 @@ fun WorkoutHubScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(8.dp)) }
+            item(key = "gap_2") { Spacer(Modifier.height(8.dp)) }
 
-            item {
+            item(key = "continue_btn") {
                 WearPillButton(
                     text = "Continue Workout",
                     onClick = onStartWorkout,
@@ -111,7 +111,7 @@ fun WorkoutHubScreen(
             }
         } else {
             // ── No active session ─────────────────────────────────────────────
-            item {
+            item(key = "no_session_text") {
                 Text(
                     text = "Start a workout on your phone",
                     color = WearColors.TextSecondary,
@@ -125,7 +125,7 @@ fun WorkoutHubScreen(
 
             val bpm = uiState.health.heartRateBpm?.toInt()
             if (bpm != null) {
-                item {
+                item(key = "idle_hr") {
                     Text(
                         text = "♥ $bpm bpm",
                         color = WearColors.Signal,
@@ -137,10 +137,10 @@ fun WorkoutHubScreen(
             }
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        item(key = "gap_3") { Spacer(Modifier.height(8.dp)) }
 
         // ── Refresh button ────────────────────────────────────────────────────
-        item {
+        item(key = "refresh_btn") {
             WearPillButton(
                 text = "Refresh",
                 onClick = onRefresh,
@@ -149,10 +149,10 @@ fun WorkoutHubScreen(
             )
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        item(key = "gap_4") { Spacer(Modifier.height(8.dp)) }
 
         // ── Health Connect setup ──────────────────────────────────────────────
-        item {
+        item(key = "hc_btn") {
             WearPillButton(
                 text = "Health Connect",
                 onClick = onSetupHealthConnect,
