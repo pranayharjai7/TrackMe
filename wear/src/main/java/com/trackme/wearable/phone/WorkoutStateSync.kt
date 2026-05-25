@@ -38,8 +38,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -68,6 +66,12 @@ class WorkoutStateSync(
     val lastPhoneEventIndex: StateFlow<Long> = _lastPhoneEventIndex.asStateFlow()
 
     val queuedCount = actionStore.queuedCount
+
+    companion object {
+        const val SYNC_DEBOUNCE_MS = 5_000L
+    }
+
+    private var lastSyncStateAt = 0L
 
     fun start() {
         if (!started.compareAndSet(false, true)) return
@@ -144,6 +148,9 @@ class WorkoutStateSync(
     }
 
     suspend fun sendSyncState() {
+        val now = System.currentTimeMillis()
+        if (now - lastSyncStateAt < SYNC_DEBOUNCE_MS) return
+        lastSyncStateAt = now
         val localNode = connectionManager.localNode()
         val payload = SyncStatePayload(
             sessionId = _sessionState.value?.sessionId.orEmpty(),
@@ -218,7 +225,9 @@ class WorkoutStateSync(
     }
 
     private suspend fun sendToPhone(path: String, payload: ByteArray): Boolean {
-        val nodes = connectionManager.resolvePhoneNodes()
+        val nodes = connectionManager.peerNodes.value.ifEmpty {
+            connectionManager.resolvePhoneNodes()
+        }
         if (nodes.isEmpty()) {
             Log.w(WearPaths.LOG_TAG, "Watch send skipped for $path: no connected phone nodes")
             return false
@@ -238,11 +247,11 @@ class WorkoutStateSync(
         return delivered
     }
 
-    private suspend fun nextLocalEventIndex(): Long {
-        val next = dataStore.data.map { it[localEventIndexKey] ?: 0L }.first() + 1L
-        dataStore.edit { it[localEventIndexKey] = next }
-        return next
-    }
+    private suspend fun nextLocalEventIndex(): Long =
+        dataStore.updateData { prefs ->
+            val next = (prefs[localEventIndexKey] ?: 0L) + 1L
+            prefs.toMutablePreferences().apply { set(localEventIndexKey, next) }
+        }[localEventIndexKey] ?: 1L
 
     private fun WorkoutStatePayload.toSessionState(): SessionStatePayload =
         SessionStatePayload(
