@@ -305,6 +305,7 @@ data class RecentWorkoutPayload(
 
 @Serializable
 data class DayPayload(
+    val schemaVersion: Int = WearProtocol.SCHEMA_VERSION,
     val workoutName: String,
     val exerciseCount: Int,
     val readinessScore: Int,
