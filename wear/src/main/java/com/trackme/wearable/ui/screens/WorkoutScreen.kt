@@ -152,7 +152,7 @@ fun WorkoutScreen(
             }
         }
 
-        // Long-press controls overlay
+        // Layer 4: long-press controls overlay (sits above everything including ambient)
         if (showControls) {
             WorkoutControlsOverlay(
                 onEnd = {
