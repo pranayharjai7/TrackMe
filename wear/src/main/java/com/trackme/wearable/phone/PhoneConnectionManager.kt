@@ -48,10 +48,20 @@ class PhoneConnectionManager(private val context: Context) : CapabilityClient.On
             WearNodeDiscovery.ensureLocalCapability(appContext, WearPaths.CAPABILITY_WATCH)
         }
         capabilityClient.addListener(this, WearPaths.CAPABILITY_PHONE)
-        scope.launch {
-            refresh()
-            while (true) {
-                delay(10_000)
+        scope.launch { pollWhileDisconnected() }
+    }
+
+    private suspend fun pollWhileDisconnected() {
+        refresh()
+        var backoffMs = 10_000L
+        while (true) {
+            if (_connectionState.value !is PhoneConnectionState.Connected) {
+                delay(backoffMs)
+                refresh()
+                backoffMs = (backoffMs * 1.5).toLong().coerceAtMost(60_000L)
+            } else {
+                backoffMs = 10_000L
+                delay(30_000L)
                 refresh()
             }
         }
