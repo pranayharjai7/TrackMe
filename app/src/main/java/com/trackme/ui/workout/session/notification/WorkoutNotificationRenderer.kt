@@ -17,17 +17,14 @@ import com.trackme.ui.workout.session.WorkoutSessionService
 class WorkoutNotificationRenderer(
     private val context: Context,
 ) {
-    private var lastModel: WorkoutNotificationModel? = null
-    private var collapsedViews: RemoteViews? = null
-    private var expandedViews: RemoteViews? = null
-
     fun buildNotification(
         model: WorkoutNotificationModel,
         channelId: String,
         ongoing: Boolean = true,
     ): android.app.Notification {
-        ensureViews()
-        applyModel(model)
+        val collapsed = RemoteViews(context.packageName, R.layout.notification_workout_collapsed)
+        val expanded = RemoteViews(context.packageName, R.layout.notification_workout_expanded)
+        applyModel(collapsed, expanded, model)
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -42,8 +39,8 @@ class WorkoutNotificationRenderer(
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification_workout)
             .setColor(ContextCompat.getColor(context, R.color.notification_accent))
-            .setCustomContentView(collapsedViews)
-            .setCustomBigContentView(expandedViews)
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(expanded)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(ongoing)
             .setOnlyAlertOnce(true)
@@ -85,9 +82,7 @@ class WorkoutNotificationRenderer(
     }
 
     fun reset() {
-        lastModel = null
-        collapsedViews = null
-        expandedViews = null
+        // No-op: RemoteViews are no longer cached to prevent TransactionTooLargeException
     }
 
     private fun attachSystemActions(
@@ -125,81 +120,54 @@ class WorkoutNotificationRenderer(
         }
     }
 
-    private fun ensureViews() {
-        if (collapsedViews == null) {
-            collapsedViews = RemoteViews(context.packageName, R.layout.notification_workout_collapsed)
-        }
-        if (expandedViews == null) {
-            expandedViews = RemoteViews(context.packageName, R.layout.notification_workout_expanded)
-        }
-    }
-
-    private fun applyModel(model: WorkoutNotificationModel) {
-        val collapsed = collapsedViews ?: return
-        val expanded = expandedViews ?: return
-        val previous = lastModel
+    private fun applyModel(
+        collapsed: RemoteViews,
+        expanded: RemoteViews,
+        model: WorkoutNotificationModel,
+    ) {
         val plan = model.displayPlan
         val isResting = model.notificationState == WorkoutNotificationState.RESTING
 
-        applyDisplayPlan(collapsed, expanded, model, previous)
+        applyDisplayPlan(collapsed, expanded, model)
 
-        if (previous?.currentExerciseName != model.currentExerciseName) {
-            collapsed.setTextViewText(R.id.tv_exercise_title, model.currentExerciseName)
-            expanded.setTextViewText(R.id.tv_exercise_hero, model.currentExerciseName)
-        }
+        collapsed.setTextViewText(R.id.tv_exercise_title, model.currentExerciseName)
+        expanded.setTextViewText(R.id.tv_exercise_hero, model.currentExerciseName)
 
         val collapsedMeta = if (plan.collapsedInlineRestTimer) {
             "Rest · ${model.currentExerciseName}"
         } else {
             model.statusLine
         }
-        if (previous?.statusLine != model.statusLine || previous.displayPlan != plan) {
-            collapsed.setTextViewText(R.id.tv_set_meta, collapsedMeta)
-            expanded.setTextViewText(R.id.tv_set_badge, model.statusLine)
-        }
+        collapsed.setTextViewText(R.id.tv_set_meta, collapsedMeta)
+        expanded.setTextViewText(R.id.tv_set_badge, model.statusLine)
 
         val timerPillText = if (plan.collapsedInlineRestTimer) {
             WorkoutNotificationStateMapper.formatRestTime(model.restSecondsRemaining)
         } else {
             model.elapsedFormatted
         }
-        if (previous?.elapsedFormatted != model.elapsedFormatted ||
-            previous?.restSecondsRemaining != model.restSecondsRemaining ||
-            previous?.displayPlan != plan
-        ) {
-            collapsed.setTextViewText(R.id.tv_elapsed_time, timerPillText)
-            expanded.setTextViewText(R.id.tv_elapsed_duration, timerPillText)
+        collapsed.setTextViewText(R.id.tv_elapsed_time, timerPillText)
+        expanded.setTextViewText(R.id.tv_elapsed_duration, timerPillText)
 
-            val timerColor = when {
-                plan.collapsedInlineRestTimer && model.isRestUrgent ->
-                    R.color.notification_rest_urgent
-                plan.collapsedInlineRestTimer -> R.color.notification_blue
-                else -> R.color.notification_violet
-            }
-            val color = ContextCompat.getColor(context, timerColor)
-            collapsed.setTextColor(R.id.tv_elapsed_time, color)
-            expanded.setTextColor(R.id.tv_elapsed_duration, color)
+        val timerColor = when {
+            plan.collapsedInlineRestTimer && model.isRestUrgent ->
+                R.color.notification_rest_urgent
+            plan.collapsedInlineRestTimer -> R.color.notification_blue
+            else -> R.color.notification_violet
         }
+        val color = ContextCompat.getColor(context, timerColor)
+        collapsed.setTextColor(R.id.tv_elapsed_time, color)
+        expanded.setTextColor(R.id.tv_elapsed_duration, color)
 
-        if (previous?.statusIconRes != model.statusIconRes) {
-            collapsed.setImageViewResource(R.id.iv_status_icon, model.statusIconRes)
-            expanded.setImageViewResource(R.id.iv_expanded_status_icon, model.statusIconRes)
-        }
+        collapsed.setImageViewResource(R.id.iv_status_icon, model.statusIconRes)
+        expanded.setImageViewResource(R.id.iv_expanded_status_icon, model.statusIconRes)
 
-        if (previous?.workoutProgressPercent != model.workoutProgressPercent ||
-            previous?.restProgressPercent != model.restProgressPercent
-        ) {
-            val collapsedProgress = if (isResting) model.restProgressPercent else model.workoutProgressPercent
-            collapsed.setProgressBar(R.id.pb_session_progress, 100, collapsedProgress, false)
-            expanded.setProgressBar(R.id.pb_workout_progress, 100, model.workoutProgressPercent, false)
-            expanded.setProgressBar(R.id.pb_rest_progress, 100, model.restProgressPercent, false)
-        }
+        val collapsedProgress = if (isResting) model.restProgressPercent else model.workoutProgressPercent
+        collapsed.setProgressBar(R.id.pb_session_progress, 100, collapsedProgress, false)
+        expanded.setProgressBar(R.id.pb_workout_progress, 100, model.workoutProgressPercent, false)
+        expanded.setProgressBar(R.id.pb_rest_progress, 100, model.restProgressPercent, false)
 
-        if (isResting && (
-                previous?.restSecondsRemaining != model.restSecondsRemaining ||
-                    previous?.isRestUrgent != model.isRestUrgent
-                )
-        ) {
+        if (isResting) {
             val restTime = WorkoutNotificationStateMapper.formatRestTime(model.restSecondsRemaining)
             expanded.setTextViewText(R.id.tv_rest_timer_display, restTime)
             expanded.setTextColor(
@@ -211,41 +179,29 @@ class WorkoutNotificationRenderer(
             )
         }
 
-        if (previous?.contextLine != model.contextLine) {
-            expanded.setTextViewText(R.id.tv_context_line, model.contextLine)
-        }
+        expanded.setTextViewText(R.id.tv_context_line, model.contextLine)
 
-        if (previous?.quickWeight != model.quickWeight || previous?.quickReps != model.quickReps) {
-            expanded.setTextViewText(
-                R.id.tv_weight_val,
-                WorkoutNotificationStateMapper.formatWeight(model.quickWeight),
-            )
-            expanded.setTextViewText(R.id.tv_reps_val, model.quickReps.toString())
-        }
+        expanded.setTextViewText(
+            R.id.tv_weight_val,
+            WorkoutNotificationStateMapper.formatWeight(model.quickWeight),
+        )
+        expanded.setTextViewText(R.id.tv_reps_val, model.quickReps.toString())
 
-        if (previous?.primaryActionLabel != model.primaryActionLabel ||
-            previous?.primaryAction != model.primaryAction
-        ) {
-            expanded.setTextViewText(R.id.btn_expanded_primary, model.primaryActionLabel)
-            expanded.setOnClickPendingIntent(
-                R.id.btn_expanded_primary,
-                actionPendingIntent(model.primaryAction),
-            )
-        }
+        expanded.setTextViewText(R.id.btn_expanded_primary, model.primaryActionLabel)
+        expanded.setOnClickPendingIntent(
+            R.id.btn_expanded_primary,
+            actionPendingIntent(model.primaryAction),
+        )
 
-        applyCollapsedAction(collapsed, model, previous)
+        applyCollapsedAction(collapsed, model)
         bindHiddenActionIntents(expanded, model)
-        lastModel = model
     }
 
     private fun applyDisplayPlan(
         collapsed: RemoteViews,
         expanded: RemoteViews,
         model: WorkoutNotificationModel,
-        previous: WorkoutNotificationModel?,
     ) {
-        if (previous?.displayPlan == model.displayPlan) return
-
         val plan = model.displayPlan
         collapsed.setViewVisibility(
             R.id.pb_session_progress,
@@ -281,24 +237,17 @@ class WorkoutNotificationRenderer(
     private fun applyCollapsedAction(
         collapsed: RemoteViews,
         model: WorkoutNotificationModel,
-        previous: WorkoutNotificationModel?,
     ) {
         if (!model.displayPlan.collapsedShowAction) return
 
         val (label, action) = collapsedAction(model)
-        if (
-            previous?.showCollapsedStart != model.showCollapsedStart ||
-            previous.showCollapsedComplete != model.showCollapsedComplete ||
-            previous.showCollapsedSkipRest != model.showCollapsedSkipRest
-        ) {
-            collapsed.setTextViewText(R.id.tv_collapsed_action, label)
-            collapsed.setOnClickPendingIntent(R.id.tv_collapsed_action, actionPendingIntent(action))
-            val bg = when {
-                model.showCollapsedSkipRest && model.isRestUrgent -> R.drawable.notification_chip_danger
-                else -> R.drawable.notification_chip_primary
-            }
-            collapsed.setInt(R.id.tv_collapsed_action, "setBackgroundResource", bg)
+        collapsed.setTextViewText(R.id.tv_collapsed_action, label)
+        collapsed.setOnClickPendingIntent(R.id.tv_collapsed_action, actionPendingIntent(action))
+        val bg = when {
+            model.showCollapsedSkipRest && model.isRestUrgent -> R.drawable.notification_chip_danger
+            else -> R.drawable.notification_chip_primary
         }
+        collapsed.setInt(R.id.tv_collapsed_action, "setBackgroundResource", bg)
     }
 
     private fun collapsedAction(model: WorkoutNotificationModel): Pair<String, String> = when {
