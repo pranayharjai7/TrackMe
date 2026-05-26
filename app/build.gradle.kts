@@ -9,6 +9,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
+    id("com.google.firebase.firebase-perf")
 }
 
 android {
@@ -55,7 +56,10 @@ android {
 }
 
 dependencies {
+    implementation("com.google.firebase:firebase-ai:17.12.0")
+    implementation("com.google.firebase:firebase-analytics:23.2.0")
     implementation("com.google.firebase:firebase-crashlytics:20.0.6")
+    implementation("com.google.firebase:firebase-perf:22.0.5")
     wearApp(project(":wear"))
     implementation(project(":wear-bridge"))
 
@@ -75,8 +79,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.4")
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.52")
-    ksp("com.google.dagger:hilt-android-compiler:2.52")
+    implementation("com.google.dagger:hilt-android:2.58")
+    ksp("com.google.dagger:hilt-android-compiler:2.58")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
     implementation("androidx.hilt:hilt-work:1.2.0")
     ksp("androidx.hilt:hilt-compiler:1.2.0")
