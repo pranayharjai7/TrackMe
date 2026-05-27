@@ -1,6 +1,7 @@
 package com.trackme.wearable.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,14 +63,27 @@ internal fun Int.zoneColor(): Color = when (this) {
 // ---------------------------------------------------------------------------
 
 @Composable
-fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
+fun HrZonesPage(
+    heartRateBpm: Double?,
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false,
+) {
+    val focusRequester = remember { FocusRequester() }
     val bpm   = heartRateBpm?.toInt()
     val zone  = bpm?.let { hrToZone(it) } ?: 0
     val color = zone.zoneColor()
 
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            focusRequester.requestFocus()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -98,43 +118,32 @@ fun HrZonesPage(heartRateBpm: Double?, modifier: Modifier = Modifier) {
 
         Spacer(Modifier.height(12.dp))
 
-        // HR Zone bars — 5 bars, active zone highlighted
-        HrZoneBars(activeZone = zone)
+        // HR Zone bars — horizontal 5-segment color bar
+        HrZoneBarsHorizontal(activeZone = zone)
     }
 }
 
 @Composable
-private fun HrZoneBars(activeZone: Int) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth(),
+private fun HrZoneBarsHorizontal(activeZone: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         (1..5).forEach { zoneNumber ->
-            val zoneAccent = zoneNumber.zoneColor()
+            val zoneColor = zoneNumber.zoneColor()
             val isActive = zoneNumber == activeZone
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "$zoneNumber",
-                    color = if (isActive) zoneAccent else WearColors.TextMuted,
-                    fontSize = 9.sp,
-                    modifier = Modifier.padding(end = 2.dp),
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .background(
-                            color = if (isActive) zoneAccent else zoneAccent.copy(alpha = 0.25f),
-                        )
-                )
-            }
+                    .weight(1f)
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        color = if (isActive) zoneColor else zoneColor.copy(alpha = 0.15f),
+                    )
+            )
         }
     }
 }

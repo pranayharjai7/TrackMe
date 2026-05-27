@@ -61,7 +61,7 @@ internal fun sendMediaKey(context: Context, keyCode: Int) {
 // ---------------------------------------------------------------------------
 
 @Composable
-fun MediaPage(modifier: Modifier = Modifier) {
+fun MediaPage(modifier: Modifier = Modifier, isActive: Boolean = false) {
     val context      = LocalContext.current
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
@@ -73,7 +73,11 @@ fun MediaPage(modifier: Modifier = Modifier) {
     val focusRequester = remember { FocusRequester() }
     val rotaryAccumulator = remember { floatArrayOf(0f) }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            focusRequester.requestFocus()
+        }
+    }
 
     Column(
         modifier = modifier

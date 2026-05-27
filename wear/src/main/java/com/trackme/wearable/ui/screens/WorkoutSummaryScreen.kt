@@ -3,6 +3,7 @@ package com.trackme.wearable.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -29,6 +31,7 @@ import androidx.wear.compose.material3.Text
 import com.trackme.wearable.designsystem.WearColors
 import com.trackme.wearable.haptics.WearHaptics
 import com.trackme.wearable.viewmodel.WearUiState
+import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------------------
 // Pure formatting helpers (tested in WorkoutSummaryScreenTest)
@@ -69,6 +72,7 @@ fun WorkoutSummaryScreen(
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
     val session = uiState.session
     val health = uiState.health
 
@@ -83,7 +87,10 @@ fun WorkoutSummaryScreen(
             .background(WearColors.Black)
             .focusRequester(focusRequester)
             .focusable()
-            .onRotaryScrollEvent { _ ->
+            .onRotaryScrollEvent { event ->
+                coroutineScope.launch {
+                    scrollState.scrollBy(event.verticalScrollPixels)
+                }
                 true
             }
             .verticalScroll(scrollState)

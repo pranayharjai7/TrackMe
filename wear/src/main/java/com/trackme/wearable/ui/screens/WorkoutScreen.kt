@@ -74,18 +74,25 @@ fun WorkoutScreen(
         // Layer 1: horizontal context pages
         HorizontalPager(state = pagerState) { page ->
             when (page) {
-                PAGE_HR     -> HrZonesPage(heartRateBpm = heartRateBpm)
+                PAGE_HR     -> HrZonesPage(
+                    heartRateBpm = heartRateBpm,
+                    isActive = pagerState.currentPage == PAGE_HR && uiState.workoutScreenState == WorkoutScreenState.ACTIVE_SET
+                )
                 PAGE_ACTIVE -> ActiveSetScreen(
                     uiState       = uiState,
                     onTap         = onTap,
                     onAdjustField = onAdjustField,
                     onToggleField = onToggleField,
+                    isActive = pagerState.currentPage == PAGE_ACTIVE && uiState.workoutScreenState == WorkoutScreenState.ACTIVE_SET
                 )
                 PAGE_MUSCLE -> MuscleMapPage(
                     muscle        = sessionMuscle,
                     exerciseName  = sessionExerciseName,
+                    isActive = pagerState.currentPage == PAGE_MUSCLE && uiState.workoutScreenState == WorkoutScreenState.ACTIVE_SET
                 )
-                PAGE_MEDIA  -> MediaPage()
+                PAGE_MEDIA  -> MediaPage(
+                    isActive = pagerState.currentPage == PAGE_MEDIA && uiState.workoutScreenState == WorkoutScreenState.ACTIVE_SET
+                )
                 else        -> Box(modifier = Modifier.fillMaxSize())
             }
         }
@@ -110,7 +117,8 @@ fun WorkoutScreen(
                     nextExerciseName = uiState.session?.nextExerciseName,
                     heartRateBpm     = uiState.health.heartRateBpm,
                     onEndRest        = { viewModel.endRest() },
-                    onAdjustRestTime = { delta -> viewModel.adjustRestTime(delta * 15) }
+                    onAdjustRestTime = { delta -> viewModel.adjustRestTime(delta * 15) },
+                    isActive         = uiState.workoutScreenState == WorkoutScreenState.RESTING
                 )
                 WorkoutScreenState.EXERCISE_SUMMARY -> ExerciseSummaryScreen(
                     uiState = uiState,

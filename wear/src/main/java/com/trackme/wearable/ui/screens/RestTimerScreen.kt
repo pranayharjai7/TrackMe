@@ -73,7 +73,8 @@ fun RestTimerScreen(
     heartRateBpm: Double?,
     onEndRest: () -> Unit,
     onAdjustRestTime: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false,
 ) {
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
@@ -83,7 +84,16 @@ fun RestTimerScreen(
     val progress = restProgress(remaining, total)
 
     // Request focus for rotary input
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    // Fire rest start haptic once when rest screen is entered
+    LaunchedEffect(Unit) {
+        WearHaptics.restStart(context)
+    }
 
     // Haptic feedback when timer hits exactly zero
     LaunchedEffect(remaining) {
