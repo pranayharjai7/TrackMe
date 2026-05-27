@@ -1994,7 +1994,7 @@ fun InteractiveWeeklyVolumeCard(weeklyVolume: List<Pair<String, Float>>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp),
+                    .height(140.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -2023,7 +2023,6 @@ fun InteractiveWeeklyVolumeCard(weeklyVolume: List<Pair<String, Float>>) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .weight(1f)
-                            .scale(animatedScale)
                             .clickable {
                                 selectedWeekIdx = if (isSelected) null else index
                             }
@@ -2032,13 +2031,15 @@ fun InteractiveWeeklyVolumeCard(weeklyVolume: List<Pair<String, Float>>) {
                             text = if (vol > 0) "${(vol / 1000).toInt()}k" else "-",
                             color = if (isSelected) Teal else Color.White.copy(alpha = 0.6f),
                             fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.scale(animatedScale)
                         )
                         Spacer(Modifier.height(6.dp))
                         Box(
                             modifier = Modifier
                                 .height(80.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .scale(animatedScale),
                             contentAlignment = Alignment.BottomCenter
                         ) {
                             Box(
