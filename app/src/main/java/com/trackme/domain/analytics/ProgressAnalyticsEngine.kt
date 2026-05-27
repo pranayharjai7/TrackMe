@@ -605,7 +605,15 @@ class ProgressAnalyticsEngine @Inject constructor(
         )
 
         // Delegate to original simple engines to preserve legacy fields
-        val legacyReadiness = readinessCalculator.calculate(healthHistory, healthHistory.firstOrNull { startOfLocalDayMillis(it.dateMillis) == startOfLocalDayMillis(now) })
+        // Find today's health snapshot for readiness. HRV/RHR are recorded overnight, so if today's
+        // exact snapshot is missing (e.g., sync hasn't run yet this morning), fall back to the
+        // most recent snapshot from the last 48 hours as a readiness proxy.
+        val twoDaysAgoMillis = now - 2L * 24L * 60L * 60L * 1000L
+        val todayHealthSnapshot = healthHistory.firstOrNull { startOfLocalDayMillis(it.dateMillis) == startOfLocalDayMillis(now) }
+            ?: healthHistory
+                .filter { it.dateMillis >= twoDaysAgoMillis }
+                .maxByOrNull { it.dateMillis }
+        val legacyReadiness = readinessCalculator.calculate(healthHistory, todayHealthSnapshot)
         val legacyProjections = strengthProjectionsList.take(5).map { proj ->
             OneRMProjection(
                 exerciseId = proj.exerciseId,

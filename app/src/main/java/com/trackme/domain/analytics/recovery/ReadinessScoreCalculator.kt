@@ -46,11 +46,29 @@ class ReadinessScoreCalculator {
         val baselineHrv = if (validHrvs.isNotEmpty()) validHrvs.average().toFloat() else null
         val baselineRhr = if (validRhrs.isNotEmpty()) validRhrs.average().toFloat() else null
 
+        // HRV is typically recorded overnight (during sleep) and may not appear in today's snapshot
+        // until after the sleep session is processed. Fall back to the most recent HRV from the
+        // last 3 days of history before flagging it as missing.
+        val recentHrv: Float? = (todayMetric.hrvRmssd?.takeIf { it > 0 })
+            ?: historicalMetrics
+                .sortedByDescending { it.dateMillis }
+                .take(3)
+                .mapNotNull { it.hrvRmssd }
+                .firstOrNull { it > 0 }
+
+        // RHR follows the same pattern — measured during resting periods and may lag behind.
+        val recentRhr: Int? = (todayMetric.restingHeartRate?.takeIf { it > 0 })
+            ?: historicalMetrics
+                .sortedByDescending { it.dateMillis }
+                .take(2)
+                .mapNotNull { it.restingHeartRate }
+                .firstOrNull { it > 0 }
+
         // 2. Compute Deviations
         var hrvDeviation = 0f
         var hasHrv = false
-        if (baselineHrv != null && todayMetric.hrvRmssd != null && todayMetric.hrvRmssd > 0) {
-            hrvDeviation = (todayMetric.hrvRmssd - baselineHrv) / baselineHrv
+        if (baselineHrv != null && recentHrv != null) {
+            hrvDeviation = (recentHrv - baselineHrv) / baselineHrv
             hasHrv = true
         } else {
             missingFlags.add("Missing HRV data")
@@ -58,8 +76,8 @@ class ReadinessScoreCalculator {
 
         var rhrDeviation = 0f
         var hasRhr = false
-        if (baselineRhr != null && todayMetric.restingHeartRate != null && todayMetric.restingHeartRate > 0) {
-            rhrDeviation = (baselineRhr - todayMetric.restingHeartRate) / baselineRhr
+        if (baselineRhr != null && recentRhr != null) {
+            rhrDeviation = (baselineRhr - recentRhr) / baselineRhr
             hasRhr = true
         } else {
             missingFlags.add("Missing RHR data")
