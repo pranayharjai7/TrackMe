@@ -202,18 +202,14 @@ class ProgressAnalyticsEngine @Inject constructor(
         }
 
         // --- MODULE 2: Muscle Growth Saturation Index ---
-        // Chronological calculation from week 11 down to 0 starting at baseline index loaded from DataStore (defaulting to 100.0)
+        // Chronological calculation from week 11 down to 0 starting at baseline of 100.0f.
+        // We do not load today's accumulated final index from the DataStore as the starting point for week 11
+        // to avoid double-counting feedback loops. Instead, we always simulate progressive growth
+        // from a clean baseline of 100.0f over the user's recent training history.
         val muscleGrowthIndices = ALL_MUSCLES.associateWith { 100.0f }.toMutableMap()
-        try {
-            val prefs = dataStore.data.first()
-            for (muscle in ALL_MUSCLES) {
-                val savedValue = prefs[floatPreferencesKey("muscle_index_${muscle.lowercase()}")]
-                if (savedValue != null) {
-                    muscleGrowthIndices[muscle] = savedValue
-                }
-            }
-        } catch (e: Exception) {
-            // Fallback to baseline of 100.0f
+        val intermediateGrowthIndices = mutableMapOf<Int, MutableMap<String, Float>>()
+        for (w in 0..11) {
+            intermediateGrowthIndices[w] = mutableMapOf()
         }
 
         for (w in (0..11).reversed()) {
@@ -230,6 +226,7 @@ class ProgressAnalyticsEngine @Inject constructor(
                 // index_next = index_current * (1 + growth_rate_adjusted)
                 val nextIndex = currentIndex * (1.0f + growthRateAdjusted)
                 muscleGrowthIndices[muscle] = nextIndex
+                intermediateGrowthIndices[w]?.put(muscle, nextIndex)
             }
         }
 
@@ -663,7 +660,7 @@ class ProgressAnalyticsEngine @Inject constructor(
             val weeklyEntities = mutableListOf<MuscleWeeklyAnalyticsEntity>()
             for (w in 0..11) {
                 for (muscle in ALL_MUSCLES) {
-                    val growthIndex = muscleGrowthIndices[muscle] ?: 100.0f
+                    val growthIndex = intermediateGrowthIndices[w]?.get(muscle) ?: 100.0f
                     val stimulus = weeklyStimulusHistory[w]?.get(muscle) ?: 0.0f
                     val fatigue = if (w == 0) (muscleFatigueMap[muscle.uppercase()]?.fatiguePercentage?.toFloat() ?: 0.0f) else 0.0f
 
