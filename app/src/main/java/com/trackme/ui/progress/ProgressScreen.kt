@@ -1508,10 +1508,11 @@ fun StrengthForecastChartCard(
                         .shadow(
                             elevation = 16.dp,
                             shape = RoundedCornerShape(12.dp),
-                            clip = false,
+                            clip = true,
                             ambientColor = Color.Black,
                             spotColor = Color.Black
                         )
+                        .background(SurfaceVariant, RoundedCornerShape(12.dp))
                         .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                 ) {
                     if (exerciseOptions.size > 4) {
