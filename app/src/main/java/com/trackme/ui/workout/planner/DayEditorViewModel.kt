@@ -10,7 +10,7 @@ import com.trackme.domain.usecase.AddExerciseToDayUseCase
 import com.trackme.domain.usecase.ObservePlannedExercisesWithDetailsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import kotlinx.coroutines.*

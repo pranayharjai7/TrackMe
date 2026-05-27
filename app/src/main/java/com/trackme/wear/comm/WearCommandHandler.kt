@@ -13,7 +13,7 @@ import com.trackme.wearbridge.SwitchDirection
 import com.trackme.wearbridge.WatchCommandPayload
 import com.trackme.wearbridge.WatchCommandType
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay

@@ -8,7 +8,7 @@ import com.trackme.data.local.entity.PendingDeletionEntity
 import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton

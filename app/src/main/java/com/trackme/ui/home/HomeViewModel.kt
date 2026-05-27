@@ -11,8 +11,8 @@ import com.trackme.domain.usecase.GetHealthSnapshotsUseCase
 import com.trackme.domain.usecase.GetWorkoutForDateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.SessionStatus
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -113,7 +113,7 @@ class HomeViewModel @Inject constructor(
         Triple(status, selectedDate, visibleMonth)
     }.flatMapLatest { (status, selectedDate, visibleMonth) ->
         val session = (status as? SessionStatus.Authenticated)?.session
-            ?: return@flatMapLatest flowOf(HomeUiState(isLoading = status is SessionStatus.LoadingFromStorage))
+            ?: return@flatMapLatest flowOf(HomeUiState(isLoading = status is SessionStatus.Initializing))
 
         val uid = session.user?.id.orEmpty()
         if (uid.isEmpty()) return@flatMapLatest flowOf(HomeUiState(isLoading = false))

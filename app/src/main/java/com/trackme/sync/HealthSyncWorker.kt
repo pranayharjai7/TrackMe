@@ -9,7 +9,7 @@ import com.trackme.domain.repository.HealthRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import java.util.concurrent.TimeUnit
 
 /**

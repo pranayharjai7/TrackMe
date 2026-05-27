@@ -21,7 +21,7 @@ import com.trackme.wearbridge.DayPayload
 import com.trackme.wearbridge.RecentWorkoutPayload
 import com.trackme.wearbridge.SetLogPayload
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import com.trackme.wearbridge.SyncEventsPayload
 import com.trackme.wearbridge.SyncStatePayload
 import com.trackme.wearbridge.WatchActionPayload

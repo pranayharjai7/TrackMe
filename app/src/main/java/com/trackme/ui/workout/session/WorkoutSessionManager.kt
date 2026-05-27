@@ -21,7 +21,7 @@ import com.trackme.ui.onboarding.DEFAULT_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import com.trackme.utils.startOfTodayMillis
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject

@@ -9,7 +9,7 @@ import com.trackme.ui.workout.session.WorkoutSessionService
 import com.trackme.utils.startOfTodayMillis
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope

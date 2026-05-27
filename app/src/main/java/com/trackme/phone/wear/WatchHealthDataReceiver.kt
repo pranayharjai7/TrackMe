@@ -9,7 +9,7 @@ import com.trackme.wearbridge.HealthMetricsPayload
 import com.trackme.wearbridge.WearPaths
 import com.trackme.wearbridge.WearProtocol
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton

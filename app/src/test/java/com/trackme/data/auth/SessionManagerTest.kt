@@ -9,10 +9,10 @@ import com.trackme.domain.usecase.ClearLocalUserDataUseCase
 import com.trackme.sync.SyncManager
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.Auth
-import io.github.jan.supabase.gotrue.SessionStatus
-import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.user.UserSession
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
 import io.mockk.*
@@ -77,7 +77,7 @@ class SessionManagerTest {
         Dispatchers.setMain(testDispatcher)
 
         // Mock Static Extensions for Supabase Client
-        mockkStatic("io.github.jan.supabase.gotrue.AuthKt")
+        mockkStatic("io.github.jan.supabase.auth.AuthKt")
         mockkStatic("io.github.jan.supabase.postgrest.PostgrestKt")
 
         val realSupabase = createSupabaseClient("https://example.supabase.co", "dummy") {

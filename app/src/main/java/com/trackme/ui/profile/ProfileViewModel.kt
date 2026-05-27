@@ -19,7 +19,7 @@ import com.trackme.ui.onboarding.PREF_INPUT_STYLE
 import com.trackme.ui.onboarding.PREF_USE_KG
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject

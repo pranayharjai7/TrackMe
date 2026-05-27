@@ -7,8 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.trackme.ui.onboarding.PREF_ONBOARDING_DONE
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.SessionStatus
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
@@ -36,7 +36,7 @@ class NavViewModel @Inject constructor(
     ) { onboardingDone, sessionStatus ->
         when {
             !onboardingDone -> Routes.Auth.route
-            sessionStatus is SessionStatus.LoadingFromStorage -> null
+            sessionStatus is SessionStatus.Initializing -> null
             sessionStatus is SessionStatus.Authenticated -> Routes.Home.route
             else -> Routes.Auth.route
         }

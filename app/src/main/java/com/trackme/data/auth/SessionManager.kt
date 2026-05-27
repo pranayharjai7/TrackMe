@@ -10,7 +10,7 @@ import com.trackme.domain.usecase.ClearLocalUserDataUseCase
 import com.trackme.sync.SyncManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.*
