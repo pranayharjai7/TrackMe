@@ -108,6 +108,9 @@ class ProgressAnalyticsEngine @Inject constructor(
         val validatedWorkouts = workoutHistory.filter { it.dateMillis > 0 && it.exercises.isNotEmpty() }
         val validatedHealth = healthHistory.filter { it.dateMillis > 0 }
 
+        val latestHealth = validatedHealth.maxByOrNull { it.dateMillis }
+        val userWeight = latestHealth?.weightKg ?: 70.0f // Fallback standard
+
         val latestWorkoutTime = validatedWorkouts.maxOfOrNull { it.dateMillis } ?: 0L
         val latestHealthTime = validatedHealth.maxOfOrNull { it.dateMillis } ?: 0L
 
@@ -165,7 +168,7 @@ class ProgressAnalyticsEngine @Inject constructor(
             }
         }
 
-        val allMappedSets = allMappedExercises.filter { it.weightKg > 0 && it.reps > 0 }
+        val allMappedSets = allMappedExercises.filter { it.reps > 0 }
 
         // --- MODULE 1: Deterministic Exercise Muscle Map Mapping & Weekly Stimulus ---
         val now = System.currentTimeMillis()
@@ -189,7 +192,8 @@ class ProgressAnalyticsEngine @Inject constructor(
                     val normalizedMuscle = muscle.lowercase().trim()
                     if (normalizedMuscle in ALL_MUSCLES) {
                         // Calibrated Stimulus Formula: stimulus = weight * reps * muscle_weight * (1 + reps / 30)
-                        val setStimulus = set.weightKg * set.reps * weight * (1.0f + set.reps / 30.0f)
+                        val effectiveWeight = if (set.weightKg > 0f) set.weightKg else userWeight
+                        val setStimulus = effectiveWeight * set.reps * weight * (1.0f + set.reps / 30.0f)
                         val currentStim = weeklyStimulusHistory[weekOffset]?.get(normalizedMuscle) ?: 0.0f
                         weeklyStimulusHistory[weekOffset]?.put(normalizedMuscle, currentStim + setStimulus)
                     }
@@ -246,7 +250,8 @@ class ProgressAnalyticsEngine @Inject constructor(
                 if (muscleWeight > 0.0f) {
                     val dtHours = (now - set.dateMillis).toFloat() / (60.0f * 60.0f * 1000.0f)
                     // set_fatigue = weight * reps * fatigue_factor
-                    val setFatigue = set.weightKg * set.reps * FATIGUE_FACTOR * muscleWeight
+                    val effectiveWeight = if (set.weightKg > 0f) set.weightKg else userWeight
+                    val setFatigue = effectiveWeight * set.reps * FATIGUE_FACTOR * muscleWeight
                     // fatigue_remaining = fatigue_set * e^(-t / tau)
                     val fatigueRemaining = setFatigue * Math.exp(-dtHours.toDouble() / tau.toDouble()).toFloat()
                     fatigueTotal += fatigueRemaining
@@ -285,7 +290,10 @@ class ProgressAnalyticsEngine @Inject constructor(
                 .filter { it.key in 0..11 }
                 .mapNotNull { (weekOffset, weekSets) ->
                     // Epley: 1RM = weight * (1 + reps / 30)
-                    val max1RM = weekSets.maxOfOrNull { s -> s.weightKg * (1.0f + s.reps.toFloat() / 30.0f) }
+                    val max1RM = weekSets.maxOfOrNull { s ->
+                        val effectiveWeight = if (s.weightKg > 0f) s.weightKg else userWeight
+                        effectiveWeight * (1.0f + s.reps.toFloat() / 30.0f)
+                    }
                     if (max1RM != null) {
                         val midWeekTime = now - (weekOffset.toLong() * MILLIS_PER_WEEK) - (3.5 * MILLIS_PER_DAY).toLong()
                         Pair(midWeekTime, max1RM)
@@ -355,8 +363,6 @@ class ProgressAnalyticsEngine @Inject constructor(
         }
 
         // --- MODULE 5: Daily Energy Expenditure (TDEE) ---
-        val latestHealth = validatedHealth.maxByOrNull { it.dateMillis }
-        val userWeight = latestHealth?.weightKg ?: 70.0f // Fallback standard
         val userHeight = latestHealth?.heightCm ?: 175.0f // Fallback standard
         
         // Mifflin-St Jeor BMR: BMR = 10 * weight + 6.25 * height - 120 (Assuming age 25, male standard)
@@ -370,7 +376,10 @@ class ProgressAnalyticsEngine @Inject constructor(
         // Today's Lifting volume in kg
         val todayStart = startOfLocalDayMillis(now)
         val todaySets = allMappedSets.filter { it.dateMillis >= todayStart }
-        val todayVolumeKg = todaySets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
+        val todayVolumeKg = todaySets.sumOf { s ->
+            val effectiveWeight = if (s.weightKg > 0f) s.weightKg else userWeight
+            (effectiveWeight * s.reps).toDouble()
+        }.toFloat()
         // Lifting Calories: calories_lifting = volume_kg * 0.04
         val liftingCalories = todayVolumeKg * 0.04f
         
@@ -470,8 +479,14 @@ class ProgressAnalyticsEngine @Inject constructor(
             val thisWeekSets = sets.filter { it.dateMillis >= now - MILLIS_PER_WEEK }
             val sixWeeksAgoSets = sets.filter { it.dateMillis in (now - 7 * MILLIS_PER_WEEK)..(now - 5 * MILLIS_PER_WEEK) }
             
-            val maxThisWeek = thisWeekSets.maxOfOrNull { s -> s.weightKg * (1.0f + s.reps.toFloat() / 30.0f) }
-            val maxSixWeeksAgo = sixWeeksAgoSets.maxOfOrNull { s -> s.weightKg * (1.0f + s.reps.toFloat() / 30.0f) }
+            val maxThisWeek = thisWeekSets.maxOfOrNull { s ->
+                val effectiveWeight = if (s.weightKg > 0f) s.weightKg else userWeight
+                effectiveWeight * (1.0f + s.reps.toFloat() / 30.0f)
+            }
+            val maxSixWeeksAgo = sixWeeksAgoSets.maxOfOrNull { s ->
+                val effectiveWeight = if (s.weightKg > 0f) s.weightKg else userWeight
+                effectiveWeight * (1.0f + s.reps.toFloat() / 30.0f)
+            }
             
             if (maxThisWeek != null && maxSixWeeksAgo != null && maxSixWeeksAgo > 0.0f) {
                 val improvement = (maxThisWeek - maxSixWeeksAgo) / maxSixWeeksAgo
@@ -559,7 +574,10 @@ class ProgressAnalyticsEngine @Inject constructor(
             val weekStart = now - ((w + 1) * MILLIS_PER_WEEK)
             val weekEnd = now - (w * MILLIS_PER_WEEK)
             val weekSets = allMappedSets.filter { it.dateMillis in (weekStart + 1)..weekEnd }
-            val weekVolume = weekSets.sumOf { (it.weightKg * it.reps).toDouble() }.toFloat()
+            val weekVolume = weekSets.sumOf { s ->
+                val effectiveWeight = if (s.weightKg > 0f) s.weightKg else userWeight
+                (effectiveWeight * s.reps).toDouble()
+            }.toFloat()
             val labelDate = Date(weekStart)
             weeklyVolumeList.add(Pair(sdf.format(labelDate), weekVolume))
         }

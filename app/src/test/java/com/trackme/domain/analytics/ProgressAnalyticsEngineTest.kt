@@ -2,6 +2,7 @@ package com.trackme.domain.analytics
 
 import com.trackme.domain.analytics.models.HealthMetricsData
 import com.trackme.domain.analytics.models.WorkoutSessionAnalyticsData
+import com.trackme.domain.analytics.models.ExerciseAnalyticsData
 import com.trackme.domain.analytics.muscle.MuscleFatigueCalculator
 import com.trackme.domain.analytics.performance.OneRMProjectionEngine
 import com.trackme.domain.analytics.performance.PlateauDetector
@@ -60,5 +61,71 @@ class ProgressAnalyticsEngineTest {
 
         // Assert cache miss / strictly isolated sandbox
         assertNotSame(resultA1, resultB)
+    }
+
+    @Test
+    fun `abdominal exercises are tracked and update the progress state`() = runBlocking {
+        val userId = "test_user_progress"
+        val now = System.currentTimeMillis()
+
+        // Mock exerciseRepository to return the crunch detail with abdominals target
+        val mockExercise = com.trackme.domain.model.Exercise(
+            id = "crunch",
+            name = "Ab Crunch",
+            category = "Strength",
+            primaryMuscles = listOf("abdominals"),
+            secondaryMuscles = emptyList(),
+            equipment = "body only",
+            instructions = emptyList(),
+            gifUrl = "",
+            youtubeQuery = ""
+        )
+        io.mockk.coEvery { exerciseRepository.getByIds(any()) } returns mapOf("crunch" to mockExercise)
+
+        // 1. Create a workout session with an abdominal exercise
+        val absExercise = ExerciseAnalyticsData(
+            setId = "set_crunch_1",
+            exerciseId = "crunch",
+            name = "Ab Crunch",
+            dateMillis = now,
+            targetMuscles = listOf("abdominals"),
+            weightKg = 0f, // Bodyweight
+            reps = 15,
+            durationSeconds = null
+        )
+        
+        val workout = WorkoutSessionAnalyticsData(
+            sessionId = "session_abs",
+            dateMillis = now,
+            durationMinutes = 30,
+            totalVolumeKg = 0f,
+            exercises = listOf(absExercise)
+        )
+
+        // Health metrics with bodyweight 80 kg
+        val health = listOf(
+            HealthMetricsData(
+                dateMillis = now,
+                hrvRmssd = 60f,
+                restingHeartRate = 60,
+                sleepDurationMinutes = 480,
+                deepSleepMinutes = 100,
+                weightKg = 80f,
+                heightCm = 180f
+            )
+        )
+
+        val result = engine.computeAnalytics(userId, listOf(workout), health, forceRecompute = true)
+        
+        // Assert that abdominals has a stimulus and development update
+        val absDev = result.fullAnalytics?.muscleDevelopment?.firstOrNull { it.muscleGroup == "ABDOMINALS" }
+        assert(absDev != null)
+        assert(absDev!!.stimulusThisWeek > 0f)
+        assert(absDev!!.growthIndex > 100f)
+        assert(absDev!!.percentageGrowth > 0f)
+        
+        val absHeatmap = result.fullAnalytics?.stimulusHeatmap?.firstOrNull { it.muscleGroup == "ABDOMINALS" }
+        assert(absHeatmap != null)
+        assert(absHeatmap!!.stimulus > 0f)
     }
 }

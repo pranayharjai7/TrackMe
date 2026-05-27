@@ -16,16 +16,20 @@ class MuscleFatigueCalculator {
         
         // Dynamic recovery clear times per muscle group (in hours)
         private val MUSCLE_RECOVERY_HOURS = mapOf(
-            "QUADS" to 84f,
+            "QUADRICEPS" to 84f,
             "GLUTES" to 84f,
             "CHEST" to 60f,
-            "BACK" to 60f,
+            "LATS" to 60f,
+            "MIDDLE BACK" to 60f,
+            "LOWER BACK" to 60f,
             "HAMSTRINGS" to 60f,
             "BICEPS" to 36f,
             "TRICEPS" to 36f,
             "SHOULDERS" to 36f,
             "CALVES" to 36f,
-            "ABS" to 36f
+            "ABDOMINALS" to 36f,
+            "FOREARMS" to 36f,
+            "TRAPS" to 36f
         )
         
         private const val DEFAULT_RECOVERY_HOURS = 48f
@@ -46,10 +50,11 @@ class MuscleFatigueCalculator {
         for (session in relevantSessions) {
             for (exercise in session.exercises) {
                 // Safeguard against invalid reps/weight
-                if (exercise.weightKg <= 0f || exercise.reps <= 0) continue
+                if (exercise.reps <= 0) continue
 
                 // Approximate volume for this exercise: Weight * Reps
-                val volume = exercise.weightKg * exercise.reps
+                val effectiveWeight = if (exercise.weightKg > 0f) exercise.weightKg else 70f
+                val volume = effectiveWeight * exercise.reps
 
                 // Distribute volume evenly across target muscles
                 if (exercise.targetMuscles.isNotEmpty()) {

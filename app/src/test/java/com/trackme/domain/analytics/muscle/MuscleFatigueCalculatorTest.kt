@@ -50,4 +50,67 @@ class MuscleFatigueCalculatorTest {
         val fatigue2HL = result2HalfLifes["CHEST"]?.fatiguePercentage ?: 0
         assertEquals(10, fatigue2HL)
     }
+
+    @Test
+    fun `bodyweight exercises generate fatigue correctly using fallback weight`() {
+        val now = System.currentTimeMillis()
+        val absExercise = ExerciseAnalyticsData(
+            setId = "set_2",
+            exerciseId = "crunch",
+            name = "Ab Crunch",
+            dateMillis = now,
+            targetMuscles = listOf("abdominals"),
+            weightKg = 0f, // Bodyweight
+            reps = 15,
+            durationSeconds = null
+        )
+        
+        val workout = WorkoutSessionAnalyticsData(
+            sessionId = "session_2",
+            dateMillis = now,
+            durationMinutes = 30,
+            totalVolumeKg = 0f,
+            exercises = listOf(absExercise)
+        )
+
+        val result = calculator.calculate(listOf(workout), now)
+        val fatigueAbs = result["ABDOMINALS"]?.fatiguePercentage ?: 0
+        
+        // Volume calculation: 70kg effective weight * 15 reps = 1050kg.
+        // Fatigue percentage: 1050kg / 5000kg max baseline = 21% fatigue.
+        assertEquals(21, fatigueAbs)
+    }
+
+    @Test
+    fun `muscle recovery clear times are mapped correctly using dynamic group recovery hours`() {
+        val now = System.currentTimeMillis()
+        val absExercise = ExerciseAnalyticsData(
+            setId = "set_3",
+            exerciseId = "crunch",
+            name = "Ab Crunch",
+            dateMillis = now,
+            targetMuscles = listOf("abdominals"),
+            weightKg = 0f,
+            reps = 15,
+            durationSeconds = null
+        )
+        
+        val workout = WorkoutSessionAnalyticsData(
+            sessionId = "session_3",
+            dateMillis = now,
+            durationMinutes = 30,
+            totalVolumeKg = 0f,
+            exercises = listOf(absExercise)
+        )
+
+        val resultImmediate = calculator.calculate(listOf(workout), now)
+        val fatigueImmediate = resultImmediate["ABDOMINALS"]?.fatiguePercentage ?: 0
+        assertEquals(21, fatigueImmediate)
+
+        // Clear time for ABDOMINALS is 36 hours. Half-life = 36 / 4 = 9 hours.
+        // At 9 hours elapsed, fatigue should drop by half: 21% * 0.5 = 10%
+        val result9hLater = calculator.calculate(listOf(workout), now + (9 * 60 * 60 * 1000L))
+        val fatigue9h = result9hLater["ABDOMINALS"]?.fatiguePercentage ?: 0
+        assertEquals(10, fatigue9h)
+    }
 }
