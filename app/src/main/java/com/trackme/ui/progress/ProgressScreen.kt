@@ -5,6 +5,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +30,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
+import kotlin.math.absoluteValue
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -990,9 +994,625 @@ fun MuscleSymmetryScaleCard(balance: MuscleBalanceInfo) {
     }
 }
 
+private data class MusclePath2D(
+    val muscleName: String,
+    val isLeft: Boolean,
+    val hitPolygon: List<Offset>,
+    val drawAction: Path.() -> Unit
+)
+
+
+private fun Path.drawBodySilhouette() {
+    // Start at head top
+    moveTo(0f, -145f)
+    // Head left side
+    cubicTo(-10f, -145f, -10f, -115f, 0f, -115f)
+    // Neck left side
+    lineTo(-6f, -115f)
+    quadraticTo(-7f, -108f, -9f, -102f)
+    // Traps left
+    lineTo(-28f, -94f)
+    // Shoulder left
+    cubicTo(-38f, -92f, -44f, -82f, -40f, -70f)
+    // Upper arm outer left
+    cubicTo(-44f, -60f, -46f, -50f, -44f, -38f)
+    // Forearm outer left
+    cubicTo(-48f, -25f, -46f, -10f, -38f, 5f)
+    // Hand left
+    cubicTo(-40f, 10f, -38f, 18f, -34f, 18f)
+    cubicTo(-30f, 18f, -32f, 10f, -34f, 5f)
+    // Forearm inner left
+    lineTo(-30f, -38f)
+    // Torso outer left (lat flare)
+    lineTo(-26f, -62f)
+    cubicTo(-28f, -48f, -24f, -25f, -17f, 15f)
+    // Hip / Outer Quad left
+    cubicTo(-21f, 30f, -24f, 60f, -17f, 105f)
+    // Calf outer left
+    cubicTo(-21f, 125f, -18f, 145f, -10f, 172f)
+    // Foot left
+    cubicTo(-12f, 176f, -8f, 180f, -4f, 180f)
+    cubicTo(-2f, 180f, -4f, 174f, -5f, 172f)
+    // Calf inner left
+    lineTo(-7f, 105f)
+    // Inner thigh left
+    lineTo(-2f, 45f)
+    // Crotch/Groin
+    lineTo(0f, 45f)
+    // Inner thigh right
+    lineTo(2f, 45f)
+    // Calf inner right
+    lineTo(7f, 105f)
+    // Foot right
+    cubicTo(4f, 174f, 2f, 180f, 4f, 180f)
+    cubicTo(8f, 180f, 12f, 176f, 10f, 172f)
+    // Calf outer right
+    cubicTo(18f, 145f, 21f, 125f, 17f, 105f)
+    // Hip / Outer Quad right
+    cubicTo(24f, 60f, 21f, 30f, 17f, 15f)
+    // Torso outer right (lat flare)
+    cubicTo(24f, -25f, 28f, -48f, 26f, -62f)
+    // Forearm inner right
+    lineTo(30f, -38f)
+    // Hand right
+    lineTo(34f, 5f)
+    cubicTo(32f, 10f, 30f, 18f, 34f, 18f)
+    cubicTo(38f, 18f, 40f, 10f, 38f, 5f)
+    // Forearm outer right
+    cubicTo(46f, -10f, 48f, -25f, 44f, -38f)
+    // Bicep/Tricep outer right
+    cubicTo(46f, -50f, 44f, -60f, 40f, -70f)
+    // Shoulder right
+    cubicTo(44f, -82f, 38f, -92f, 28f, -94f)
+    // Traps right
+    lineTo(9f, -102f)
+    // Neck right side
+    quadraticTo(7f, -108f, 6f, -115f)
+    lineTo(0f, -115f)
+    // Head right side
+    cubicTo(10f, -115f, 10f, -145f, 0f, -145f)
+    close()
+}
+
+private val frontMusclePaths = listOf(
+    // Traps
+    MusclePath2D(
+        "TRAPS", false,
+        listOf(Offset(-8f, -112f), Offset(-28f, -94f), Offset(-8f, -100f)),
+        {
+            moveTo(-8f, -112f)
+            quadraticTo(-18f, -108f, -28f, -94f)
+            lineTo(-8f, -100f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "TRAPS", true,
+        listOf(Offset(8f, -112f), Offset(28f, -94f), Offset(8f, -100f)),
+        {
+            moveTo(8f, -112f)
+            quadraticTo(18f, -108f, 28f, -94f)
+            lineTo(8f, -100f)
+            close()
+        }
+    ),
+    // Shoulders
+    MusclePath2D(
+        "SHOULDERS", false,
+        listOf(Offset(-28f, -94f), Offset(-40f, -70f), Offset(-26f, -76f)),
+        {
+            moveTo(-28f, -94f)
+            cubicTo(-34f, -92f, -40f, -84f, -40f, -70f)
+            cubicTo(-38f, -60f, -32f, -64f, -26f, -76f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "SHOULDERS", true,
+        listOf(Offset(28f, -94f), Offset(40f, -70f), Offset(26f, -76f)),
+        {
+            moveTo(28f, -94f)
+            cubicTo(34f, -92f, 40f, -84f, 40f, -70f)
+            cubicTo(38f, -60f, 32f, -64f, 26f, -76f)
+            close()
+        }
+    ),
+    // Chest
+    MusclePath2D(
+        "CHEST", false,
+        listOf(Offset(-2f, -95f), Offset(-27f, -90f), Offset(-26f, -64f), Offset(-2f, -64f)),
+        {
+            moveTo(-2f, -95f)
+            cubicTo(-12f, -95f, -22f, -92f, -27f, -90f)
+            cubicTo(-26f, -78f, -28f, -68f, -26f, -64f)
+            cubicTo(-18f, -62f, -8f, -62f, -2f, -64f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "CHEST", true,
+        listOf(Offset(2f, -95f), Offset(27f, -90f), Offset(26f, -64f), Offset(2f, -64f)),
+        {
+            moveTo(2f, -95f)
+            cubicTo(14f, -95f, 24f, -92f, 28f, -90f)
+            cubicTo(26f, -78f, 28f, -68f, 26f, -64f)
+            cubicTo(18f, -62f, 8f, -62f, 2f, -64f)
+            close()
+        }
+    ),
+    // Abs
+    MusclePath2D(
+        "ABDOMINALS", false,
+        listOf(Offset(-2f, -62f), Offset(-15f, -60f), Offset(-14f, 18f), Offset(-2f, 20f)),
+        {
+            // Upper pack
+            moveTo(-3f, -58f)
+            lineTo(-14f, -56f)
+            lineTo(-13f, -42f)
+            lineTo(-3f, -42f)
+            close()
+            // Middle pack
+            moveTo(-3f, -38f)
+            lineTo(-13f, -38f)
+            lineTo(-13f, -24f)
+            lineTo(-3f, -24f)
+            close()
+            // Lower pack
+            moveTo(-3f, -20f)
+            lineTo(-13f, -20f)
+            lineTo(-12f, 15f)
+            lineTo(-3f, 16f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "ABDOMINALS", true,
+        listOf(Offset(2f, -62f), Offset(15f, -60f), Offset(14f, 18f), Offset(2f, 20f)),
+        {
+            // Upper pack
+            moveTo(3f, -58f)
+            lineTo(14f, -56f)
+            lineTo(13f, -42f)
+            lineTo(3f, -42f)
+            close()
+            // Middle pack
+            moveTo(3f, -38f)
+            lineTo(13f, -38f)
+            lineTo(13f, -24f)
+            lineTo(3f, -24f)
+            close()
+            // Lower pack
+            moveTo(3f, -20f)
+            lineTo(13f, -20f)
+            lineTo(12f, 15f)
+            lineTo(3f, 16f)
+            close()
+        }
+    ),
+    // Biceps
+    MusclePath2D(
+        "BICEPS", false,
+        listOf(Offset(-26f, -76f), Offset(-32f, -42f), Offset(-24f, -52f), Offset(-24f, -62f)),
+        {
+            moveTo(-26f, -76f)
+            cubicTo(-30f, -70f, -34f, -55f, -32f, -42f)
+            cubicTo(-28f, -44f, -24f, -52f, -24f, -62f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "BICEPS", true,
+        listOf(Offset(26f, -76f), Offset(32f, -42f), Offset(24f, -52f), Offset(24f, -62f)),
+        {
+            moveTo(26f, -76f)
+            cubicTo(30f, -70f, 34f, -55f, 32f, -42f)
+            cubicTo(28f, -44f, 24f, -52f, 24f, -62f)
+            close()
+        }
+    ),
+    // Triceps
+    MusclePath2D(
+        "TRICEPS", false,
+        listOf(Offset(-36f, -72f), Offset(-42f, -38f), Offset(-32f, -42f)),
+        {
+            moveTo(-36f, -72f)
+            cubicTo(-42f, -68f, -44f, -52f, -42f, -38f)
+            lineTo(-32f, -42f)
+            cubicTo(-34f, -55f, -30f, -70f, -26f, -76f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "TRICEPS", true,
+        listOf(Offset(36f, -72f), Offset(42f, -38f), Offset(32f, -42f)),
+        {
+            moveTo(36f, -72f)
+            cubicTo(42f, -68f, 44f, -52f, 42f, -38f)
+            lineTo(32f, -42f)
+            cubicTo(34f, -55f, 30f, -70f, 26f, -76f)
+            close()
+        }
+    ),
+    // Forearms
+    MusclePath2D(
+        "FOREARMS", false,
+        listOf(Offset(-32f, -42f), Offset(-42f, -38f), Offset(-36f, 3f), Offset(-28f, -5f)),
+        {
+            moveTo(-32f, -42f)
+            lineTo(-42f, -38f)
+            cubicTo(-46f, -20f, -42f, -5f, -36f, 3f)
+            lineTo(-28f, -5f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "FOREARMS", true,
+        listOf(Offset(32f, -42f), Offset(42f, -38f), Offset(36f, 3f), Offset(28f, -5f)),
+        {
+            moveTo(32f, -42f)
+            lineTo(42f, -38f)
+            cubicTo(46f, -20f, 42f, -5f, 36f, 3f)
+            lineTo(28f, -5f)
+            close()
+        }
+    ),
+    // Lats
+    MusclePath2D(
+        "LATS", false,
+        listOf(Offset(-26f, -64f), Offset(-28f, -48f), Offset(-16f, -25f), Offset(-15f, -60f)),
+        {
+            moveTo(-26f, -64f)
+            cubicTo(-28f, -48f, -24f, -35f, -16f, -25f)
+            lineTo(-15f, -60f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "LATS", true,
+        listOf(Offset(26f, -64f), Offset(28f, -48f), Offset(16f, -25f), Offset(15f, -60f)),
+        {
+            moveTo(26f, -64f)
+            cubicTo(28f, -48f, 22f, -35f, 16f, -25f)
+            lineTo(15f, -60f)
+            close()
+        }
+    ),
+    // Quads
+    MusclePath2D(
+        "QUADRICEPS", false,
+        listOf(Offset(-21f, 44f), Offset(-17f, 105f), Offset(-7f, 105f), Offset(-4f, 42f)),
+        {
+            // Outer quad sweep
+            moveTo(-6f, 43f)
+            cubicTo(-8f, 65f, -9f, 85f, -7f, 105f)
+            lineTo(-17f, 105f)
+            cubicTo(-23f, 85f, -25f, 65f, -21f, 44f)
+            close()
+            // Vastus medialis (Teardrop)
+            moveTo(-3f, 45f)
+            lineTo(-5f, 85f)
+            lineTo(-7f, 105f)
+            lineTo(-3f, 105f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "QUADRICEPS", true,
+        listOf(Offset(21f, 44f), Offset(17f, 105f), Offset(7f, 105f), Offset(4f, 42f)),
+        {
+            // Outer quad sweep
+            moveTo(6f, 43f)
+            cubicTo(8f, 65f, 9f, 85f, 7f, 105f)
+            lineTo(17f, 105f)
+            cubicTo(23f, 85f, 25f, 65f, 21f, 44f)
+            close()
+            // Vastus medialis (Teardrop)
+            moveTo(3f, 45f)
+            lineTo(5f, 85f)
+            lineTo(7f, 105f)
+            lineTo(3f, 105f)
+            close()
+        }
+    ),
+    // Calves
+    MusclePath2D(
+        "CALVES", false,
+        listOf(Offset(-17f, 105f), Offset(-21f, 130f), Offset(-10f, 172f), Offset(-7f, 105f)),
+        {
+            moveTo(-17f, 105f)
+            cubicTo(-21f, 125f, -18f, 145f, -10f, 172f)
+            lineTo(-5f, 172f)
+            cubicTo(-7f, 145f, -8f, 125f, -7f, 105f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "CALVES", true,
+        listOf(Offset(17f, 105f), Offset(21f, 130f), Offset(10f, 172f), Offset(7f, 105f)),
+        {
+            moveTo(16f, 105f)
+            cubicTo(21f, 125f, 18f, 145f, 10f, 172f)
+            lineTo(5f, 172f)
+            cubicTo(7f, 145f, 8f, 125f, 7f, 105f)
+            close()
+        }
+    )
+)
+
+private val backMusclePaths = listOf(
+    // Traps (Back)
+    MusclePath2D(
+        "TRAPS", false,
+        listOf(Offset(-8f, -112f), Offset(-28f, -94f), Offset(-2f, -50f), Offset(-2f, -100f)),
+        {
+            moveTo(-8f, -112f)
+            quadraticTo(-18f, -108f, -28f, -94f)
+            lineTo(-2f, -50f)
+            lineTo(-2f, -100f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "TRAPS", true,
+        listOf(Offset(8f, -112f), Offset(28f, -94f), Offset(2f, -50f), Offset(2f, -100f)),
+        {
+            moveTo(8f, -112f)
+            quadraticTo(18f, -108f, 28f, -94f)
+            lineTo(2f, -50f)
+            lineTo(2f, -100f)
+            close()
+        }
+    ),
+    // Shoulders (Back)
+    MusclePath2D(
+        "SHOULDERS", false,
+        listOf(Offset(-28f, -94f), Offset(-40f, -70f), Offset(-26f, -76f)),
+        {
+            moveTo(-28f, -94f)
+            cubicTo(-34f, -92f, -40f, -84f, -40f, -70f)
+            cubicTo(-38f, -60f, -32f, -64f, -26f, -76f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "SHOULDERS", true,
+        listOf(Offset(28f, -94f), Offset(40f, -70f), Offset(26f, -76f)),
+        {
+            moveTo(28f, -94f)
+            cubicTo(34f, -92f, 40f, -84f, 40f, -70f)
+            cubicTo(38f, -60f, 32f, -64f, 26f, -76f)
+            close()
+        }
+    ),
+    // Triceps (Back)
+    MusclePath2D(
+        "TRICEPS", false,
+        listOf(Offset(-26f, -76f), Offset(-32f, -42f), Offset(-42f, -38f), Offset(-38f, -70f)),
+        {
+            moveTo(-26f, -76f)
+            cubicTo(-30f, -70f, -34f, -55f, -32f, -42f)
+            cubicTo(-40f, -38f, -42f, -50f, -38f, -70f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "TRICEPS", true,
+        listOf(Offset(26f, -76f), Offset(32f, -42f), Offset(42f, -38f), Offset(38f, -70f)),
+        {
+            moveTo(26f, -76f)
+            cubicTo(30f, -70f, 34f, -55f, 32f, -42f)
+            cubicTo(40f, -38f, 42f, -50f, 38f, -70f)
+            close()
+        }
+    ),
+    // Forearms (Back)
+    MusclePath2D(
+        "FOREARMS", false,
+        listOf(Offset(-32f, -42f), Offset(-42f, -38f), Offset(-36f, 3f), Offset(-28f, -5f)),
+        {
+            moveTo(-32f, -42f)
+            lineTo(-42f, -38f)
+            cubicTo(-46f, -20f, -42f, -5f, -36f, 3f)
+            lineTo(-28f, -5f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "FOREARMS", true,
+        listOf(Offset(32f, -42f), Offset(42f, -38f), Offset(36f, 3f), Offset(28f, -5f)),
+        {
+            moveTo(32f, -42f)
+            lineTo(42f, -38f)
+            cubicTo(46f, -20f, 42f, -5f, 36f, 3f)
+            lineTo(28f, -5f)
+            close()
+        }
+    ),
+    // Middle Back
+    MusclePath2D(
+        "MIDDLE BACK", false,
+        listOf(Offset(-2f, -90f), Offset(-26f, -78f), Offset(-15f, -40f), Offset(-2f, -40f)),
+        {
+            moveTo(-2f, -90f)
+            lineTo(-26f, -78f)
+            lineTo(-15f, -40f)
+            lineTo(-2f, -40f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "MIDDLE BACK", true,
+        listOf(Offset(2f, -90f), Offset(26f, -78f), Offset(15f, -40f), Offset(2f, -40f)),
+        {
+            moveTo(2f, -90f)
+            lineTo(26f, -78f)
+            lineTo(15f, -40f)
+            lineTo(2f, -40f)
+            close()
+        }
+    ),
+    // Lats (Back)
+    MusclePath2D(
+        "LATS", false,
+        listOf(Offset(-26f, -78f), Offset(-20f, -35f), Offset(-12f, -22f), Offset(-4f, -58f)),
+        {
+            moveTo(-26f, -78f)
+            cubicTo(-28f, -55f, -24f, -35f, -16f, -22f)
+            lineTo(-2f, -40f)
+            lineTo(-15f, -40f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "LATS", true,
+        listOf(Offset(25f, -78f), Offset(20f, -35f), Offset(12f, -22f), Offset(4f, -58f)),
+        {
+            moveTo(26f, -78f)
+            cubicTo(28f, -55f, 24f, -35f, 16f, -22f)
+            lineTo(2f, -40f)
+            lineTo(15f, -40f)
+            close()
+        }
+    ),
+    // Lower Back
+    MusclePath2D(
+        "LOWER BACK", false,
+        listOf(Offset(-2f, -40f), Offset(-15f, -40f), Offset(-12f, 12f), Offset(-2f, 12f)),
+        {
+            moveTo(-2f, -40f)
+            lineTo(-15f, -40f)
+            lineTo(-12f, 12f)
+            lineTo(-2f, 12f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "LOWER BACK", true,
+        listOf(Offset(2f, -40f), Offset(15f, -40f), Offset(12f, 12f), Offset(2f, 12f)),
+        {
+            moveTo(2f, -40f)
+            lineTo(15f, -40f)
+            lineTo(12f, 12f)
+            lineTo(2f, 12f)
+            close()
+        }
+    ),
+    // Glutes (Back)
+    MusclePath2D(
+        "GLUTES", false,
+        listOf(Offset(-2f, 12f), Offset(-21f, 25f), Offset(-19f, 44f), Offset(-2f, 42f)),
+        {
+            moveTo(-2f, 12f)
+            cubicTo(-14f, 15f, -21f, 25f, -19f, 44f)
+            cubicTo(-15f, 48f, -8f, 48f, -2f, 42f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "GLUTES", true,
+        listOf(Offset(2f, 12f), Offset(21f, 25f), Offset(19f, 44f), Offset(2f, 42f)),
+        {
+            moveTo(2f, 12f)
+            cubicTo(14f, 15f, 21f, 25f, 19f, 44f)
+            cubicTo(16f, 48f, 8f, 48f, 2f, 42f)
+            close()
+        }
+    ),
+    // Hamstrings (Back)
+    MusclePath2D(
+        "HAMSTRINGS", false,
+        listOf(Offset(-19f, 44f), Offset(-16f, 105f), Offset(-7f, 105f), Offset(-2f, 42f)),
+        {
+            moveTo(-19f, 44f)
+            cubicTo(-22f, 75f, -18f, 95f, -16f, 105f)
+            lineTo(-7f, 105f)
+            cubicTo(-8f, 75f, -7f, 50f, -2f, 42f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "HAMSTRINGS", true,
+        listOf(Offset(19f, 44f), Offset(16f, 105f), Offset(7f, 105f), Offset(2f, 42f)),
+        {
+            moveTo(19f, 44f)
+            cubicTo(22f, 75f, 18f, 95f, 16f, 105f)
+            lineTo(7f, 105f)
+            cubicTo(8f, 75f, 7f, 50f, 2f, 42f)
+            close()
+        }
+    ),
+    // Calves (Back)
+    MusclePath2D(
+        "CALVES", false,
+        listOf(Offset(-16f, 105f), Offset(-21f, 130f), Offset(-10f, 172f), Offset(-7f, 105f)),
+        {
+            moveTo(-16f, 105f)
+            cubicTo(-21f, 125f, -18f, 145f, -10f, 172f)
+            lineTo(-5f, 172f)
+            cubicTo(-7f, 145f, -8f, 125f, -7f, 105f)
+            close()
+        }
+    ),
+    MusclePath2D(
+        "CALVES", true,
+        listOf(Offset(16f, 105f), Offset(21f, 130f), Offset(10f, 172f), Offset(7f, 105f)),
+        {
+            moveTo(16f, 105f)
+            cubicTo(21f, 125f, 18f, 145f, 10f, 172f)
+            lineTo(5f, 172f)
+            cubicTo(7f, 145f, 8f, 125f, 7f, 105f)
+            close()
+        }
+    )
+)
+
+private fun isPointInPolygon(px: Float, py: Float, polygonPoints: List<Offset>): Boolean {
+    var isInside = false
+    var j = polygonPoints.size - 1
+    for (i in polygonPoints.indices) {
+        val xi = polygonPoints[i].x
+        val yi = polygonPoints[i].y
+        val xj = polygonPoints[j].x
+        val yj = polygonPoints[j].y
+        
+        val intersect = ((yi > py) != (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi + 1e-6f) + xi)
+        if (intersect) {
+            isInside = !isInside
+        }
+        j = i
+    }
+    return isInside
+}
+
+private fun getMuscleDevelopmentAdvice(muscleGroup: String): String {
+    return when (muscleGroup.lowercase()) {
+        "chest" -> "Target: 8,000 - 12,000 weekly stimulus units. Recovery half-life: 72 hours. Focus on chest press and dumbbell flies for optimal progressive mechanical tension."
+        "lats" -> "Target: 9,000 - 13,000 weekly stimulus units. Recovery half-life: 72 hours. Focus on wide-grip pull-ups and lat pulldowns to maximize lateral width."
+        "middle back" -> "Target: 9,000 - 13,000 weekly stimulus units. Recovery half-life: 72 hours. Program horizontal rows to develop mid-back thickness and improve shoulder posture."
+        "lower back" -> "Target: 9,000 - 13,000 weekly stimulus units. Recovery half-life: 72 hours. Focus on deadlifts and hyperextensions to strengthen the erector spinae."
+        "shoulders" -> "Target: 5,000 - 9,000 weekly stimulus units. Recovery half-life: 60 hours. Train lateral raises and overhead presses to emphasize the medial and anterior deltoids."
+        "biceps" -> "Target: 4,000 - 8,000 weekly stimulus units. Recovery half-life: 60 hours. Focus on incline dumbbell curls and hammer curls for high neurological activation."
+        "triceps" -> "Target: 4,000 - 8,000 weekly stimulus units. Recovery half-life: 60 hours. Emphasize overhead extensions and cable pressdowns to stimulate the lateral and long heads."
+        "forearms" -> "Target: 4,000 - 8,000 weekly stimulus units. Recovery half-life: 36 hours. Program reverse wrist curls and plate pinches to develop grip strength."
+        "traps" -> "Target: 9,000 - 13,000 weekly stimulus units. Recovery half-life: 36 hours. Use heavy dumbbell shrugs and face pulls to target the upper and middle fibers."
+        "quadriceps" -> "Target: 10,000 - 15,000 weekly stimulus units. Recovery half-life: 72 hours. Emphasize squats, leg presses, and leg extensions for high-threshold motor unit recruitment."
+        "hamstrings" -> "Target: 10,000 - 15,000 weekly stimulus units. Recovery half-life: 72 hours. Program Romanian deadlifts and lying leg curls to match quadriceps agonist volume."
+        "glutes" -> "Target: 10,000 - 15,000 weekly stimulus units. Recovery half-life: 60 hours. Focus on hip thrusts and lunges to isolate the gluteus maximus."
+        "calves" -> "Target: 3,000 - 6,000 weekly stimulus units. Recovery half-life: 36 hours. Perform standing and seated calf raises to target the gastrocnemius and soleus."
+        "abdominals" -> "Target: 3,000 - 6,000 weekly stimulus units. Recovery half-life: 60 hours. Focus on weighted crunches and hanging leg raises to overload the rectus abdominis."
+        else -> "Recommended stimulus: 4,000 - 8,000 units. Ensure consistent volume loading with proper recovery intervals."
+    }
+}
+
 @Composable
 fun ExpandableMuscleDevelopmentCard(muscles: List<MuscleDevelopment>) {
     var expanded by remember { mutableStateOf(false) }
+    var selectedMuscleName by remember { mutableStateOf<String?>("CHEST") }
+    var rotationAngle by remember { mutableStateOf(0f) }
+    
+    val activeMuscle = muscles.firstOrNull { it.muscleGroup.uppercase() == selectedMuscleName }
+    val progressValue = activeMuscle?.let { (it.growthIndex - 100f) / 100f } ?: 0f
     
     val sortedMuscles = remember(muscles) { muscles.sortedByDescending { it.growthIndex } }
     
@@ -1022,10 +1642,325 @@ fun ExpandableMuscleDevelopmentCard(muscles: List<MuscleDevelopment>) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "MDI ranges from 100 to a ceiling of 200.",
+                        "Drag horizontally to rotate body. Tap muscles to inspect details.",
                         style = MaterialTheme.typography.bodySmall,
                         color = OnSurfaceMuted
                     )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // 3D Organic Muscular Body Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.02f))
+                    .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                rotationAngle += dragAmount.x * 0.012f
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures { tapOffset ->
+                                val centerX = size.width / 2f
+                                val centerY = size.height / 2f + 10.dp.toPx()
+                                val scale = Math.min(size.width / 160f, size.height / 360f) * 0.9f
+                                
+                                val cosT = Math.cos(rotationAngle.toDouble()).toFloat()
+                                val scaleX = cosT.absoluteValue
+                                val isFront = cosT >= 0f
+                                val activePaths = if (isFront) frontMusclePaths else backMusclePaths
+                                
+                                val dx = tapOffset.x - centerX
+                                val dy = tapOffset.y - centerY
+                                
+                                val localX = if (scaleX > 0.05f) dx / (scale * scaleX) else 0f
+                                val localY = dy / scale
+                                val tappedPoint = Offset(localX, localY)
+                                
+                                val clickedMuscle = activePaths.firstOrNull { item ->
+                                    isPointInPolygon(tappedPoint.x, tappedPoint.y, item.hitPolygon)
+                                }
+                                
+                                if (clickedMuscle != null) {
+                                    selectedMuscleName = clickedMuscle.muscleName.uppercase()
+                                } else {
+                                    // Fallback to closest muscle within reasonable range for easier navigation
+                                    var closestMuscle: MusclePath2D? = null
+                                    var minDistance = Float.MAX_VALUE
+                                    for (item in activePaths) {
+                                        for (p in item.hitPolygon) {
+                                            val dxp = tappedPoint.x - p.x
+                                            val dyp = tappedPoint.y - p.y
+                                            val dist = dxp * dxp + dyp * dyp
+                                            if (dist < minDistance) {
+                                                minDistance = dist
+                                                closestMuscle = item
+                                            }
+                                        }
+                                    }
+                                    // If within 25 units (in local coordinate space), auto-select it
+                                    if (closestMuscle != null && minDistance < 625f) {
+                                        selectedMuscleName = closestMuscle.muscleName.uppercase()
+                                    }
+                                }
+                            }
+                        }
+                ) {
+                    val centerX = size.width / 2f
+                    val centerY = size.height / 2f + 10.dp.toPx()
+                    val scale = Math.min(size.width / 160f, size.height / 360f) * 0.9f
+                    
+                    val cosT = Math.cos(rotationAngle.toDouble()).toFloat()
+                    val scaleX = cosT.absoluteValue
+                    val isFront = cosT >= 0f
+                    val activePaths = if (isFront) frontMusclePaths else backMusclePaths
+                    
+                    withTransform({
+                        this.translate(left = centerX, top = centerY)
+                        this.scale(scaleX = scaleX, scaleY = 1.0f, pivot = Offset.Zero)
+                        this.scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+                    }) {
+                        // Draw organic Body Silhouette Outline
+                        val silhouettePath = Path().apply { drawBodySilhouette() }
+                        drawPath(silhouettePath, color = Color(0xFF161626).copy(alpha = 0.5f), style = Fill)
+                        drawPath(silhouettePath, color = Color.White.copy(alpha = 0.15f), style = Stroke(width = 1.5f))
+                        
+                        // Draw subtle anatomical details to enhance realism
+                        if (isFront) {
+                            // Clavicles
+                            val clavicleLeft = Path().apply {
+                                moveTo(-2f, -96f)
+                                quadraticTo(-15f, -98f, -28f, -94f)
+                            }
+                            drawPath(clavicleLeft, color = Color.White.copy(alpha = 0.2f), style = Stroke(width = 1f))
+                            
+                            val clavicleRight = Path().apply {
+                                moveTo(2f, -96f)
+                                quadraticTo(15f, -98f, 28f, -94f)
+                            }
+                            drawPath(clavicleRight, color = Color.White.copy(alpha = 0.2f), style = Stroke(width = 1f))
+                            
+                            // Sternum
+                            val sternum = Path().apply {
+                                moveTo(0f, -96f)
+                                lineTo(0f, -64f)
+                            }
+                            drawPath(sternum, color = Color.White.copy(alpha = 0.2f), style = Stroke(width = 1f))
+                            
+                            // Linea Alba
+                            val lineaAlba = Path().apply {
+                                moveTo(0f, -64f)
+                                lineTo(0f, 20f)
+                            }
+                            drawPath(lineaAlba, color = Color.White.copy(alpha = 0.15f), style = Stroke(width = 1f))
+                            
+                            // Rib cage accents
+                            val ribsLeft = Path().apply {
+                                moveTo(-14f, -54f)
+                                quadraticTo(-20f, -48f, -24f, -52f)
+                                moveTo(-14f, -44f)
+                                quadraticTo(-20f, -38f, -22f, -42f)
+                            }
+                            drawPath(ribsLeft, color = Color.White.copy(alpha = 0.12f), style = Stroke(width = 1f))
+                            
+                            val ribsRight = Path().apply {
+                                moveTo(14f, -54f)
+                                quadraticTo(20f, -48f, 24f, -52f)
+                                moveTo(14f, -44f)
+                                quadraticTo(20f, -38f, 22f, -42f)
+                            }
+                            drawPath(ribsRight, color = Color.White.copy(alpha = 0.12f), style = Stroke(width = 1f))
+                        } else {
+                            // Spine
+                            val spine = Path().apply {
+                                moveTo(0f, -100f)
+                                lineTo(0f, 40f)
+                            }
+                            drawPath(spine, color = Color.White.copy(alpha = 0.2f), style = Stroke(width = 1f))
+                            
+                            // Scapulae (Shoulder blades)
+                            val scapulaLeft = Path().apply {
+                                moveTo(-6f, -85f)
+                                lineTo(-18f, -80f)
+                                lineTo(-12f, -68f)
+                            }
+                            drawPath(scapulaLeft, color = Color.White.copy(alpha = 0.12f), style = Stroke(width = 1f))
+                            
+                            // Scapulae Right
+                            val scapulaRight = Path().apply {
+                                moveTo(6f, -85f)
+                                lineTo(18f, -80f)
+                                lineTo(12f, -68f)
+                            }
+                            drawPath(scapulaRight, color = Color.White.copy(alpha = 0.12f), style = Stroke(width = 1f))
+                        }
+                        
+                        // Draw organic, highly realistic sculpted muscle pathways
+                        activePaths.forEach { item ->
+                            val isSelected = item.muscleName.uppercase() == selectedMuscleName
+                            val muscle = muscles.firstOrNull { it.muscleGroup.uppercase() == item.muscleName.uppercase() }
+                            val mdiProgress = muscle?.let { (it.growthIndex - 100f) / 100f } ?: 0f
+                            
+                            val baseFillColor = if (isSelected) Teal else {
+                                val startColor = Color(0xFF282846).copy(alpha = 0.6f)
+                                val endColor = Teal.copy(alpha = 0.9f)
+                                val fraction = mdiProgress.coerceIn(0f, 1f)
+                                Color(
+                                    red = (startColor.red + (endColor.red - startColor.red) * fraction).coerceIn(0f, 1f),
+                                    green = (startColor.green + (endColor.green - startColor.green) * fraction).coerceIn(0f, 1f),
+                                    blue = (startColor.blue + (endColor.blue - startColor.blue) * fraction).coerceIn(0f, 1f),
+                                    alpha = (startColor.alpha + (endColor.alpha - startColor.alpha) * fraction).coerceIn(0f, 1f)
+                                )
+                            }
+                            
+                            val path = Path().apply { item.drawAction(this) }
+                            
+                            // 3D Spherical/Volumetric Highlight Lighting Gradient
+                            val bounds = item.hitPolygon
+                            val centerXLocal = if (bounds.isNotEmpty()) bounds.map { it.x }.average().toFloat() else 0f
+                            val centerYLocal = if (bounds.isNotEmpty()) bounds.map { it.y }.average().toFloat() else 0f
+                            val maxRadius = if (bounds.isNotEmpty()) {
+                                bounds.map { Math.sqrt(((it.x - centerXLocal) * (it.x - centerXLocal) + (it.y - centerYLocal) * (it.y - centerYLocal)).toDouble()).toFloat() }.maxOrNull() ?: 20f
+                            } else 20f
+                            
+                            // Highlighting shifts light center slightly to simulate 3D curvature
+                            val lightingCenter = Offset(
+                                x = centerXLocal + if (item.isLeft) -maxRadius * 0.15f else maxRadius * 0.15f,
+                                y = centerYLocal - maxRadius * 0.15f
+                            )
+                            
+                            val depthIntensity = if (item.isLeft) 0.82f else 1.0f
+                            val darkerBase = baseFillColor.copy(
+                                red = (baseFillColor.red * depthIntensity * 0.5f).coerceIn(0f, 1f),
+                                green = (baseFillColor.green * depthIntensity * 0.5f).coerceIn(0f, 1f),
+                                blue = (baseFillColor.blue * depthIntensity * 0.5f).coerceIn(0f, 1f)
+                            )
+                            val lighterBase = baseFillColor.copy(
+                                red = (baseFillColor.red + (1f - baseFillColor.red) * 0.2f).coerceIn(0f, 1f),
+                                green = (baseFillColor.green + (1f - baseFillColor.green) * 0.2f).coerceIn(0f, 1f),
+                                blue = (baseFillColor.blue + (1f - baseFillColor.blue) * 0.2f).coerceIn(0f, 1f)
+                            )
+                            
+                            val volumetricBrush = Brush.radialGradient(
+                                colors = listOf(lighterBase, baseFillColor, darkerBase),
+                                center = lightingCenter,
+                                radius = maxRadius.coerceAtLeast(10f)
+                            )
+                            
+                            drawPath(path, brush = volumetricBrush, style = Fill)
+                            drawPath(
+                                path, 
+                                color = if (isSelected) Teal else Color.White.copy(alpha = 0.25f), 
+                                style = Stroke(width = if (isSelected) 1.8f else 0.6f)
+                            )
+                        }    
+                    }
+                }
+            }
+
+            // Selected Muscle Info Panel
+            AnimatedVisibility(
+                visible = activeMuscle != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                activeMuscle?.let { muscle ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 20.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.03f))
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                            .padding(18.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = muscle.muscleGroup.uppercase(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 15.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = String.format(Locale.US, "MDI %.1f", muscle.growthIndex),
+                                        color = Teal,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = String.format(Locale.US, "(+%.1f%%)", muscle.percentageGrowth),
+                                        color = Violet,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(12.dp))
+                            
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.06f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progressValue.coerceIn(0f, 1f))
+                                        .clip(CircleShape)
+                                        .background(Brush.horizontalGradient(listOf(Teal, Violet)))
+                                )
+                            }
+                            
+                            Spacer(Modifier.height(14.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("Weekly Stimulus", color = OnSurfaceMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("${muscle.stimulusThisWeek.toInt()} units", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Physique Saturation", color = OnSurfaceMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("${(progressValue * 100).toInt()}%", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                            Spacer(Modifier.height(10.dp))
+                            
+                            val advice = getMuscleDevelopmentAdvice(muscle.muscleGroup)
+                            Text(
+                                text = advice,
+                                color = OnSurface,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1033,14 +1968,18 @@ fun ExpandableMuscleDevelopmentCard(muscles: List<MuscleDevelopment>) {
 
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 displayedMuscles.forEach { muscle ->
-                    var showDetails by remember { mutableStateOf(false) }
-                    val progressValue = (muscle.growthIndex - 100f) / 100f
+                    val isSelected = muscle.muscleGroup.uppercase() == selectedMuscleName
+                    val progressVal = (muscle.growthIndex - 100f) / 100f
 
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showDetails = !showDetails }
-                            .padding(vertical = 4.dp)
+                            .clickable { selectedMuscleName = muscle.muscleGroup.uppercase() }
+                            .background(
+                                if (isSelected) Color.White.copy(alpha = 0.03f) else Color.Transparent,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(vertical = 8.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1049,7 +1988,7 @@ fun ExpandableMuscleDevelopmentCard(muscles: List<MuscleDevelopment>) {
                         ) {
                             Text(
                                 muscle.muscleGroup.uppercase(),
-                                color = Color.White,
+                                color = if (isSelected) Teal else Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
@@ -1082,34 +2021,10 @@ fun ExpandableMuscleDevelopmentCard(muscles: List<MuscleDevelopment>) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
-                                    .fillMaxWidth(progressValue.coerceIn(0f, 1f))
+                                    .fillMaxWidth(progressVal.coerceIn(0f, 1f))
                                     .clip(CircleShape)
                                     .background(Brush.horizontalGradient(listOf(Teal, Violet)))
                             )
-                        }
-
-                        AnimatedVisibility(
-                            visible = showDetails,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Weekly Stimulus: ${muscle.stimulusThisWeek.toInt()} units",
-                                    color = OnSurfaceMuted,
-                                    fontSize = 11.sp
-                                )
-                                Text(
-                                    text = "Saturation: ${(progressValue * 100).toInt()}%",
-                                    color = OnSurfaceMuted,
-                                    fontSize = 11.sp
-                                )
-                            }
                         }
                     }
                 }
