@@ -139,6 +139,14 @@ TrackMe utilizes a **Dark-First Material 3** theme designed for high-contrast vi
 
 ---
 
+## Testing
+
+The test plan covers JVM unit tests, Android instrumented tests, Room database checks, migration checks, Supabase DTO compatibility, repository sync retry behavior, Wear protocol tests, and notification integration.
+
+See [TESTING.md](TESTING.md) for the full strategy and command list.
+
+---
+
 ## 🗺️ Roadmap: The Future of Training
 
 - [x] **Wear OS Integration:** Real-time logging and sensor sync.

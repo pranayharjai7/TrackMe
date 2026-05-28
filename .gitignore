@@ -24,3 +24,5 @@ wear-bridge/build/
 /app/google-services.json
 /.worktrees/
 /.kotlin/
+/rec/
+/tmp/

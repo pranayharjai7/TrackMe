@@ -42,6 +42,7 @@ android {
         applicationId = "com.trackme"
         minSdk = 26
         targetSdk = 35
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val buildVersionCode = (System.getenv("BUILD_NUMBER") ?: props.getProperty("VERSION_CODE") ?: "1").toInt()
         val buildVersionName = System.getenv("VERSION_NAME") ?: props.getProperty("VERSION_NAME") ?: "1.0.0"
@@ -173,6 +174,9 @@ dependencies {
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.sqlite:sqlite-framework:2.4.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

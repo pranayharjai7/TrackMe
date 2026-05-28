@@ -181,11 +181,15 @@ class SessionManagerTest {
         sessionManager.startHeartbeat()
 
         sessionManager.sessionState.test {
-            // First item should be active after registration
+            var sawSyncingBeforeLogout = false
             var state = awaitItem()
-            while (state != SessionState.SyncingBeforeLogout && state != SessionState.LoggedOut) {
+            while (state != SessionState.LoggedOut) {
+                if (state == SessionState.SyncingBeforeLogout) {
+                    sawSyncingBeforeLogout = true
+                }
                 state = awaitItem()
             }
+            assertTrue(sawSyncingBeforeLogout)
             
             // Check that it does direct sync, wipes data, and logs out
             coVerify(exactly = 1) { syncManager.executeSyncDirectly("test-user-id") }
@@ -222,10 +226,15 @@ class SessionManagerTest {
         sessionManager.startHeartbeat()
 
         sessionManager.sessionState.test {
+            var sawTerminated = false
             var state = awaitItem()
-            while (state != SessionState.Terminated && state != SessionState.LoggedOut) {
+            while (state != SessionState.LoggedOut) {
+                if (state == SessionState.Terminated) {
+                    sawTerminated = true
+                }
                 state = awaitItem()
             }
+            assertTrue(sawTerminated)
             
             // Wipes data and logs out directly without syncing or confirming
             coVerify(exactly = 0) { syncManager.executeSyncDirectly(any()) }

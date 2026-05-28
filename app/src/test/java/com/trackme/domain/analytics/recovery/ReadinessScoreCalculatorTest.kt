@@ -44,17 +44,28 @@ class ReadinessScoreCalculatorTest {
     }
 
     @Test
-    fun `gracefully handles completely missing HRV and RHR data`() {
-        val history = List(10) { HealthMetricsData(0L, 50f, 65, 420, 100) }
-        // Today user didn't wear their watch during sleep, only manually logged sleep duration
+    fun `falls back to recent historical HRV and RHR when today is missing wearable data`() {
+        val history = (1..10).map { HealthMetricsData(it.toLong(), 50f, 65, 420, 100) }
+        // Today user did not wear their watch during sleep, only manually logged sleep duration.
         val today = HealthMetricsData(0L, null, null, 420, null)
 
         val result = calculator.calculate(history, today)
 
-        // Should not crash, should fall back to a baseline 70-ish score
         assertTrue("Should compute a fallback score", result.score in 60..80)
-        assertTrue("Should flag missing data", result.debug?.missingDataFlags?.contains("Missing HRV data") == true)
-        assertTrue("Should flag missing data", result.debug?.missingDataFlags?.contains("Missing RHR data") == true)
+        assertTrue("Should not flag HRV while recent history can fill the gap", result.debug?.missingDataFlags?.contains("Missing HRV data") == false)
+        assertTrue("Should not flag RHR while recent history can fill the gap", result.debug?.missingDataFlags?.contains("Missing RHR data") == false)
+    }
+
+    @Test
+    fun `flags missing HRV and RHR when neither today nor history has valid wearable data`() {
+        val history = List(10) { HealthMetricsData(0L, null, null, 420, 100) }
+        val today = HealthMetricsData(0L, null, null, 420, null)
+
+        val result = calculator.calculate(history, today)
+
+        assertTrue("Should compute from available sleep data", result.score in 60..90)
+        assertTrue("Should flag missing HRV data", result.debug?.missingDataFlags?.contains("Missing HRV data") == true)
+        assertTrue("Should flag missing RHR data", result.debug?.missingDataFlags?.contains("Missing RHR data") == true)
     }
 
     @Test
