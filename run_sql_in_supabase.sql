@@ -172,3 +172,105 @@ CREATE INDEX IF NOT EXISTS idx_planned_exercises_user ON public.planned_exercise
 CREATE INDEX IF NOT EXISTS idx_workout_sessions_user ON public.workout_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_session_sets_user ON public.session_sets(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_health_analytics_user ON public.daily_health_analytics(user_id);
+
+-- 11. User Sessions Table (Single Active Session Management)
+CREATE TABLE IF NOT EXISTS public.user_sessions (
+    device_id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('active', 'sync_requested', 'sync_completed', 'terminated')),
+    last_active_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own sessions" ON public.user_sessions
+    FOR ALL USING (auth.uid() = user_id);
+
+-- 12. RPC Functions for Session Management
+
+-- RPC: Register Session
+CREATE OR REPLACE FUNCTION public.register_session(device_id_param TEXT)
+RETURNS VOID AS $$
+DECLARE
+    caller_uid UUID;
+BEGIN
+    caller_uid := auth.uid();
+    IF caller_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    -- 1. Mark other active sessions for this user as sync_requested or terminated
+    UPDATE public.user_sessions
+    SET status = CASE 
+        WHEN last_active_at >= now() - INTERVAL '45 seconds' THEN 'sync_requested'::text
+        ELSE 'terminated'::text
+    END,
+    updated_at = now()
+    WHERE user_id = caller_uid AND device_id != device_id_param AND status = 'active';
+
+    -- 2. Upsert current session as active
+    INSERT INTO public.user_sessions (device_id, user_id, status, last_active_at, updated_at)
+    VALUES (device_id_param, caller_uid, 'active', now(), now())
+    ON CONFLICT (device_id) DO UPDATE
+    SET status = 'active', last_active_at = now(), updated_at = now();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC: Heartbeat Session
+CREATE OR REPLACE FUNCTION public.heartbeat_session(device_id_param TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    caller_uid UUID;
+    session_status TEXT;
+BEGIN
+    caller_uid := auth.uid();
+    IF caller_uid IS NULL THEN
+        RETURN 'terminated';
+    END IF;
+
+    -- Update last active and fetch status
+    UPDATE public.user_sessions
+    SET last_active_at = now()
+    WHERE device_id = device_id_param AND user_id = caller_uid
+    RETURNING status INTO session_status;
+
+    IF session_status IS NULL THEN
+        RETURN 'terminated';
+    END IF;
+
+    RETURN session_status;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC: Confirm Sync Complete
+CREATE OR REPLACE FUNCTION public.confirm_sync_complete()
+RETURNS VOID AS $$
+DECLARE
+    caller_uid UUID;
+BEGIN
+    caller_uid := auth.uid();
+    IF caller_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authorized';
+    END IF;
+
+    -- Mark sync_requested sessions as terminated after they've synced
+    UPDATE public.user_sessions
+    SET status = 'terminated', updated_at = now()
+    WHERE user_id = caller_uid AND status = 'sync_requested';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 13. User FCM Tokens Table (Push Notification Targets)
+CREATE TABLE IF NOT EXISTS public.user_fcm_tokens (
+    fcm_token TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'android',
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_fcm_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own FCM tokens" ON public.user_fcm_tokens
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_fcm_tokens_user ON public.user_fcm_tokens(user_id);

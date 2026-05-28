@@ -2,12 +2,15 @@ package com.trackme
 
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.collectAsState
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -38,6 +41,7 @@ import javax.inject.Inject
  * - Seed bundled exercise data at startup.
  * - Schedule sync when the process enters foreground.
  * - Orchestrate background session heartbeat loop and render forced logout overlays.
+ * - Request runtime notification permissions on Android 13+.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -49,8 +53,23 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var watchSyncRepository: WatchSyncRepository
     @Inject lateinit var workoutNotificationBootstrap: WorkoutNotificationBootstrap
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        Log.d("MainActivity", "Notification permission request result: $isGranted")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Request POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = android.Manifest.permission.POST_NOTIFICATIONS
+            if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(permission)
+            }
+        }
+
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
@@ -73,7 +92,7 @@ class MainActivity : ComponentActivity() {
         })
         setContent {
             TrackMeTheme {
-                val sessionState by sessionManager.sessionState.collectAsState()
+                val sessionState by sessionManager.sessionState.collectAsStateWithLifecycle()
 
                 TrackMeNavGraph()
 

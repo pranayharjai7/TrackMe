@@ -9,31 +9,63 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
-    id("com.google.firebase.firebase-perf")
 }
 
 android {
     namespace = "com.trackme"
     compileSdk = 36
 
+    // Secure property loading helper
+    val props = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { props.load(it) }
+    }
+
+    fun getSecuredProperty(key: String, envKey: String): String {
+        return System.getenv(envKey) ?: props.getProperty(key) ?: ""
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = getSecuredProperty("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
+            if (keystorePath.isNotEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = getSecuredProperty("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD")
+                keyAlias = getSecuredProperty("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS")
+                keyPassword = getSecuredProperty("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.trackme"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
 
-        val props = Properties().also { it.load(rootProject.file("local.properties").inputStream()) }
-        buildConfigField("String", "SUPABASE_URL",          "\"${props["SUPABASE_URL"]}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY",     "\"${props["SUPABASE_ANON_KEY"]}\"")
-        buildConfigField("String", "EXERCISE_DB_API_KEY",   "\"${props["EXERCISE_DB_API_KEY"]}\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID",  "\"${props["GOOGLE_WEB_CLIENT_ID"]}\"")
+        val buildVersionCode = (System.getenv("BUILD_NUMBER") ?: props.getProperty("VERSION_CODE") ?: "1").toInt()
+        val buildVersionName = System.getenv("VERSION_NAME") ?: props.getProperty("VERSION_NAME") ?: "1.0.0"
+        versionCode = buildVersionCode
+        versionName = buildVersionName
+
+        buildConfigField("String", "SUPABASE_URL",          "\"${getSecuredProperty("SUPABASE_URL", "SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY",     "\"${getSecuredProperty("SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY")}\"")
+        buildConfigField("String", "EXERCISE_DB_API_KEY",   "\"${getSecuredProperty("EXERCISE_DB_API_KEY", "EXERCISE_DB_API_KEY")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID",  "\"${getSecuredProperty("GOOGLE_WEB_CLIENT_ID", "GOOGLE_WEB_CLIENT_ID")}\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            val keystorePath = getSecuredProperty("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
+            if (keystorePath.isNotEmpty() && file(keystorePath).exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -56,10 +88,9 @@ android {
 }
 
 dependencies {
-    implementation("com.google.firebase:firebase-ai:17.12.0")
     implementation("com.google.firebase:firebase-analytics:23.2.0")
     implementation("com.google.firebase:firebase-crashlytics:20.0.6")
-    implementation("com.google.firebase:firebase-perf:22.0.5")
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
     wearApp(project(":wear"))
     implementation(project(":wear-bridge"))
 

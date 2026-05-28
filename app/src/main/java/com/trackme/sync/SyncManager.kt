@@ -9,6 +9,10 @@ import com.trackme.data.remote.supabase.WorkoutRemoteSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import com.trackme.utils.NetworkMonitor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +32,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * - Coalesce immediate background sync requests after local writes.
  * - Register periodic background sync with network constraints.
  * - Run foreground initial syncs directly in a coroutine for instant scheduling.
+ * - Listen to network reconnection and trigger sync automatically.
  */
 @Singleton
 class SyncManager @Inject constructor(
@@ -44,12 +49,32 @@ class SyncManager @Inject constructor(
     private val bodyStateSnapshotDao: BodyStateSnapshotDao,
     private val remoteSource: WorkoutRemoteSource,
     private val supabase: SupabaseClient,
+    private val networkMonitor: NetworkMonitor,
 ) {
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    init {
+        syncScope.launch {
+            var wasOffline = false
+            networkMonitor.isOnline.collect { isOnline ->
+                if (isOnline && wasOffline) {
+                    Log.d("SyncManager", "Network connection re-established, triggering immediate sync.")
+                    enqueueImmediateSync()
+                }
+                wasOffline = !isOnline
+            }
+        }
+    }
     fun enqueueImmediateSync() {
         // Coalesce bursts of local writes (for example rapid set logging) into one sync.
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setInitialDelay(5, TimeUnit.SECONDS)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                WorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork("sync_immediate", ExistingWorkPolicy.KEEP, request)
     }
@@ -57,6 +82,11 @@ class SyncManager @Inject constructor(
     fun schedulePeriodicSync() {
         val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                WorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "sync_periodic", ExistingPeriodicWorkPolicy.KEEP, request
