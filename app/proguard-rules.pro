@@ -12,7 +12,7 @@
 -keepclassmembers class * {
     @kotlinx.serialization.SerialName <fields>;
 }
--keep,unittest,allowobfuscation class * implements kotlinx.serialization.KSerializer
+-keep,allowobfuscation class * implements kotlinx.serialization.KSerializer
 -keepclassmembers class * {
     *** Companion;
 }
