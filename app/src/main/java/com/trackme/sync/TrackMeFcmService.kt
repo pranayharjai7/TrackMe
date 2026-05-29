@@ -38,7 +38,6 @@ class TrackMeFcmService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d("TrackMeFcmService", "Refreshed FCM token received: $token")
         uploadFcmToken(token)
     }
 
@@ -50,7 +49,6 @@ class TrackMeFcmService : FirebaseMessagingService() {
         if (message.data["action"] == "sync" || message.data["type"] == "sync") {
             val userId = supabase.auth.currentSessionOrNull()?.user?.id
             if (userId != null) {
-                Log.d("TrackMeFcmService", "FCM triggered background synchronization for user: $userId")
                 serviceScope.launch {
                     runCatching {
                         syncManager.executeSyncDirectly(userId)
@@ -74,7 +72,6 @@ class TrackMeFcmService : FirebaseMessagingService() {
             val deviceId = runCatching { sessionManager.deviceIdFlow.first() }.getOrElse { "" }
             if (deviceId.isEmpty()) return@launch
 
-            Log.d("TrackMeFcmService", "Uploading token to Supabase for user: $userId, device: $deviceId")
             runCatching {
                 supabase.postgrest["user_fcm_tokens"].upsert(
                     mapOf(

@@ -6,6 +6,7 @@ import androidx.work.*
 import com.trackme.data.local.dao.*
 import com.trackme.data.local.entity.PendingDeletionEntity
 import com.trackme.data.remote.supabase.WorkoutRemoteSource
+import com.trackme.utils.recordNonFatal
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
@@ -109,7 +110,7 @@ class SyncManager @Inject constructor(
                 val userId = supabase.auth.currentSessionOrNull()?.user?.id ?: return@runCatching false
                 executeSyncDirectly(userId)
                 true
-            }.onFailure { it.printStackTrace() }.getOrDefault(false)
+            }.onFailure { recordNonFatal("SyncManager.initialSync", it) }.getOrDefault(false)
         } ?: false
     }
 
@@ -120,7 +121,7 @@ class SyncManager @Inject constructor(
      * remote constraint violations and connection pool/rate-limiting exhaustion.
      */
     suspend fun executeSyncDirectly(userId: String) = withContext(Dispatchers.IO) {
-        Log.d("SyncManager", "Starting direct sequential sync for user: $userId")
+        Log.d("SyncManager", "Starting direct sequential sync")
 
         // 1. Push pending offline deletions first so the merge cannot restore deleted rows.
         pendingDeletionDao.getAllForUser(userId).forEach { op ->
@@ -167,7 +168,7 @@ class SyncManager @Inject constructor(
         Log.d("SyncManager", "[9/9] Merging body state snapshots...")
         mergeBodyStateSnapshots(userId)
 
-        Log.d("SyncManager", "Direct sequential sync successfully completed for user: $userId")
+        Log.d("SyncManager", "Direct sequential sync successfully completed")
     }
 
     private suspend fun mergeMuscleWeeklyAnalytics(userId: String) = mergeLastWriteWinsBatch(

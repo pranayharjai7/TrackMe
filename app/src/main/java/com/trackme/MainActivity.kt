@@ -12,6 +12,21 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -93,13 +108,46 @@ class MainActivity : ComponentActivity() {
         setContent {
             TrackMeTheme {
                 val sessionState by sessionManager.sessionState.collectAsStateWithLifecycle()
+                var showSplash by remember { mutableStateOf(true) }
 
-                TrackMeNavGraph()
+                LaunchedEffect(Unit) {
+                    delay(2000)
+                    showSplash = false
+                }
 
-                when (sessionState) {
-                    is SessionState.SyncingBeforeLogout -> SyncingLogoutOverlay()
-                    is SessionState.Terminated -> TerminatedOverlay()
-                    else -> { /* No overlays required for normal Active or LoggedOut states */ }
+                if (showSplash) {
+                    val context = LocalContext.current
+                    val imageLoader = ImageLoader.Builder(context)
+                        .components {
+                            if (Build.VERSION.SDK_INT >= 28) {
+                                add(ImageDecoderDecoder.Factory())
+                            } else {
+                                add(GifDecoder.Factory())
+                            }
+                        }
+                        .build()
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = R.drawable.logo_splash,
+                            contentDescription = "Splash Screen Logo",
+                            imageLoader = imageLoader,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                } else {
+                    TrackMeNavGraph()
+
+                    when (sessionState) {
+                        is SessionState.SyncingBeforeLogout -> SyncingLogoutOverlay()
+                        is SessionState.Terminated -> TerminatedOverlay()
+                        else -> { /* No overlays required for normal Active or LoggedOut states */ }
+                    }
                 }
             }
         }

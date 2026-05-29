@@ -35,3 +35,14 @@ fun globalExceptionHandler(tag: String = "TrackMe"): CoroutineExceptionHandler =
             Log.e(TAG, "[$tag] Failed to record exception to Crashlytics", crashlyticsError)
         }
     }
+
+fun recordNonFatal(tag: String, throwable: Throwable) {
+    Log.e(TAG, "[$tag] Non-fatal failure", throwable)
+    runCatching {
+        val crashlytics = FirebaseCrashlytics.getInstance()
+        crashlytics.setCustomKey("error_tag", tag)
+        crashlytics.recordException(throwable)
+    }.onFailure { crashlyticsError ->
+        Log.e(TAG, "[$tag] Failed to record non-fatal exception to Crashlytics", crashlyticsError)
+    }
+}

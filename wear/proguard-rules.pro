@@ -5,6 +5,7 @@
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);
     public static int d(...);
+    public static int i(...);
 }
 
 # Kotlin Serialization Keep Rules
@@ -12,7 +13,7 @@
 -keepclassmembers class * {
     @kotlinx.serialization.SerialName <fields>;
 }
--keep,allowobfuscation class * implements kotlinx.serialization.KSerializer
+-keep,allowobfuscation class * implements kotlinx.serialization.KSerializer { *; }
 -keepclassmembers class * {
     *** Companion;
 }

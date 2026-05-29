@@ -290,7 +290,7 @@ class WearSessionViewModel(application: Application) : AndroidViewModel(applicat
             workoutScreenState = WorkoutScreenState.EXERCISE_SUMMARY,
             lastExerciseName = session.exerciseName,
             lastExerciseVolume = currentExercise?.completedSets?.toFloat()?.times(session.targetWeight ?: 0f) ?: 0f,
-            isPr = false,      // TODO: wire from phone when PR detection is added
+            isPr = false,
             prDeltaKg = 0f,
         )
     }

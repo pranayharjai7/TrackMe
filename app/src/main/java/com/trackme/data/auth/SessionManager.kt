@@ -89,7 +89,7 @@ class SessionManager @Inject constructor(
         scope.launch {
             val session = supabase.auth.currentSessionOrNull() ?: return@launch
             val devId = getDeviceId()
-            Log.d("SessionManager", "Registering session ${session.user?.id} on device $devId")
+            Log.d("SessionManager", "Registering active session")
             
             runCatching {
                 supabase.postgrest.rpc(
@@ -207,11 +207,12 @@ class SessionManager @Inject constructor(
 
     private fun triggerImmediateForceLogout() {
         scope.launch {
-            _sessionState.value = SessionState.Terminated
-            Log.d("SessionManager", "Forced logout triggered. Cleaning up local data...")
-            
             // Stop heartbeats first
             stopHeartbeat()
+
+            _sessionState.value = SessionState.Terminated
+            yield()
+            Log.d("SessionManager", "Forced logout triggered. Cleaning up local data...")
 
             // Wipe Room database tables and cancel WorkManager syncs
             runCatching {
